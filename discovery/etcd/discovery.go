@@ -13,7 +13,7 @@ import (
 
 const (
 	namespace  = "_fns_"
-	defaultTTL = 62 * time.Second
+	defaultTTL = 62
 )
 
 func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
@@ -35,11 +35,15 @@ func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
 		err = fmt.Errorf("retrieve etcd discovery failed, config is invalid")
 		return
 	}
+	dialTimeout := connectConfig.DialTimeout
+	if dialTimeout <= 1 {
+		dialTimeout = 10
+	}
 	config := client.Config{
 		Endpoints:   connectConfig.Endpoints,
 		Username:    connectConfig.Username,
 		Password:    connectConfig.Password,
-		DialTimeout: connectConfig.DialTimeout,
+		DialTimeout: time.Duration(dialTimeout) * time.Second,
 	}
 	if connectConfig.TLS.Enable {
 		clientTLSConfig, tlsErr := connectConfig.TLS.Config()
@@ -56,7 +60,12 @@ func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
 		return
 	}
 
-	grant, grantErr := ec.Grant(context.TODO(), connectConfig.GrantTTL.Milliseconds()/1000)
+	grantTTL := connectConfig.GrantTTL
+	if grantTTL <= 1 {
+		grantTTL = defaultTTL
+	}
+
+	grant, grantErr := ec.Grant(context.TODO(), int64(grantTTL))
 	if grantErr != nil {
 		err = fmt.Errorf("retrieve etcd discovery failed for etcd grant")
 		return
@@ -72,7 +81,7 @@ func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
 		ec:                ec,
 		address:           opt.Address,
 		clientTLS:         opt.ClientTLS,
-		grantTTL:          connectConfig.GrantTTL,
+		grantTTL:          time.Duration(grantTTL) * time.Second,
 		leaseId:           grant.ID,
 		registrations:     make(map[string]discovery.Registration),
 		discovered:        discovered,
@@ -90,7 +99,7 @@ func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
 
 func WithConnectionConfig(config ConnectConfig) discovery.Option {
 	return func(o *discovery.Options) (err error) {
-		if config.GrantTTL <= time.Second {
+		if config.GrantTTL <= 1 {
 			config.GrantTTL = defaultTTL
 		}
 		content, encodeErr := json.Marshal(config)
@@ -104,12 +113,14 @@ func WithConnectionConfig(config ConnectConfig) discovery.Option {
 }
 
 type ConnectConfig struct {
-	Endpoints   []string            `json:"endpoints"`
-	Username    string              `json:"username,omitempty"`
-	Password    string              `json:"password,omitempty"`
-	DialTimeout time.Duration       `json:"dialTimeout,omitempty"`
-	GrantTTL    time.Duration       `json:"grantTtl,omitempty"`
-	TLS         discovery.ClientTLS `json:"tls,omitempty"`
+	Endpoints []string `json:"endpoints"`
+	Username  string   `json:"username,omitempty"`
+	Password  string   `json:"password,omitempty"`
+	// DialTimeout second
+	DialTimeout int `json:"dialTimeout,omitempty"`
+	// GrantTTL second
+	GrantTTL int                 `json:"grantTtl,omitempty"`
+	TLS      discovery.ClientTLS `json:"tls,omitempty"`
 }
 
 type etcdDiscovery struct {
@@ -162,15 +173,75 @@ func (d *etcdDiscovery) Publish(name string) (registrationId string, err error) 
 }
 
 func (d *etcdDiscovery) UnPublish(registrationId string) (err error) {
+	var registration *discovery.Registration
+	for _, registration0 := range d.registrations {
+		if registration0.Id == registrationId {
+			registration = &registration0
+			break
+		}
+	}
+	if registration == nil {
+		return
+	}
+	key := d.keyOfRegistration(*registration)
 
+	_, remErr := d.ec.Delete(context.TODO(), key)
+	if remErr != nil {
+		err = fmt.Errorf("fns discovery unpublish failed, etcd delete failed")
+		return
+	}
+	delete(d.registrations, registration.Name)
 	return
 }
 
 func (d *etcdDiscovery) Get(name string) (registrations []discovery.Registration, err error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		err = fmt.Errorf("fns discovery get failed for name is invalid")
+		return
+	}
+	local, localed := d.registrations[name]
+	if localed {
+		registrations = append(registrations, local)
+		return
+	}
+	storedMap, cached := d.discovered.get(name)
+	if cached {
+		for _, registration := range storedMap {
+			registrations = append(registrations, registration)
+		}
+		return
+	}
+	results, getErr := d.ec.Get(context.TODO(), fmt.Sprintf("%s/fn/%s", namespace, name), client.WithPrefix())
+	if getErr != nil {
+		err = fmt.Errorf("fns dicovery get %s from etcd failed, %v", name, getErr)
+		return
+	}
+	if results.Count == 0 {
+		return
+	}
+	for _, kv := range results.Kvs {
+		key := string(kv.Key)
+		keyItems := strings.Split(key, "/")
+		if len(keyItems) != 4 {
+			continue
+		}
+
+		registration := discovery.Registration{}
+		decodeErr := json.Unmarshal(kv.Value, &registration)
+		if decodeErr != nil {
+			err = fmt.Errorf("fns dicovery get %s failed, decode failed, %v", key, decodeErr)
+			return
+		}
+		d.discovered.put(registration, kv.ModRevision)
+		registrations = append(registrations, registration)
+	}
+
 	return
 }
 
 func (d *etcdDiscovery) IsLocaled(name string) (ok bool) {
+	_, ok = d.registrations[name]
 	return
 }
 
@@ -234,6 +305,12 @@ func (d *etcdDiscovery) watching() {
 					if len(keyItems) != 4 {
 						continue
 					}
+					id := keyItems[3]
+					name := keyItems[2]
+					if _, has := d.registrations[name]; has {
+						continue
+					}
+
 					if event.Type == 0 {
 						// save
 						registration := discovery.Registration{}
@@ -245,8 +322,8 @@ func (d *etcdDiscovery) watching() {
 					} else {
 						// remove
 						registration := discovery.Registration{
-							Id:        keyItems[3],
-							Name:      keyItems[2],
+							Id:        id,
+							Name:      name,
 							Address:   "",
 							ClientTLS: discovery.ClientTLS{},
 						}
