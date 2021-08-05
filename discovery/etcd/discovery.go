@@ -58,15 +58,26 @@ func Retriever(options ...discovery.Option) (d discovery.Discovery, err error) {
 
 	grant, grantErr := ec.Grant(context.TODO(), connectConfig.GrantTTL.Milliseconds()/1000)
 	if grantErr != nil {
-		err = fmt.Errorf("retrieve etcd discovery failed for etcd grant failed")
+		err = fmt.Errorf("retrieve etcd discovery failed for etcd grant")
+		return
+	}
+
+	discovered, discoveredErr := newRegistrationCache()
+	if discoveredErr != nil {
+		err = fmt.Errorf("retrieve etcd discovery failed for make discovered cache")
 		return
 	}
 
 	ed := &etcdDiscovery{
-		ec:        ec,
-		address:   opt.Address,
-		clientTLS: opt.ClientTLS,
-		leaseId:   grant.ID,
+		ec:                ec,
+		address:           opt.Address,
+		clientTLS:         opt.ClientTLS,
+		grantTTL:          connectConfig.GrantTTL,
+		leaseId:           grant.ID,
+		registrations:     make(map[string]discovery.Registration),
+		discovered:        discovered,
+		keepAliveClosedCh: make(chan struct{}, 1),
+		watchingClosedCh:  make(chan struct{}, 1),
 	}
 
 	ed.keepalive()
@@ -102,11 +113,15 @@ type ConnectConfig struct {
 }
 
 type etcdDiscovery struct {
-	ec            *client.Client
-	address       string
-	clientTLS     discovery.ClientTLS
-	leaseId       client.LeaseID
-	registrations []discovery.Registration
+	ec                *client.Client
+	address           string
+	clientTLS         discovery.ClientTLS
+	grantTTL          time.Duration
+	leaseId           client.LeaseID
+	registrations     map[string]discovery.Registration
+	discovered        *registrationCache
+	keepAliveClosedCh chan struct{}
+	watchingClosedCh  chan struct{}
 }
 
 func (d *etcdDiscovery) keyOfRegistration(registration discovery.Registration) (key string) {
@@ -139,7 +154,7 @@ func (d *etcdDiscovery) Publish(name string) (registrationId string, err error) 
 		return
 	}
 
-	d.registrations = append(d.registrations, registration)
+	d.registrations[name] = registration
 
 	registrationId = registration.Id
 
@@ -160,13 +175,90 @@ func (d *etcdDiscovery) IsLocaled(name string) (ok bool) {
 }
 
 func (d *etcdDiscovery) Close() {
+	_ = d.ec.Close()
+	d.discovered.close()
 	return
 }
 
 func (d *etcdDiscovery) keepalive() {
+	go func(d *etcdDiscovery) {
+		ttl := d.grantTTL
+		timeout := ttl / 3
+		stopped := false
+		for {
+			if stopped {
+				break
+			}
+			select {
+			case <-time.After(timeout):
+				_, keepAliveErr := d.ec.KeepAliveOnce(context.TODO(), d.leaseId)
+				if keepAliveErr != nil {
+					for i := 0; i < 5; i++ {
+						_, keepAliveErr = d.ec.KeepAliveOnce(context.TODO(), d.leaseId)
+						if keepAliveErr == nil {
+							break
+						}
+						time.Sleep(1 * time.Second)
+					}
+				}
+			case <-d.keepAliveClosedCh:
+				stopped = true
+				break
+			}
+		}
+	}(d)
 	return
 }
 
 func (d *etcdDiscovery) watching() {
+
+	go func(d *etcdDiscovery) {
+		ctx, cancel := context.WithCancel(context.TODO())
+		watchCh := d.ec.Watch(ctx, fmt.Sprintf("%s/fn", namespace), client.WithPrefix())
+		stopped := false
+		for {
+			if stopped {
+				break
+			}
+			select {
+			case registrationEvent, ok := <-watchCh:
+				if !ok {
+					stopped = true
+					break
+				}
+				events := registrationEvent.Events
+				for _, event := range events {
+					key := string(event.Kv.Key)
+
+					keyItems := strings.Split(key, "/")
+					if len(keyItems) != 4 {
+						continue
+					}
+					if event.Type == 0 {
+						// save
+						registration := discovery.Registration{}
+						decodeErr := json.Unmarshal(event.Kv.Value, &registration)
+						if decodeErr != nil {
+							continue
+						}
+						d.discovered.put(registration, event.Kv.ModRevision)
+					} else {
+						// remove
+						registration := discovery.Registration{
+							Id:        keyItems[3],
+							Name:      keyItems[2],
+							Address:   "",
+							ClientTLS: discovery.ClientTLS{},
+						}
+						d.discovered.remove(registration)
+					}
+				}
+			case <-d.watchingClosedCh:
+				stopped = true
+				break
+			}
+		}
+		cancel()
+	}(d)
 	return
 }
