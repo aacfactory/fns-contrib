@@ -104,17 +104,14 @@ func (s *memoryStore) LookUp(_ fns.Context, id string) (has bool) {
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
-type ActiveArg struct {
-	Id         string        `json:"id,omitempty"`
-	Expiration time.Duration `json:"expiration,omitempty"`
+type setWithExpirationArg struct {
+	Key        string          `json:"key,omitempty"`
+	Value      json.RawMessage `json:"value,omitempty"`
+	Expiration time.Duration   `json:"expiration,omitempty"`
 }
 
-type IdArg struct {
-	Id string `json:"id,omitempty"`
-}
-
-type LookUpResult struct {
-	Has bool `json:"has,omitempty"`
+type getByKeyArg struct {
+	Key string `json:"key,omitempty"`
 }
 
 type serviceStore struct {
@@ -131,8 +128,10 @@ func (s *serviceStore) Active(ctx fns.Context, id string, expiration time.Durati
 		return
 	}
 
-	arg, argErr := fns.NewArgument(&ActiveArg{
-		Id:         id,
+	value, _ := json.Marshal(id)
+	arg, argErr := fns.NewArgument(&setWithExpirationArg{
+		Key:        id,
+		Value:      value,
 		Expiration: expiration,
 	})
 	if argErr != nil {
@@ -157,8 +156,8 @@ func (s *serviceStore) Revoke(ctx fns.Context, id string) (err error) {
 		return
 	}
 
-	arg, argErr := fns.NewArgument(&IdArg{
-		Id: id,
+	arg, argErr := fns.NewArgument(&getByKeyArg{
+		Key: id,
 	})
 	if argErr != nil {
 		err = errors.ServiceError(fmt.Sprintf("fns JWT Store Revoke: make %s service proxy arg failed", s.namespace)).WithCause(argErr)
@@ -181,22 +180,20 @@ func (s *serviceStore) LookUp(ctx fns.Context, id string) (has bool) {
 		return
 	}
 
-	arg, argErr := fns.NewArgument(&IdArg{
-		Id: id,
+	arg, argErr := fns.NewArgument(&getByKeyArg{
+		Key: id,
 	})
 	if argErr != nil {
 		return
 	}
 	result := proxy.Request(ctx, s.lookUpTokenFn, arg)
 
-	r := LookUpResult{}
+	has = false
 
-	fnErr := result.Get(context.TODO(), &r)
+	fnErr := result.Get(context.TODO(), &has)
 	if fnErr != nil {
 		return
 	}
-
-	has = r.Has
 
 	return
 }
