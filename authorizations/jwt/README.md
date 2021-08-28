@@ -37,6 +37,12 @@ go get github.com/aacfactory/fns-contrib/authorizations/jwt
 import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 ```
 ## Service 类型 Store
+* [redis](https://github.com/aacfactory/fns-contrib/tree/main/databases/redis)
+  * namespace = redis
+  * activeTokenFn = setWithTTL
+  * lookUpTokenFn = contains
+  * revokeTokenFn = remove
+
 ### 存储函数定义
 参数，value 是 json.RawMessage，expiration 是 time.Duration。
 ```json
