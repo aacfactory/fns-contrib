@@ -140,6 +140,8 @@ func (d *etcdDiscovery) Proxy(namespace string) (proxy fns.ServiceProxy, err err
 
 func (d *etcdDiscovery) Close() {
 
+	close(d.watchingClosedCh)
+
 	for _, registration := range d.registrations {
 		key := d.keyOfRegistration(registration)
 		_, _ = d.ec.Delete(context.TODO(), key)
