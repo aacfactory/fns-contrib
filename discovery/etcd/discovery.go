@@ -351,6 +351,8 @@ func (d *etcdDiscovery) watching() {
 							group.RemoveAgent(id)
 							if group.AgentNum() == 0 {
 								delete(d.remoteMap, name)
+							} else {
+								d.remoteMap[name] = group
 							}
 						}
 					}

@@ -39,7 +39,7 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 	k = &Kube{
 		namespace:        namespace,
 		client:           client,
-		proxyMap:         make(map[string]*fns.LocaledServiceProxy),
+		localMap:         make(map[string]*fns.LocaledServiceProxy),
 		discovered:       cache,
 		checkingTTL:      checkingTTL,
 		checkingClosedCh: make(chan struct{}, 1),
@@ -63,7 +63,10 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 type Kube struct {
 	namespace        string
 	client           *kb.Clientset
-	proxyMap         map[string]*fns.LocaledServiceProxy
+	localMap         map[string]*fns.LocaledServiceProxy
+	serviceMap map[string]*fns.RemotedServiceProxy
+	podsMap map[string]*fns.RemotedServiceProxyGroup
+
 	discovered       *proxyCache
 	checkingTTL      time.Duration
 	checkingClosedCh chan struct{}
@@ -75,24 +78,24 @@ func (k *Kube) Publish(svc fns.Service) (err error) {
 		err = fmt.Errorf("fns Kubernetes Discovery Publish: namespace is invailed")
 		return
 	}
-	k.proxyMap[name] = fns.NewLocaledServiceProxy(svc)
+	k.localMap[name] = fns.NewLocaledServiceProxy(svc)
 	return
 }
 
 func (k *Kube) IsLocal(namespace string) (ok bool) {
-	_, ok = k.proxyMap[namespace]
+	_, ok = k.localMap[namespace]
 	return
 }
 
 // Proxy get service
-func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (k *Kube) Proxy(_ fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	name := strings.TrimSpace(namespace)
 	if name == "" {
 		err = errors.NotFound("fns Kubernetes Discovery Proxy: namespace is empty")
 		return
 	}
 	// get from local
-	localProxy, localed := k.proxyMap[name]
+	localProxy, localed := k.localMap[name]
 	if localed {
 		proxy = localProxy
 		return
@@ -125,7 +128,7 @@ func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy,
 }
 
 //ProxyByExact get pod
-func (k *Kube) ProxyByExact(ctx fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (k *Kube) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	// get pod
 	return
 }
@@ -185,7 +188,7 @@ func (k *Kube) Close() {
 
 	close(k.checkingClosedCh)
 
-	for key := range k.proxyMap {
+	for key := range k.localMap {
 		k.discovered.remove(key)
 	}
 
