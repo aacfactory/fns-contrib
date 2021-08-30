@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
-	"github.com/rs/xid"
 	client "go.etcd.io/etcd/client/v3"
 	"strings"
 	"time"
@@ -28,7 +27,7 @@ type etcdDiscovery struct {
 	address           string
 	grantTTL          time.Duration
 	leaseId           client.LeaseID
-	serviceMap        map[string]fns.Service
+	proxyMap          map[string]*fns.LocaledServiceProxy
 	registrations     map[string]Registration
 	discovered        *proxyCache
 	keepAliveClosedCh chan struct{}
@@ -51,8 +50,11 @@ func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
 		err = fmt.Errorf("fns Etcd Service Discovery Publish: namespace is invailed")
 		return
 	}
+
+	proxy := fns.NewLocaledServiceProxy(svc)
+
 	registration := Registration{
-		Id:      xid.New().String(),
+		Id:      proxy.Id(),
 		Name:    name,
 		Address: d.address,
 	}
@@ -69,7 +71,7 @@ func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
 		return
 	}
 
-	d.serviceMap[name] = svc
+	d.proxyMap[name] = proxy
 
 	d.registrations[name] = registration
 
@@ -77,27 +79,25 @@ func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
 }
 
 func (d *etcdDiscovery) IsLocal(namespace string) (ok bool) {
-	_, ok = d.serviceMap[namespace]
+	_, ok = d.proxyMap[namespace]
 	return
 }
 
-func (d *etcdDiscovery) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	name := strings.TrimSpace(namespace)
 	if name == "" {
 		err = errors.NotFound("fns Etcd Service Discovery Proxy: namespace is empty")
 		return
 	}
 	// get from local
-	service, localed := d.serviceMap[name]
+	proxy0, localed := d.proxyMap[name]
 	if localed {
-		proxy = &fns.LocaledServiceProxy{
-			Service: service,
-		}
+		proxy = proxy0
 		return
 	}
 
 	// get from remote
-	remoted, has := d.discovered.get(name)
+	group, has := d.discovered.get(name)
 	if !has {
 
 		result, getErr := d.ec.Get(context.TODO(), d.keyOfService(name), client.WithPrefix())
@@ -124,16 +124,41 @@ func (d *etcdDiscovery) Proxy(ctx fns.Context, namespace string) (proxy fns.Serv
 			d.discovered.put(registration)
 		}
 
-		proxy0, has0 := d.discovered.get(name)
+		cached, has0 := d.discovered.get(name)
 		if !has0 {
 			err = errors.NotFound(fmt.Sprintf("fns Etcd Service Discovery Proxy: %s was not found", name))
 			return
 		}
-		proxy = proxy0
+		proxy, err = cached.Next()
 		return
 	} else {
-		proxy = remoted
+		proxy, err = group.Next()
 	}
+
+	return
+}
+
+func (d *etcdDiscovery) ProxyByExact(ctx fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
+	// local
+	for _, registration := range d.registrations {
+		if registration.Id == proxyId {
+			localProxy, has := d.proxyMap[registration.Name]
+			if !has {
+				err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: found in local but not exists")
+				return
+			}
+			proxy = localProxy
+			return
+		}
+	}
+
+	// remotes
+	remoteProxy, has := d.discovered.getProxy(proxyId)
+	if !has {
+		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
+		return
+	}
+	proxy = remoteProxy
 
 	return
 }
@@ -218,7 +243,6 @@ func (d *etcdDiscovery) watching() {
 						continue
 					}
 
-					// todo: remote proxy cache update
 					if event.Type == 0 {
 						// save
 						registration := Registration{}

@@ -31,4 +31,4 @@ import _ "github.com/aacfactory/fns-contrib/discovery/kubernetes"
 * Kubernetes 支持版本为 1.20 到 1.22
 
 ## Todo
-* proxy 改成 pod，group 为 service
+* proxy 改成 service（RemotedServiceProxy + checking） + pod （零时动态的 RemotedServiceProxy + checking），

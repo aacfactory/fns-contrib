@@ -39,7 +39,7 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 	k = &Kube{
 		namespace:        namespace,
 		client:           client,
-		serviceMap:       make(map[string]fns.Service),
+		proxyMap:         make(map[string]*fns.LocaledServiceProxy),
 		discovered:       cache,
 		checkingTTL:      checkingTTL,
 		checkingClosedCh: make(chan struct{}, 1),
@@ -63,7 +63,7 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 type Kube struct {
 	namespace        string
 	client           *kb.Clientset
-	serviceMap       map[string]fns.Service
+	proxyMap         map[string]*fns.LocaledServiceProxy
 	discovered       *proxyCache
 	checkingTTL      time.Duration
 	checkingClosedCh chan struct{}
@@ -75,12 +75,12 @@ func (k *Kube) Publish(svc fns.Service) (err error) {
 		err = fmt.Errorf("fns Kubernetes Discovery Publish: namespace is invailed")
 		return
 	}
-	k.serviceMap[name] = svc
+	k.proxyMap[name] = fns.NewLocaledServiceProxy(svc)
 	return
 }
 
 func (k *Kube) IsLocal(namespace string) (ok bool) {
-	_, ok = k.serviceMap[namespace]
+	_, ok = k.proxyMap[namespace]
 	return
 }
 
@@ -91,11 +91,9 @@ func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy,
 		return
 	}
 	// get from local
-	service, localed := k.serviceMap[name]
+	localProxy, localed := k.proxyMap[name]
 	if localed {
-		proxy = &fns.LocaledServiceProxy{
-			Service: service,
-		}
+		proxy = localProxy
 		return
 	}
 
@@ -122,6 +120,11 @@ func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy,
 	} else {
 		proxy = remoted
 	}
+	return
+}
+
+func (k *Kube) ProxyByExact(ctx fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
+
 	return
 }
 
@@ -179,7 +182,7 @@ func (k *Kube) Close() {
 
 	close(k.checkingClosedCh)
 
-	for key := range k.serviceMap {
+	for key := range k.proxyMap {
 		k.discovered.remove(key)
 	}
 

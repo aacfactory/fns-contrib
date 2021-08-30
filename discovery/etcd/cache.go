@@ -16,7 +16,8 @@ const (
 func newProxyCache() (c *proxyCache, err error) {
 
 	c = &proxyCache{
-		lock: sync.Mutex{},
+		lock:        sync.Mutex{},
+		groupKeyMap: make(map[string]string),
 	}
 
 	cache, newCacheErr := ristretto.NewCache(&ristretto.Config{
@@ -37,46 +38,52 @@ func newProxyCache() (c *proxyCache, err error) {
 }
 
 type proxyCache struct {
-	lock  sync.Mutex
-	cache *ristretto.Cache
+	lock        sync.Mutex
+	cache       *ristretto.Cache
+	groupKeyMap map[string]string
 }
 
 func (c *proxyCache) onEvict(item *ristretto.Item) {
-	proxy, ok := item.Value.(*fns.GroupRemotedServiceProxy)
+	group, ok := item.Value.(*fns.RemotedServiceProxyGroup)
 	if !ok {
 		return
 	}
-	proxy.Close()
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.groupKeyMap, group.Namespace())
+	group.Close()
 }
 
 func (c *proxyCache) put(registration Registration) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	proxy, has := c.get(registration.Name)
+	group, has := c.get(registration.Name)
 	if !has {
-		proxy = fns.NewGroupRemotedServiceProxy(registration.Name)
+		group = fns.NewRemotedServiceProxyGroup(registration.Name)
 	}
-	if proxy.ContainsAgent(registration.Id) {
+	if group.ContainsAgent(registration.Id) {
 		return
 	}
 	agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
 	if !agent.Health() {
 		return
 	}
-	proxy.AppendAgent(agent)
+	group.AppendAgent(agent)
 
-	c.cache.SetWithTTL(registration.Name, proxy, int64(64), 24*time.Hour)
+	c.cache.SetWithTTL(registration.Name, group, int64(64), 24*time.Hour)
 	c.cache.Wait()
+
+	c.groupKeyMap[group.Namespace()] = group.Namespace()
 
 }
 
-func (c *proxyCache) get(namespace string) (proxy *fns.GroupRemotedServiceProxy, has bool) {
+func (c *proxyCache) get(namespace string) (group *fns.RemotedServiceProxyGroup, has bool) {
 	v, existed := c.cache.Get(namespace)
 	if !existed {
 		return
 	}
-	proxy, has = v.(*fns.GroupRemotedServiceProxy)
-	if !has || proxy == nil {
+	group, has = v.(*fns.RemotedServiceProxyGroup)
+	if !has || group == nil {
 		c.cache.Del(namespace)
 		c.cache.Wait()
 		has = false
@@ -86,20 +93,37 @@ func (c *proxyCache) get(namespace string) (proxy *fns.GroupRemotedServiceProxy,
 	return
 }
 
+func (c *proxyCache) getProxy(id string) (proxy *fns.RemotedServiceProxy, has bool) {
+	for key := range c.groupKeyMap {
+		group, hasGroup := c.get(key)
+		if hasGroup {
+			agent, agentErr := group.GetAgent(id)
+			if agentErr == nil {
+				proxy = agent
+				has = true
+				return
+			}
+		}
+	}
+	return
+}
+
 func (c *proxyCache) remove(registration Registration) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	proxy, has := c.get(registration.Name)
+	group, has := c.get(registration.Name)
 	if !has {
 		return
 	}
-	proxy.RemoveAgent(registration.Id)
-	if proxy.AgentNum() == 0 {
+	group.RemoveAgent(registration.Id)
+	if group.AgentNum() == 0 {
 		c.cache.Del(registration.Name)
+		delete(c.groupKeyMap, group.Namespace())
 	} else {
-		c.cache.SetWithTTL(registration.Name, proxy, int64(64), 24*time.Hour)
+		c.cache.SetWithTTL(registration.Name, group, int64(64), 24*time.Hour)
 	}
 	c.cache.Wait()
+
 }
 
 func (c *proxyCache) close() {
