@@ -84,7 +84,7 @@ func (k *Kube) IsLocal(namespace string) (ok bool) {
 	return
 }
 
-func (k *Kube) Proxy(namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	name := strings.TrimSpace(namespace)
 	if name == "" {
 		err = errors.NotFound("fns Kubernetes Discovery Proxy: namespace is empty")

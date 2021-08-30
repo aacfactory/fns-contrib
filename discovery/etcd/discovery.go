@@ -81,7 +81,7 @@ func (d *etcdDiscovery) IsLocal(namespace string) (ok bool) {
 	return
 }
 
-func (d *etcdDiscovery) Proxy(namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (d *etcdDiscovery) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	name := strings.TrimSpace(namespace)
 	if name == "" {
 		err = errors.NotFound("fns Etcd Service Discovery Proxy: namespace is empty")

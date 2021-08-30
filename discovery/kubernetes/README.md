@@ -30,3 +30,5 @@ import _ "github.com/aacfactory/fns-contrib/discovery/kubernetes"
 * 所有的 fns 必须是 clusterIP 类型。
 * Kubernetes 支持版本为 1.20 到 1.22
 
+## Todo
+* proxy 改成 pod，group 为 service

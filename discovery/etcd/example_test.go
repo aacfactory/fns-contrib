@@ -44,14 +44,14 @@ func Test_Example(t *testing.T) {
 	}
 
 	//
-	up1, up1Err := da.Proxy("users")
+	up1, up1Err := da.Proxy(nil, "users")
 	if up1Err != nil {
 		t.Error(up1Err)
 		return
 	}
 	t.Log("ok", reflect.TypeOf(up1))
 
-	up2, up2Err := db.Proxy("users")
+	up2, up2Err := db.Proxy(nil,"users")
 	if up2Err != nil {
 		t.Error(up2Err)
 		return
@@ -61,7 +61,7 @@ func Test_Example(t *testing.T) {
 	//
 	da.Close()
 
-	up3, up3Err := db.Proxy("users")
+	up3, up3Err := db.Proxy(nil,"users")
 	if up3Err != nil {
 		t.Log("ko", up3Err)
 		return
@@ -112,6 +112,10 @@ type FakeService struct {
 
 func (svc *FakeService) Namespace() string {
 	return svc.namespace
+}
+
+func (svc *FakeService) Internal() bool {
+	return false
 }
 
 func (svc *FakeService) Build(config configuares.Config) (err error) {

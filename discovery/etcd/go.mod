@@ -3,6 +3,7 @@ module github.com/aacfactory/fns-contrib/discovery/etcd
 go 1.17
 
 require (
+	github.com/aacfactory/configuares v1.2.1
 	github.com/aacfactory/errors v1.4.0
 	github.com/aacfactory/fns v0.0.1
 	github.com/dgraph-io/ristretto v0.1.0
@@ -13,8 +14,7 @@ require (
 replace github.com/aacfactory/fns v0.0.1 => ../../../fns
 
 require (
-	github.com/aacfactory/configuares v1.1.1 // indirect
-	github.com/aacfactory/json v1.1.0 // indirect
+	github.com/aacfactory/json v1.2.0 // indirect
 	github.com/aacfactory/logs v1.1.3 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.3 // indirect
@@ -41,7 +41,7 @@ require (
 	github.com/rs/zerolog v1.24.0 // indirect
 	github.com/tidwall/gjson v1.8.1 // indirect
 	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.1.0 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.29.0 // indirect
