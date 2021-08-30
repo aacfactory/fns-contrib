@@ -28,4 +28,5 @@ import _ "github.com/aacfactory/fns-contrib/discovery/kubernetes"
 ## 注意
 * 在 service 的 yaml 文件中需配置 key 为 fns，value 为 service namespace （多个时用 `,` 连接）的 Labels。
 * 所有的 fns 必须是 clusterIP 类型。
+* Kubernetes 支持版本为 1.20 到 1.22
 
