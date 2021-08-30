@@ -47,14 +47,12 @@ func Test_Example(t *testing.T) {
 	up1, up1Err := da.Proxy(nil, "users")
 	if up1Err != nil {
 		t.Error(up1Err)
-		return
 	}
 	t.Log("ok", reflect.TypeOf(up1))
 
 	up2, up2Err := db.Proxy(nil,"users")
 	if up2Err != nil {
 		t.Error(up2Err)
-		return
 	}
 	t.Log("ok", reflect.TypeOf(up2))
 
@@ -64,7 +62,6 @@ func Test_Example(t *testing.T) {
 	up3, up3Err := db.Proxy(nil,"users")
 	if up3Err != nil {
 		t.Log("ko", up3Err)
-		return
 	}
 	t.Log(reflect.TypeOf(up3))
 

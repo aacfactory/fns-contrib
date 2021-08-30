@@ -84,6 +84,7 @@ func (k *Kube) IsLocal(namespace string) (ok bool) {
 	return
 }
 
+// Proxy get service
 func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
 	name := strings.TrimSpace(namespace)
 	if name == "" {
@@ -123,12 +124,14 @@ func (k *Kube) Proxy(ctx fns.Context, namespace string) (proxy fns.ServiceProxy,
 	return
 }
 
+//ProxyByExact get pod
 func (k *Kube) ProxyByExact(ctx fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
-
+	// get pod
 	return
 }
 
 func (k *Kube) getAllByLabel() (registrations map[string]Registration, err error) {
+	// k.client.CoreV1().Pods().Watch() -> Pod
 	si := k.client.CoreV1().Services(k.namespace)
 	if si == nil {
 		err = fmt.Errorf("fns Kubernetes: get %s kube service failed, namespace was not found in kubernetes", k.namespace)

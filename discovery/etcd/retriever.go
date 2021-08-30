@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -113,22 +114,17 @@ func Retriever(option fns.ServiceDiscoveryOption) (discovery fns.ServiceDiscover
 		return
 	}
 
-	cache, createCacheErr := newProxyCache()
-	if createCacheErr != nil {
-		err = fmt.Errorf("fns Etcd Service Discovery Retriever: create cache failed, %v", createCacheErr)
-		return
-	}
-
 	ed := &etcdDiscovery{
+		mutex:             sync.RWMutex{},
 		ec:                ec,
 		address:           option.Address,
 		grantTTL:          time.Duration(grantTTL) * time.Second,
 		leaseId:           grant.ID,
+		localMap:          make(map[string]*fns.LocaledServiceProxy),
+		remoteMap:         make(map[string]*fns.RemotedServiceProxyGroup),
 		registrations:     make(map[string]Registration),
-		discovered:        cache,
 		keepAliveClosedCh: make(chan struct{}, 1),
 		watchingClosedCh:  make(chan struct{}, 1),
-		serviceMap:        make(map[string]fns.Service),
 	}
 
 	ed.keepalive()

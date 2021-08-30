@@ -8,6 +8,7 @@ import (
 	"github.com/aacfactory/fns"
 	client "go.etcd.io/etcd/client/v3"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,13 +24,14 @@ type Registration struct {
 }
 
 type etcdDiscovery struct {
+	mutex             sync.RWMutex
 	ec                *client.Client
 	address           string
 	grantTTL          time.Duration
 	leaseId           client.LeaseID
-	proxyMap          map[string]*fns.LocaledServiceProxy
+	localMap          map[string]*fns.LocaledServiceProxy
+	remoteMap         map[string]*fns.RemotedServiceProxyGroup
 	registrations     map[string]Registration
-	discovered        *proxyCache
 	keepAliveClosedCh chan struct{}
 	watchingClosedCh  chan struct{}
 }
@@ -45,6 +47,9 @@ func (d *etcdDiscovery) keyOfService(namespace string) (key string) {
 }
 
 func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	name := strings.TrimSpace(svc.Namespace())
 	if name == "" {
 		err = fmt.Errorf("fns Etcd Service Discovery Publish: namespace is invailed")
@@ -71,15 +76,17 @@ func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
 		return
 	}
 
-	d.proxyMap[name] = proxy
+	d.localMap[name] = proxy
 
-	d.registrations[name] = registration
+	d.registrations[registration.Id] = registration
 
 	return
 }
 
 func (d *etcdDiscovery) IsLocal(namespace string) (ok bool) {
-	_, ok = d.proxyMap[namespace]
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	_, ok = d.localMap[namespace]
 	return
 }
 
@@ -89,16 +96,25 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 		err = errors.NotFound("fns Etcd Service Discovery Proxy: namespace is empty")
 		return
 	}
+
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	// get from local
-	proxy0, localed := d.proxyMap[name]
+	proxy0, localed := d.localMap[name]
 	if localed {
 		proxy = proxy0
 		return
 	}
 
 	// get from remote
-	group, has := d.discovered.get(name)
+	group, has := d.remoteMap[name]
 	if !has {
+		d.mutex.RUnlock()
+		defer d.mutex.RLock()
+
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
 
 		result, getErr := d.ec.Get(context.TODO(), d.keyOfService(name), client.WithPrefix())
 		if getErr != nil {
@@ -109,7 +125,7 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 			err = errors.NotFound(fmt.Sprintf("fns Etcd Service Discovery Proxy: %s was not found", name))
 			return
 		}
-
+		group = fns.NewRemotedServiceProxyGroup(name)
 		for _, kv := range result.Kvs {
 			key := string(kv.Key)
 			keyItems := strings.Split(key, "/")
@@ -121,49 +137,114 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 			if decodeErr != nil {
 				continue
 			}
-			d.discovered.put(registration)
-		}
+			agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
+			group.AppendAgent(agent)
 
-		cached, has0 := d.discovered.get(name)
-		if !has0 {
-			err = errors.NotFound(fmt.Sprintf("fns Etcd Service Discovery Proxy: %s was not found", name))
-			return
 		}
-		proxy, err = cached.Next()
-		return
-	} else {
-		proxy, err = group.Next()
+		d.remoteMap[name] = group
 	}
+
+	proxy, err = group.Next()
 
 	return
 }
 
-func (d *etcdDiscovery) ProxyByExact(ctx fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
+func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
 	// local
-	for _, registration := range d.registrations {
-		if registration.Id == proxyId {
-			localProxy, has := d.proxyMap[registration.Name]
-			if !has {
-				err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: found in local but not exists")
-				return
-			}
-			proxy = localProxy
+	registration, hasRegistration := d.registrations[proxyId]
+	if hasRegistration {
+		localProxy, has := d.localMap[registration.Name]
+		if !has {
+			err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: found in local but not exists")
+			return
+		}
+		proxy = localProxy
+		return
+	}
+
+	// remotes
+	for _, group := range d.remoteMap {
+		agent, agentErr := group.GetAgent(proxyId)
+		if agentErr == nil {
+			proxy = agent
 			return
 		}
 	}
 
-	// remotes
-	remoteProxy, has := d.discovered.getProxy(proxyId)
-	if !has {
+	d.mutex.RUnlock()
+	defer d.mutex.RLock()
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	result, getErr := d.ec.Get(context.TODO(), prefix, client.WithPrefix())
+	if getErr != nil {
+		err = errors.New(555, "***WARNING***", fmt.Sprintf("get %s from etcd failed", prefix)).WithCause(getErr)
+		return
+	}
+	if result.Count == 0 {
 		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
 		return
 	}
-	proxy = remoteProxy
+
+	serviceNamespace := ""
+	registrationsMap := make(map[string][]Registration)
+	for _, kv := range result.Kvs {
+		key := string(kv.Key)
+		keyItems := strings.Split(key, "/")
+		if len(keyItems) != 4 {
+			continue
+		}
+		name := keyItems[2]
+		id := keyItems[3]
+		if serviceNamespace == "" && id == proxyId {
+			serviceNamespace = name
+		}
+
+		registrations, hasRegistrations := registrationsMap[name]
+		if !hasRegistrations {
+			registrations = make([]Registration, 0, 1)
+		}
+		_registration := Registration{}
+		decodeErr := json.Unmarshal(kv.Value, &_registration)
+		if decodeErr != nil {
+			continue
+		}
+		registrations = append(registrations, _registration)
+		registrationsMap[name] = registrations
+	}
+
+	if len(registrationsMap) == 0 || serviceNamespace == "" {
+		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
+		return
+	}
+	registrations := registrationsMap[serviceNamespace]
+	group := fns.NewRemotedServiceProxyGroup(serviceNamespace)
+	for _, _registration := range registrations {
+		agent := fns.NewRemotedServiceProxy(_registration.Id, _registration.Name, _registration.Address)
+		group.AppendAgent(agent)
+	}
+
+	d.remoteMap[serviceNamespace] = group
+
+	agent, agentErr := group.GetAgent(proxyId)
+	if agentErr != nil {
+		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
+		return
+	}
+
+	proxy = agent
 
 	return
 }
 
 func (d *etcdDiscovery) Close() {
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	close(d.watchingClosedCh)
 
@@ -178,7 +259,9 @@ func (d *etcdDiscovery) Close() {
 
 	_ = d.ec.Close()
 
-	d.discovered.close()
+	for _, group := range d.remoteMap {
+		group.Close()
+	}
 
 	return
 }
@@ -239,27 +322,39 @@ func (d *etcdDiscovery) watching() {
 					}
 					id := keyItems[3]
 					name := keyItems[2]
-					if _, has := d.registrations[name]; has {
+					if _, has := d.registrations[id]; has {
 						continue
 					}
 
+					d.mutex.Lock()
 					if event.Type == 0 {
 						// save
 						registration := Registration{}
 						decodeErr := json.Unmarshal(event.Kv.Value, &registration)
 						if decodeErr != nil {
+							d.mutex.Unlock()
 							continue
 						}
-						d.discovered.put(registration)
+
+						group, has := d.remoteMap[registration.Name]
+						if !has {
+							group = fns.NewRemotedServiceProxyGroup(registration.Name)
+						}
+						agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
+						group.AppendAgent(agent)
+						d.remoteMap[registration.Name] = group
+
 					} else {
 						// remove
-						registration := Registration{
-							Id:      id,
-							Name:    name,
-							Address: "",
+						group, has := d.remoteMap[name]
+						if has {
+							group.RemoveAgent(id)
+							if group.AgentNum() == 0 {
+								delete(d.remoteMap, name)
+							}
 						}
-						d.discovered.remove(registration)
 					}
+					d.mutex.Unlock()
 				}
 			case <-d.watchingClosedCh:
 				stopped = true
