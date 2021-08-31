@@ -47,8 +47,6 @@ func (d *etcdDiscovery) keyOfService(namespace string) (key string) {
 }
 
 func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
 	name := strings.TrimSpace(svc.Namespace())
 	if name == "" {
@@ -84,8 +82,6 @@ func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
 }
 
 func (d *etcdDiscovery) IsLocal(namespace string) (ok bool) {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
 	_, ok = d.localMap[namespace]
 	return
 }
@@ -97,9 +93,6 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 		return
 	}
 
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
 	// get from local
 	proxy0, localed := d.localMap[name]
 	if localed {
@@ -108,17 +101,13 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 	}
 
 	// get from remote
+	d.mutex.RLock()
 	group, has := d.remoteMap[name]
+	d.mutex.RUnlock()
 	if !has {
-		d.mutex.RUnlock()
-		defer d.mutex.RLock()
-
-		d.mutex.Lock()
-		defer d.mutex.Unlock()
-
 		result, getErr := d.ec.Get(context.TODO(), d.keyOfService(name), client.WithPrefix())
 		if getErr != nil {
-			err = errors.New(555, "***WARNING***", fmt.Sprintf("get %s from etcd failed", d.keyOfService(name))).WithCause(getErr)
+			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery ProxyByExact: get %s from etcd failed", d.keyOfService(name))).WithCause(getErr)
 			return
 		}
 		if result.Count == 0 {
@@ -141,7 +130,9 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 			group.AppendAgent(agent)
 
 		}
+		d.mutex.Lock()
 		d.remoteMap[name] = group
+		d.mutex.Unlock()
 	}
 
 	proxy, err = group.Next()
@@ -150,8 +141,6 @@ func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.Servic
 }
 
 func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
 
 	// local
 	registration, hasRegistration := d.registrations[proxyId]
@@ -166,23 +155,20 @@ func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.S
 	}
 
 	// remotes
+	d.mutex.RLock()
 	for _, group := range d.remoteMap {
 		agent, agentErr := group.GetAgent(proxyId)
 		if agentErr == nil {
 			proxy = agent
+			d.mutex.RUnlock()
 			return
 		}
 	}
-
 	d.mutex.RUnlock()
-	defer d.mutex.RLock()
-
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
 	result, getErr := d.ec.Get(context.TODO(), prefix, client.WithPrefix())
 	if getErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("get %s from etcd failed", prefix)).WithCause(getErr)
+		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery ProxyByExact: get %s from etcd failed", prefix)).WithCause(getErr)
 		return
 	}
 	if result.Count == 0 {
@@ -228,8 +214,6 @@ func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.S
 		group.AppendAgent(agent)
 	}
 
-	d.remoteMap[serviceNamespace] = group
-
 	agent, agentErr := group.GetAgent(proxyId)
 	if agentErr != nil {
 		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
@@ -237,6 +221,55 @@ func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.S
 	}
 
 	proxy = agent
+
+	d.mutex.Lock()
+	d.remoteMap[serviceNamespace] = group
+	d.mutex.Unlock()
+
+	return
+}
+
+func (d *etcdDiscovery) init() (err error) {
+
+	result, getErr := d.ec.Get(context.TODO(), prefix, client.WithPrefix())
+	if getErr != nil {
+		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery init: get %s from etcd failed", prefix)).WithCause(getErr)
+		return
+	}
+	if result.Count == 0 {
+		return
+	}
+
+	registrationsMap := make(map[string][]Registration)
+	for _, kv := range result.Kvs {
+		key := string(kv.Key)
+		keyItems := strings.Split(key, "/")
+		if len(keyItems) != 4 {
+			continue
+		}
+		name := keyItems[2]
+
+		registrations, hasRegistrations := registrationsMap[name]
+		if !hasRegistrations {
+			registrations = make([]Registration, 0, 1)
+		}
+		_registration := Registration{}
+		decodeErr := json.Unmarshal(kv.Value, &_registration)
+		if decodeErr != nil {
+			continue
+		}
+		registrations = append(registrations, _registration)
+		registrationsMap[name] = registrations
+	}
+
+	for name, registrations := range registrationsMap {
+		group := fns.NewRemotedServiceProxyGroup(name)
+		for _, registration := range registrations {
+			agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
+			group.AppendAgent(agent)
+		}
+		d.remoteMap[name] = group
+	}
 
 	return
 }
@@ -297,8 +330,8 @@ func (d *etcdDiscovery) keepalive() {
 }
 
 func (d *etcdDiscovery) watching() {
-
 	go func(d *etcdDiscovery) {
+		time.Sleep(3 * time.Second)
 		ctx, cancel := context.WithCancel(context.TODO())
 		watchCh := d.ec.Watch(ctx, prefix, client.WithPrefix())
 		stopped := false
@@ -326,37 +359,38 @@ func (d *etcdDiscovery) watching() {
 						continue
 					}
 
-					d.mutex.Lock()
 					if event.Type == 0 {
 						// save
 						registration := Registration{}
 						decodeErr := json.Unmarshal(event.Kv.Value, &registration)
 						if decodeErr != nil {
-							d.mutex.Unlock()
 							continue
 						}
-
+						d.mutex.RLock()
 						group, has := d.remoteMap[registration.Name]
+						d.mutex.RUnlock()
 						if !has {
 							group = fns.NewRemotedServiceProxyGroup(registration.Name)
+							d.mutex.Lock()
+							d.remoteMap[registration.Name] = group
+							d.mutex.Unlock()
 						}
 						agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
 						group.AppendAgent(agent)
-						d.remoteMap[registration.Name] = group
-
 					} else {
 						// remove
+						d.mutex.RLock()
 						group, has := d.remoteMap[name]
+						d.mutex.RUnlock()
 						if has {
 							group.RemoveAgent(id)
 							if group.AgentNum() == 0 {
+								d.mutex.Lock()
 								delete(d.remoteMap, name)
-							} else {
-								d.remoteMap[name] = group
+								d.mutex.Unlock()
 							}
 						}
 					}
-					d.mutex.Unlock()
 				}
 			case <-d.watchingClosedCh:
 				stopped = true

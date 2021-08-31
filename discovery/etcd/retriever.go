@@ -127,6 +127,12 @@ func Retriever(option fns.ServiceDiscoveryOption) (discovery fns.ServiceDiscover
 		watchingClosedCh:  make(chan struct{}, 1),
 	}
 
+	initErr := ed.init()
+	if initErr != nil {
+		err = initErr
+		return
+	}
+
 	ed.keepalive()
 	ed.watching()
 
