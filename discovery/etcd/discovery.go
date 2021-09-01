@@ -2,13 +2,16 @@ package etcd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
 	client "go.etcd.io/etcd/client/v3"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -17,289 +20,225 @@ const (
 	defaultTTL = 62
 )
 
-type Registration struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Address string `json:"address"`
+func newEtcdDiscovery(option fns.ServiceDiscoveryOption) (discovery *etcdDiscovery, err error) {
+	config := Config{}
+	configErr := option.Config.As(&config)
+	if configErr != nil {
+		err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: read config failed, %v", configErr)
+		return
+	}
+	dialTimeoutSecond := config.DialTimeoutSecond
+	if dialTimeoutSecond <= 1 {
+		dialTimeoutSecond = 10
+	}
+	dialTimeout := time.Duration(dialTimeoutSecond) * time.Second
+	etcdConfig := client.Config{
+		Endpoints:   config.Endpoints,
+		Username:    config.Username,
+		Password:    config.Password,
+		DialTimeout: dialTimeout,
+	}
+
+	if config.SSL {
+		certFilePath := strings.TrimSpace(config.CertFilePath)
+		if certFilePath == "" {
+			err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but certFilePath is empty")
+			return
+		}
+		keyFilePath := strings.TrimSpace(config.KeyFilePath)
+		if keyFilePath == "" {
+			err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but keyFilePath is empty")
+			return
+		}
+		var absErr error
+		certFilePath, absErr = filepath.Abs(certFilePath)
+		if absErr != nil {
+			err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
+			return
+		}
+		keyFilePath, absErr = filepath.Abs(keyFilePath)
+		if absErr != nil {
+			err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
+			return
+		}
+		certificate, certificateErr := tls.LoadX509KeyPair(certFilePath, keyFilePath)
+		if certificateErr != nil {
+			err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but load x509 key pair failed, %v", certificateErr)
+			return
+		}
+
+		ssl := &tls.Config{
+			Certificates:       []tls.Certificate{certificate},
+			InsecureSkipVerify: config.InsecureSkipVerify,
+		}
+
+		caFilePath := strings.TrimSpace(config.CaFilePath)
+		if caFilePath != "" {
+			caFilePath, absErr = filepath.Abs(caFilePath)
+			if absErr != nil {
+				err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
+				return
+			}
+			caContent, caReadErr := ioutil.ReadFile(caFilePath)
+			if caReadErr != nil {
+				err = fmt.Errorf("fns Etcd Service Discovery Retriever: ssl is enabled but read caFilePath content failed, %v", caReadErr)
+				return
+			}
+			caPool := x509.NewCertPool()
+			if !caPool.AppendCertsFromPEM(caContent) {
+				err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: ssl is enabled but append ca into cert pool failed")
+				return
+			}
+			ssl.RootCAs = caPool
+		}
+		etcdConfig.TLS = ssl
+	}
+
+	ec, connErr := client.New(etcdConfig)
+	if connErr != nil {
+		err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: connect to etcd failed, %v", connErr)
+		return
+	}
+
+	grantTTL := config.GrantTTLSecond
+	if grantTTL <= 1 {
+		grantTTL = defaultTTL
+	}
+
+	grant, grantErr := ec.Grant(context.TODO(), int64(grantTTL))
+	if grantErr != nil {
+		err = fmt.Errorf("fns ServiceDiscovery EtcdRetriever: grant failed, %v", grantErr)
+		return
+	}
+
+	ed := &etcdDiscovery{
+		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(option.HttpClientPoolSize),
+		ec:                       ec,
+		address:                  option.Address,
+		grantTTL:                 time.Duration(grantTTL) * time.Second,
+		leaseId:                  grant.ID,
+		keepAliveClosedCh:        make(chan struct{}, 1),
+		watchingClosedCh:         make(chan struct{}, 1),
+	}
+
+	initErr := ed.init()
+	if initErr != nil {
+		err = initErr
+		return
+	}
+
+	ed.keepalive()
+	ed.watching()
+
+	discovery = ed
+
+	return
 }
 
 type etcdDiscovery struct {
-	mutex             sync.RWMutex
+	fns.AbstractServiceDiscovery
 	ec                *client.Client
 	address           string
 	grantTTL          time.Duration
 	leaseId           client.LeaseID
-	localMap          map[string]*fns.LocaledServiceProxy
-	remoteMap         map[string]*fns.RemotedServiceProxyGroup
-	registrations     map[string]Registration
 	keepAliveClosedCh chan struct{}
 	watchingClosedCh  chan struct{}
 }
 
-func (d *etcdDiscovery) keyOfRegistration(registration Registration) (key string) {
-	key = fmt.Sprintf("%s/%s/%s", prefix, registration.Name, registration.Id)
+func (discovery *etcdDiscovery) keyOfRegistration(registration fns.Registration) (key string) {
+	key = fmt.Sprintf("%s/%s/%s", prefix, registration.Namespace, registration.Id)
 	return
 }
 
-func (d *etcdDiscovery) keyOfService(namespace string) (key string) {
+func (discovery *etcdDiscovery) keyOfService(namespace string) (key string) {
 	key = fmt.Sprintf("%s/%s", prefix, namespace)
 	return
 }
 
-func (d *etcdDiscovery) Publish(svc fns.Service) (err error) {
+func (discovery *etcdDiscovery) Publish(svc fns.Service) (err error) {
 
-	name := strings.TrimSpace(svc.Namespace())
-	if name == "" {
-		err = fmt.Errorf("fns Etcd Service Discovery Publish: namespace is invailed")
+	ns := strings.TrimSpace(svc.Namespace())
+	if ns == "" {
+		err = fmt.Errorf("fns ServiceDiscovery Publish: namespace is invailed")
 		return
 	}
 
-	proxy := fns.NewLocaledServiceProxy(svc)
-
-	registration := Registration{
-		Id:      proxy.Id(),
-		Name:    name,
-		Address: d.address,
+	registration := fns.Registration{
+		Id:        fns.UID(),
+		Namespace: ns,
+		Address:   discovery.address,
 	}
 	registrationContent, toJsonErr := json.Marshal(registration)
 	if toJsonErr != nil {
-		err = fmt.Errorf("fns Etcd Service Discovery Publish: encode registration failed, %v", toJsonErr)
+		err = fmt.Errorf("fns ServiceDiscovery Publish: encode registration failed, %v", toJsonErr)
 		return
 	}
-	key := d.keyOfRegistration(registration)
+	key := discovery.keyOfRegistration(registration)
 
-	_, putErr := d.ec.Put(context.TODO(), key, string(registrationContent), client.WithLease(d.leaseId))
+	_, putErr := discovery.ec.Put(context.TODO(), key, string(registrationContent), client.WithLease(discovery.leaseId))
 	if putErr != nil {
-		err = fmt.Errorf("fns Etcd Service Discovery Publish: save registration failed, %v", putErr)
+		err = fmt.Errorf("fns ServiceDiscovery Publish: save registration failed, %v", putErr)
 		return
 	}
 
-	d.localMap[name] = proxy
+	localErr := discovery.AbstractServiceDiscovery.Local.Publish(svc)
+	if localErr != nil {
+		_, _ = discovery.ec.Delete(context.TODO(), key)
+		err = localErr
+		return
+	}
 
-	d.registrations[registration.Id] = registration
+	discovery.AbstractServiceDiscovery.Manager.Append(registration)
 
 	return
 }
 
-func (d *etcdDiscovery) IsLocal(namespace string) (ok bool) {
-	_, ok = d.localMap[namespace]
-	return
-}
+func (discovery *etcdDiscovery) init() (err error) {
 
-func (d *etcdDiscovery) Proxy(_ fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
-	name := strings.TrimSpace(namespace)
-	if name == "" {
-		err = errors.NotFound("fns Etcd Service Discovery Proxy: namespace is empty")
-		return
-	}
-
-	// get from local
-	proxy0, localed := d.localMap[name]
-	if localed {
-		proxy = proxy0
-		return
-	}
-
-	// get from remote
-	d.mutex.RLock()
-	group, has := d.remoteMap[name]
-	d.mutex.RUnlock()
-	if !has {
-		result, getErr := d.ec.Get(context.TODO(), d.keyOfService(name), client.WithPrefix())
-		if getErr != nil {
-			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery ProxyByExact: get %s from etcd failed", d.keyOfService(name))).WithCause(getErr)
-			return
-		}
-		if result.Count == 0 {
-			err = errors.NotFound(fmt.Sprintf("fns Etcd Service Discovery Proxy: %s was not found", name))
-			return
-		}
-		group = fns.NewRemotedServiceProxyGroup(name)
-		for _, kv := range result.Kvs {
-			key := string(kv.Key)
-			keyItems := strings.Split(key, "/")
-			if len(keyItems) != 4 {
-				continue
-			}
-			registration := Registration{}
-			decodeErr := json.Unmarshal(kv.Value, &registration)
-			if decodeErr != nil {
-				continue
-			}
-			agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
-			group.AppendAgent(agent)
-
-		}
-		d.mutex.Lock()
-		d.remoteMap[name] = group
-		d.mutex.Unlock()
-	}
-
-	proxy, err = group.Next()
-
-	return
-}
-
-func (d *etcdDiscovery) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
-
-	// local
-	registration, hasRegistration := d.registrations[proxyId]
-	if hasRegistration {
-		localProxy, has := d.localMap[registration.Name]
-		if !has {
-			err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: found in local but not exists")
-			return
-		}
-		proxy = localProxy
-		return
-	}
-
-	// remotes
-	d.mutex.RLock()
-	for _, group := range d.remoteMap {
-		agent, agentErr := group.GetAgent(proxyId)
-		if agentErr == nil {
-			proxy = agent
-			d.mutex.RUnlock()
-			return
-		}
-	}
-	d.mutex.RUnlock()
-
-	result, getErr := d.ec.Get(context.TODO(), prefix, client.WithPrefix())
+	result, getErr := discovery.ec.Get(context.TODO(), prefix, client.WithPrefix())
 	if getErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery ProxyByExact: get %s from etcd failed", prefix)).WithCause(getErr)
-		return
-	}
-	if result.Count == 0 {
-		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
-		return
-	}
-
-	serviceNamespace := ""
-	registrationsMap := make(map[string][]Registration)
-	for _, kv := range result.Kvs {
-		key := string(kv.Key)
-		keyItems := strings.Split(key, "/")
-		if len(keyItems) != 4 {
-			continue
-		}
-		name := keyItems[2]
-		id := keyItems[3]
-		if serviceNamespace == "" && id == proxyId {
-			serviceNamespace = name
-		}
-
-		registrations, hasRegistrations := registrationsMap[name]
-		if !hasRegistrations {
-			registrations = make([]Registration, 0, 1)
-		}
-		_registration := Registration{}
-		decodeErr := json.Unmarshal(kv.Value, &_registration)
-		if decodeErr != nil {
-			continue
-		}
-		registrations = append(registrations, _registration)
-		registrationsMap[name] = registrations
-	}
-
-	if len(registrationsMap) == 0 || serviceNamespace == "" {
-		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
-		return
-	}
-	registrations := registrationsMap[serviceNamespace]
-	group := fns.NewRemotedServiceProxyGroup(serviceNamespace)
-	for _, _registration := range registrations {
-		agent := fns.NewRemotedServiceProxy(_registration.Id, _registration.Name, _registration.Address)
-		group.AppendAgent(agent)
-	}
-
-	agent, agentErr := group.GetAgent(proxyId)
-	if agentErr != nil {
-		err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: not found")
-		return
-	}
-
-	proxy = agent
-
-	d.mutex.Lock()
-	d.remoteMap[serviceNamespace] = group
-	d.mutex.Unlock()
-
-	return
-}
-
-func (d *etcdDiscovery) init() (err error) {
-
-	result, getErr := d.ec.Get(context.TODO(), prefix, client.WithPrefix())
-	if getErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Etcd Service Discovery init: get %s from etcd failed", prefix)).WithCause(getErr)
+		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns ServiceDiscovery init: get %s from etcd failed", prefix)).WithCause(getErr)
 		return
 	}
 	if result.Count == 0 {
 		return
 	}
 
-	registrationsMap := make(map[string][]Registration)
 	for _, kv := range result.Kvs {
 		key := string(kv.Key)
 		keyItems := strings.Split(key, "/")
 		if len(keyItems) != 4 {
 			continue
 		}
-		name := keyItems[2]
 
-		registrations, hasRegistrations := registrationsMap[name]
-		if !hasRegistrations {
-			registrations = make([]Registration, 0, 1)
-		}
-		_registration := Registration{}
-		decodeErr := json.Unmarshal(kv.Value, &_registration)
+		registration := fns.Registration{}
+		decodeErr := json.Unmarshal(kv.Value, &registration)
 		if decodeErr != nil {
 			continue
 		}
-		registrations = append(registrations, _registration)
-		registrationsMap[name] = registrations
-	}
-
-	for name, registrations := range registrationsMap {
-		group := fns.NewRemotedServiceProxyGroup(name)
-		for _, registration := range registrations {
-			agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
-			group.AppendAgent(agent)
-		}
-		d.remoteMap[name] = group
+		discovery.Manager.Append(registration)
 	}
 
 	return
 }
 
-func (d *etcdDiscovery) Close() {
+func (discovery *etcdDiscovery) Close() {
 
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	close(discovery.watchingClosedCh)
 
-	close(d.watchingClosedCh)
-
-	for _, registration := range d.registrations {
-		key := d.keyOfRegistration(registration)
-		_, _ = d.ec.Delete(context.TODO(), key)
+	for _, registration := range discovery.Manager.Registrations() {
+		key := discovery.keyOfRegistration(registration)
+		_, _ = discovery.ec.Delete(context.TODO(), key)
 	}
 
-	for key := range d.registrations {
-		delete(d.registrations, key)
-	}
+	_ = discovery.ec.Close()
 
-	_ = d.ec.Close()
-
-	for _, group := range d.remoteMap {
-		group.Close()
-	}
+	discovery.AbstractServiceDiscovery.Close()
 
 	return
 }
 
-func (d *etcdDiscovery) keepalive() {
+func (discovery *etcdDiscovery) keepalive() {
 	go func(d *etcdDiscovery) {
 		ttl := d.grantTTL
 		timeout := ttl / 3
@@ -325,11 +264,11 @@ func (d *etcdDiscovery) keepalive() {
 				break
 			}
 		}
-	}(d)
+	}(discovery)
 	return
 }
 
-func (d *etcdDiscovery) watching() {
+func (discovery *etcdDiscovery) watching() {
 	go func(d *etcdDiscovery) {
 		time.Sleep(3 * time.Second)
 		ctx, cancel := context.WithCancel(context.TODO())
@@ -353,43 +292,28 @@ func (d *etcdDiscovery) watching() {
 					if len(keyItems) != 4 {
 						continue
 					}
-					id := keyItems[3]
-					name := keyItems[2]
-					if _, has := d.registrations[id]; has {
-						continue
-					}
 
 					if event.Type == 0 {
 						// save
-						registration := Registration{}
+						registration := fns.Registration{}
 						decodeErr := json.Unmarshal(event.Kv.Value, &registration)
 						if decodeErr != nil {
 							continue
 						}
-						d.mutex.RLock()
-						group, has := d.remoteMap[registration.Name]
-						d.mutex.RUnlock()
-						if !has {
-							group = fns.NewRemotedServiceProxyGroup(registration.Name)
-							d.mutex.Lock()
-							d.remoteMap[registration.Name] = group
-							d.mutex.Unlock()
-						}
-						agent := fns.NewRemotedServiceProxy(registration.Id, registration.Name, registration.Address)
-						group.AppendAgent(agent)
+						registration.Reversion = event.Kv.ModRevision
+						d.Manager.Append(registration)
+
 					} else {
 						// remove
-						d.mutex.RLock()
-						group, has := d.remoteMap[name]
-						d.mutex.RUnlock()
-						if has {
-							group.RemoveAgent(id)
-							if group.AgentNum() == 0 {
-								d.mutex.Lock()
-								delete(d.remoteMap, name)
-								d.mutex.Unlock()
-							}
-						}
+						id := keyItems[3]
+						ns := keyItems[2]
+
+						d.Manager.Remove(fns.Registration{
+							Id:        id,
+							Namespace: ns,
+							Address:   "",
+							Reversion: 0,
+						})
 					}
 				}
 			case <-d.watchingClosedCh:
@@ -398,6 +322,6 @@ func (d *etcdDiscovery) watching() {
 			}
 		}
 		cancel()
-	}(d)
+	}(discovery)
 	return
 }

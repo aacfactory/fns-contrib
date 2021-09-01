@@ -1,6 +1,7 @@
 package etcd_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/aacfactory/configuares"
@@ -60,14 +61,14 @@ func Test_Example(t *testing.T) {
 
 	//
 	now = time.Now()
-	up1, up1Err := da.Proxy(nil, "users")
+	up1, up1Err := da.Proxy(fns.FakeContext(context.TODO(), nil, nil, nil, da), "users")
 	if up1Err != nil {
 		t.Error(up1Err)
 	}
 	fmt.Println("ok", reflect.TypeOf(up1), time.Now().Sub(now))
 
 	now = time.Now()
-	up2, up2Err := db.Proxy(nil,"users")
+	up2, up2Err := db.Proxy(fns.FakeContext(context.TODO(), nil, nil, nil, db),"users")
 	if up2Err != nil {
 		t.Error(up2Err)
 	}
@@ -77,7 +78,7 @@ func Test_Example(t *testing.T) {
 	da.Close()
 
 	now = time.Now()
-	_, up3Err := db.Proxy(nil,"users")
+	_, up3Err := db.Proxy(fns.FakeContext(context.TODO(), nil, nil, nil, db),"users")
 	if up3Err != nil {
 		fmt.Println("ko", up3Err)
 	}
@@ -95,7 +96,6 @@ func d1() (discovery fns.ServiceDiscovery, err error) {
 	p, _ := json.Marshal(config)
 
 	option := fns.ServiceDiscoveryOption{
-		ServerId: "foo",
 		Address:  "127.0.0.1:8080",
 		Config:   configuares.Raw(p),
 	}
@@ -113,7 +113,6 @@ func d2() (discovery fns.ServiceDiscovery, err error) {
 	p, _ := json.Marshal(config)
 
 	option := fns.ServiceDiscoveryOption{
-		ServerId: "bar",
 		Address:  "127.0.0.1:8080",
 		Config:   configuares.Raw(p),
 	}

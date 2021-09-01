@@ -11,6 +11,21 @@ import (
 	"time"
 )
 
+/*
+cache
+map【key】tx
+rw
+timeoutCloseCh
+
+tx{
+tx
+timeoutCloseCh <-
+timer
+}
+
+分布式 tx，在begin后，返回 publicHost:publicPort
+ */
+
 func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 	config, configErr := rest.InClusterConfig()
 	if configErr != nil {

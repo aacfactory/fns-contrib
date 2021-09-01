@@ -45,6 +45,8 @@ func getServices(client *kb.Clientset, ns string, labelSelector string) (groupSe
 	}
 	groupServices = make(map[string]map[string]Service)
 	for _, item := range list.Items {
+		// reversion = item.CreationTimestamp.Unix()
+
 		if item.Spec.Type != coreV1.ServiceTypeClusterIP {
 			continue
 		}
