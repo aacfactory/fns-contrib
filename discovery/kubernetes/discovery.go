@@ -1,32 +1,19 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
-	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
+	coreV1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	kb "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"reflect"
 	"strings"
-	"sync"
-	"time"
 )
 
-/*
-cache
-map【key】tx
-rw
-timeoutCloseCh
-
-tx{
-tx
-timeoutCloseCh <-
-timer
-}
-
-分布式 tx，在begin后，返回 publicHost:publicPort
- */
-
-func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
+func newKube(namespace string, httpClientPoolSize int) (k *Kube, err error) {
 	config, configErr := rest.InClusterConfig()
 	if configErr != nil {
 		err = fmt.Errorf("get kubernetes cluster config failed, %v", configErr)
@@ -38,16 +25,25 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 		return
 	}
 
+	timeout := int64(3)
+	w, watchErr := client.CoreV1().Services(k.kubeNS).Watch(context.TODO(), metav1.ListOptions{
+		LabelSelector:       label,
+		Watch:               true,
+		AllowWatchBookmarks: false,
+		TimeoutSeconds:      &timeout,
+	})
+
+	if watchErr != nil {
+		err = fmt.Errorf("create clientset from kubernetes cluster config failed, %v", watchErr)
+		return
+	}
 
 	k = &Kube{
-		namespace:        namespace,
-		mutex:            sync.RWMutex{},
-		client:           client,
-		localMap:         make(map[string]*fns.LocaledServiceProxy),
-		serviceMap:       make(map[string]*fns.RemotedServiceProxyGroup),
-		podsMap:          make(map[string]*fns.RemotedServiceProxyGroup),
-		checkingTTL:      checkingTTL,
-		checkingClosedCh: make(chan struct{}, 1),
+		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(httpClientPoolSize),
+		kubeNS:                   namespace,
+		client:                   client,
+		watchingClosedCh:         make(chan struct{}, 1),
+		watcher:                  w,
 	}
 
 	initErr := k.init()
@@ -56,152 +52,36 @@ func newKube(namespace string, checkingTTL time.Duration) (k *Kube, err error) {
 		return
 	}
 
-	k.checking()
+	k.watching()
 
 	return
 }
 
 type Kube struct {
-	namespace  string
-	mutex      sync.RWMutex
-	client     *kb.Clientset
-	localMap   map[string]*fns.LocaledServiceProxy
-
-	serviceMap map[string]*fns.RemotedServiceProxyGroup
-	podsMap    map[string]*fns.RemotedServiceProxyGroup
-
-	checkingTTL      time.Duration
-	checkingClosedCh chan struct{}
+	fns.AbstractServiceDiscovery
+	kubeNS           string
+	client           *kb.Clientset
+	watchingClosedCh chan struct{}
+	watcher          watch.Interface
 }
 
 func (k *Kube) Publish(svc fns.Service) (err error) {
-
-	// todo：remote 的 统一使用 md5 host address 做 id
-	name := strings.TrimSpace(svc.Namespace())
-	if name == "" {
-		err = fmt.Errorf("fns Kubernetes Discovery Publish: namespace is invailed")
-		return
-	}
-	k.mutex.Lock()
-	k.localMap[name] = fns.NewLocaledServiceProxy(svc)
-	k.mutex.Unlock()
-	return
-}
-
-func (k *Kube) IsLocal(namespace string) (ok bool) {
-	_, ok = k.localMap[namespace]
-	return
-}
-
-// Proxy get service
-func (k *Kube) Proxy(_ fns.Context, namespace string) (proxy fns.ServiceProxy, err errors.CodeError) {
-	namespace = strings.TrimSpace(namespace)
-	if namespace == "" {
-		err = errors.NotFound("fns Kubernetes Discovery Proxy: namespace is empty")
-		return
-	}
-	// get from local
-	localProxy, localed := k.localMap[namespace]
-	if localed {
-		proxy = localProxy
-		return
-	}
-
-	// get from remote
-	k.mutex.RLock()
-	group, has := k.serviceMap[namespace]
-	k.mutex.RUnlock()
-	if !has {
-		labelSelector := fmt.Sprintf("%s in (%s)", label, namespace)
-		groupServices, groupServicesErr := getServices(k.client, k.namespace, labelSelector)
-		if groupServicesErr != nil {
-			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Kubernetes Discovery Proxy: get %s service from kubernetes failed", namespace)).WithCause(groupServicesErr)
-			return
-		}
-
-		if groupServices == nil && len(groupServices) == 0 {
-			err = errors.NotFound(fmt.Sprintf("fns Kubernetes Discovery Proxy: %s was not found", namespace))
-			return
-		}
-
-		for ns, _group := range groupServices {
-			proxyGroup := fns.NewRemotedServiceProxyGroup(ns)
-			for _, service := range _group {
-				agent := fns.NewRemotedServiceProxy(service.Id, service.Name, service.Address)
-				proxyGroup.AppendAgent(agent)
-			}
-			k.mutex.Lock()
-			k.serviceMap[namespace] = proxyGroup
-			k.mutex.Unlock()
-			if ns == namespace {
-				group = proxyGroup
-			}
-		}
-	}
-	proxy, err = group.Next()
-	return
-}
-
-//ProxyByExact get pod
-func (k *Kube) ProxyByExact(_ fns.Context, proxyId string) (proxy fns.ServiceProxy, err errors.CodeError) {
-	proxyId = strings.TrimSpace(proxyId)
-	if proxyId == "" {
-		err = errors.NotFound("fns Kubernetes Discovery ProxyByExact: proxyId is empty")
-		return
-	}
-
-	// local
-	registration, hasRegistration := k.registrations[proxyId]
-	if hasRegistration {
-		localProxy, has := d.localMap[registration.Name]
-		if !has {
-			err = errors.New(555, "***WARNING***", "fns Etcd Service Discovery ProxyByExact: found in local but not exists")
-			return
-		}
-		proxy = localProxy
-		return
-	}
-
-	k.mutex.RLock()
-	group, has := k.serviceMap[namespace]
-	k.mutex.RUnlock()
-
-	// get pod
+	err = k.Local.Publish(svc)
 	return
 }
 
 func (k *Kube) init() (err error) {
-	groupServices, groupServicesErr := getServices(k.client, k.namespace, label)
+	groupServices, groupServicesErr := getServices(k.client, k.kubeNS, label)
 	if groupServicesErr != nil {
-		err = fmt.Errorf("fns Kubernetes Discovery init: %v", groupServicesErr)
-		return
-	}
-
-	groupPods, groupPodsErr := getPods(k.client, k.namespace, label)
-	if groupPodsErr != nil {
-		err = fmt.Errorf("fns Kubernetes Discovery init: %v", groupPodsErr)
+		err = fmt.Errorf("fns ServiceDiscovery init: %v", groupServicesErr)
 		return
 	}
 
 	if groupServices != nil && len(groupServices) > 0 {
-		for namespace, group := range groupServices {
-			proxyGroup := fns.NewRemotedServiceProxyGroup(namespace)
+		for _, group := range groupServices {
 			for _, service := range group {
-				proxy := fns.NewRemotedServiceProxy(service.Id, service.Name, service.Address)
-				proxyGroup.AppendAgent(proxy)
+				k.Manager.Append(service)
 			}
-			k.serviceMap[namespace] = proxyGroup
-		}
-	}
-
-	if groupPods != nil && len(groupPods) > 0 {
-		for namespace, group := range groupPods {
-			proxyGroup := fns.NewRemotedServiceProxyGroup(namespace)
-			for _, pod := range group {
-				proxy := fns.NewRemotedServiceProxy(pod.Id, pod.Name, pod.Address)
-				proxyGroup.AppendAgent(proxy)
-			}
-			k.podsMap[namespace] = proxyGroup
 		}
 	}
 
@@ -209,35 +89,75 @@ func (k *Kube) init() (err error) {
 }
 
 func (k *Kube) Close() {
-
-	close(k.checkingClosedCh)
-
-	for key := range k.localMap {
-		k.discovered.remove(key)
-	}
-
-	k.discovered.close()
-
+	close(k.watchingClosedCh)
+	k.watcher.Stop()
+	k.AbstractServiceDiscovery.Close()
 	return
 }
 
-func (k *Kube) checking() {
+func (k *Kube) watching() {
 	go func(k *Kube) {
-		timer := time.NewTimer(k.checkingTTL)
 		for {
 			stopped := false
 			select {
-			case <-k.checkingClosedCh:
+			case <-k.watchingClosedCh:
 				stopped = true
-				return
+				break
+			case result, ok := <-k.watcher.ResultChan():
+				if !ok {
+					break
+				}
+				if result.Type != watch.Added && result.Type != watch.Deleted && result.Type != watch.Error && result.Type != watch.Modified {
+					break
+				}
+				svc, isService := result.Object.(*coreV1.Service)
+				if !isService {
+					panic(fmt.Sprintf("fns ServiceDiscovery init: kubernetes watch fns service failed, got not kube service type watch result, %v", reflect.TypeOf(result.Object)))
+				}
 
-			case <-timer.C:
-				k.discovered.check()
+				if svc.Spec.Type != coreV1.ServiceTypeClusterIP {
+					break
+				}
+				fnsLabel, hasLabel := svc.Labels[label]
+				if !hasLabel {
+					break
+				}
+				servicePort := 0
+				for _, port := range svc.Spec.Ports {
+					if port.Name == label {
+						servicePort = int(port.Port)
+						break
+					}
+				}
+				if servicePort == 0 {
+					break
+				}
+				serviceId := string(svc.UID)
+				reversion := svc.CreationTimestamp.Unix()
+				serviceIp := svc.Spec.ClusterIP
+
+				namespaces := strings.Split(fnsLabel, ",")
+				for _, namespace := range namespaces {
+					registration := fns.Registration{
+						Id:        serviceId,
+						Namespace: strings.TrimSpace(namespace),
+						Address:   fmt.Sprintf("%s:%d", serviceIp, servicePort),
+						Reversion: reversion,
+					}
+					switch result.Type {
+					case watch.Added, watch.Modified:
+						k.Manager.Append(registration)
+					case watch.Error, watch.Deleted:
+						k.Manager.Remove(registration)
+					default:
+
+					}
+				}
+
 			}
 			if stopped {
 				break
 			}
 		}
-		timer.Stop()
 	}(k)
 }

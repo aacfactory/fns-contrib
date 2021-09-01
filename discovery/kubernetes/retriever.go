@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"github.com/aacfactory/fns"
 	"strings"
-	"time"
 )
 
 const (
-	kind = "kubernetes"
+	kind  = "kubernetes"
 	label = "fns"
 )
 
@@ -21,32 +20,19 @@ func Retriever(option fns.ServiceDiscoveryOption) (discovery fns.ServiceDiscover
 	config := Config{}
 	configErr := option.Config.As(&config)
 	if configErr != nil {
-		err = fmt.Errorf("fns Kubernetes Discovery Retriever: read config failed, %v", configErr)
+		err = fmt.Errorf("fns ServiceDiscovery KubernetesRetriever: read config failed, %v", configErr)
 		return
 	}
 
 	namespace := strings.TrimSpace(config.Namespace)
 	if namespace == "" {
-		err = fmt.Errorf("fns Kubernetes Discovery Retriever: namespace in config is empty")
+		err = fmt.Errorf("fns ServiceDiscovery KubernetesRetriever: namespace in config is empty")
 		return
 	}
 
-	checkingTTL := 1 * time.Minute
-
-	checkingTimer := strings.TrimSpace(config.CheckingTimer)
-
-	if checkingTimer != "" {
-		checkingTTL0, parseErr := time.ParseDuration(checkingTimer)
-		if parseErr != nil {
-			err = fmt.Errorf("fns Kubernetes Discovery Retriever: checkingTimer in config is invalid, %v", parseErr)
-			return
-		}
-		checkingTTL = checkingTTL0
-	}
-
-	discovery, err = newKube(namespace, checkingTTL)
+	discovery, err = newKube(namespace, option.HttpClientPoolSize)
 	if err != nil {
-		err = fmt.Errorf("fns Kubernetes Discovery Retriever: %v", err)
+		err = fmt.Errorf("fns ServiceDiscovery KubernetesRetriever: %v", err)
 	}
 
 	return

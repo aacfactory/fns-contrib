@@ -181,14 +181,14 @@ func (discovery *etcdDiscovery) Publish(svc fns.Service) (err error) {
 		return
 	}
 
-	localErr := discovery.AbstractServiceDiscovery.Local.Publish(svc)
+	localErr := discovery.Local.Publish(svc)
 	if localErr != nil {
 		_, _ = discovery.ec.Delete(context.TODO(), key)
 		err = localErr
 		return
 	}
 
-	discovery.AbstractServiceDiscovery.Manager.Append(registration)
+	discovery.Manager.Append(registration)
 
 	return
 }
