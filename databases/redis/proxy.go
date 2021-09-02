@@ -9,7 +9,7 @@ import (
 )
 
 func Do(ctx fns.Context, param OriginCommandArg) (result OriginCommandResult, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -27,7 +27,7 @@ func Do(ctx fns.Context, param OriginCommandArg) (result OriginCommandResult, er
 }
 
 func Contains(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -44,7 +44,7 @@ func Contains(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 }
 
 func Remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -61,7 +61,7 @@ func Remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 }
 
 func Expire(ctx fns.Context, param ExpireParam) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -78,7 +78,7 @@ func Expire(ctx fns.Context, param ExpireParam) (ok bool, err errors.CodeError) 
 }
 
 func Persist(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -95,7 +95,7 @@ func Persist(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 }
 
 func TTL(ctx fns.Context, key string) (ttl time.Duration, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -112,7 +112,7 @@ func TTL(ctx fns.Context, key string) (ttl time.Duration, err errors.CodeError) 
 }
 
 func Set(ctx fns.Context, param SetParam) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -129,7 +129,7 @@ func Set(ctx fns.Context, param SetParam) (err errors.CodeError) {
 }
 
 func Get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -146,7 +146,7 @@ func Get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeEr
 }
 
 func Incr(ctx fns.Context, key string) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -162,7 +162,7 @@ func Incr(ctx fns.Context, key string) (err errors.CodeError) {
 }
 
 func Decr(ctx fns.Context, key string) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -178,7 +178,7 @@ func Decr(ctx fns.Context, key string) (err errors.CodeError) {
 }
 
 func Lock(ctx fns.Context, param LockParam) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -194,7 +194,7 @@ func Lock(ctx fns.Context, param LockParam) (err errors.CodeError) {
 }
 
 func Unlock(ctx fns.Context, key string) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -210,7 +210,7 @@ func Unlock(ctx fns.Context, key string) (err errors.CodeError) {
 }
 
 func ZAdd(ctx fns.Context, param ZAddParam) (err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -226,7 +226,7 @@ func ZAdd(ctx fns.Context, param ZAddParam) (err errors.CodeError) {
 }
 
 func ZCard(ctx fns.Context, key string) (num int64, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -242,7 +242,7 @@ func ZCard(ctx fns.Context, key string) (num int64, err errors.CodeError) {
 }
 
 func ZRange(ctx fns.Context, param ZRangeParam) (result *json.Array, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -259,7 +259,7 @@ func ZRange(ctx fns.Context, param ZRangeParam) (result *json.Array, err errors.
 }
 
 func zRangeByScore(ctx fns.Context, param ZRangeByScoreParam) (result *json.Array, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -276,7 +276,7 @@ func zRangeByScore(ctx fns.Context, param ZRangeByScoreParam) (result *json.Arra
 }
 
 func ZRem(ctx fns.Context, param ZRemParam) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -292,7 +292,7 @@ func ZRem(ctx fns.Context, param ZRemParam) (ok bool, err errors.CodeError) {
 }
 
 func ZRemByRank(ctx fns.Context, param ZRemByRankParam) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -308,7 +308,7 @@ func ZRemByRank(ctx fns.Context, param ZRemByRankParam) (ok bool, err errors.Cod
 }
 
 func ZRemByScore(ctx fns.Context, param ZRemByScoreParam) (ok bool, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -324,7 +324,7 @@ func ZRemByScore(ctx fns.Context, param ZRemByScoreParam) (ok bool, err errors.C
 }
 
 func ZRevRange(ctx fns.Context, param ZRevRangeParam) (result *json.Array, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
@@ -341,7 +341,7 @@ func ZRevRange(ctx fns.Context, param ZRevRangeParam) (result *json.Array, err e
 }
 
 func ZRevRangeByScore(ctx fns.Context, param ZRevRangeByScoreParam) (result *json.Array, err errors.CodeError) {
-	proxy, proxyErr := ctx.ServiceProxy(Namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
 		return
