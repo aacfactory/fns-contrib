@@ -29,6 +29,15 @@ func (gt *GlobalTransaction) checking() {
 	}(gt)
 }
 
+func NewGlobalTransactionManagement() *GlobalTransactionManagement {
+	return &GlobalTransactionManagement{
+		mutex:     sync.RWMutex{},
+		txMap:     make(map[string]*GlobalTransaction),
+		timeoutCh: make(chan string, 512),
+		closeCh:   make(chan struct{}),
+	}
+}
+
 type GlobalTransactionManagement struct {
 	mutex     sync.RWMutex
 	txMap     map[string]*GlobalTransaction

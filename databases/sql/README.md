@@ -1,21 +1,68 @@
 # SQL
 
-在proxy中增加 tx 的选择，当ctx 的meta 中 database_xid 时，其value为proxy的id，然后选择该id的proxy
-进行代理。
+基于 fns.Service 实现的内部 SQL 服务，讲 sql 操作服务化，同时支持分布式事务。
 
-当有database_xid时，在 写操作的时，如果 proxy 为空（可能超时等等）都failed。
+## 安装
 
-/*
-cache
-map【key】tx
-rw
-timeoutCloseCh
+```shell
+go get github.com/aacfactory/fns-contrib/databases/sql
+```
 
-tx{
-tx
-timeoutCloseCh <-
-timer
+## 使用
+
+### 配置文件
+
+* 单机
+    * masterSlaverMode = false，dsn 列表为一个元素。
+* 主从
+    * masterSlaverMode = true，dsn 列表第一个元素为主服务地址，后续为从服务地址。
+* 集群
+    * masterSlaverMode = false，dsn 列表多元素。
+
+```json
+{
+  "sql": {
+    "masterSlaverMode": false,
+    "driver": "",
+    "dsn": [
+      "username:password@tcp(ip:port)/databases"
+    ],
+    "maxIdles": 0,
+    "maxOpens": 0
+  }
 }
+```
 
-分布式 tx，在begin后，返回 publicHost:publicPort
-*/
+### 导入驱动
+
+fns.sql 本身不带驱动，需要导入与配置文件中相同的驱动。
+
+```go
+import _ "github.com/go-sql-driver/mysql"
+```
+
+### 服务部署
+
+* fns为单机模式
+    * 直接部署
+* fns为分布式模式
+    * 可以单独起一个（一组）只有 sql 服务的应用（推荐）。
+    * 也可以与fns单机模式一样使用。
+    * 支持分布式事务。
+
+```go
+app.Deply(&sql.Service{})
+```
+
+### 代理使用
+
+具体参考 [proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/proxy.go)
+
+## 分布式事务（GlobalTransactionManagement）
+
+使用以请求编号绑定事务，并在请求上下文中标记事务所在服务，在服务发现的精确发现功能中把同一个请求上下文（无论在哪个节点）都转发到事务所在服务。<br/>
+注意事项：
+
+* 事务开启时需求一个 timeout，默认是10秒，当在这个时间内没有被提交或回滚，超时后会自动回滚。
+* 使用分布式事务的最佳方式是采样 proxy 中的函数，而非其它自行代理操作。
+* 部署的方式最好是以单独服务的方式（一个fns内只有 sql 服务）部署一个集群。

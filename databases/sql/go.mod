@@ -5,10 +5,13 @@ go 1.17
 replace github.com/aacfactory/fns v0.0.1 => ../../../fns
 
 require (
-	github.com/aacfactory/configuares v1.1.1 // indirect
-	github.com/aacfactory/errors v1.4.0 // indirect
-	github.com/aacfactory/fns v0.0.1 // indirect
-	github.com/aacfactory/json v1.1.0 // indirect
+	github.com/aacfactory/configuares v1.2.1
+	github.com/aacfactory/errors v1.4.0
+	github.com/aacfactory/fns v0.0.1
+	github.com/aacfactory/json v1.2.0
+)
+
+require (
 	github.com/aacfactory/logs v1.1.3 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.3 // indirect
@@ -22,13 +25,13 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
-	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/rs/zerolog v1.24.0 // indirect
 	github.com/tidwall/gjson v1.8.1 // indirect
 	github.com/tidwall/match v1.0.3 // indirect
-	github.com/tidwall/pretty v1.1.0 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.29.0 // indirect

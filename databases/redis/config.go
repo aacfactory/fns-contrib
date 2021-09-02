@@ -53,7 +53,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 	}
 	if config.MasterSlaverMode {
 		if len(config.Addr) < 2 {
-			err = fmt.Errorf("fns Redis Service: masterSlaverMode is enabled but num of addr is gt 1")
+			err = fmt.Errorf("fns Redis Service: masterSlaverMode is enabled but num of addr is not gt 1")
 			return
 		}
 		masterAddr := strings.TrimSpace(config.Addr[0])
