@@ -111,7 +111,7 @@ func (auth *Authorizations) Decode(value []byte, user fns.User) (err error) {
 	return
 }
 
-func (auth *Authorizations) Knock(ctx fns.Context, user fns.User) (ok bool) {
+func (auth *Authorizations) IsActive(ctx fns.Context, user fns.User) (ok bool) {
 	id := ""
 	_ = user.Principals().Get("jti", &id)
 	if id == "" {

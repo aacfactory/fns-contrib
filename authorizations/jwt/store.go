@@ -122,7 +122,7 @@ type serviceStore struct {
 }
 
 func (s *serviceStore) Active(ctx fns.Context, id string, expiration time.Duration) (err error) {
-	proxy, proxyErr := ctx.ServiceProxy(s.namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, s.namespace)
 	if proxyErr != nil {
 		err = errors.ServiceError(fmt.Sprintf("fns JWT Store Active: get %s service proxy failed", s.namespace)).WithCause(proxyErr)
 		return
@@ -150,7 +150,7 @@ func (s *serviceStore) Active(ctx fns.Context, id string, expiration time.Durati
 }
 
 func (s *serviceStore) Revoke(ctx fns.Context, id string) (err error) {
-	proxy, proxyErr := ctx.ServiceProxy(s.namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, s.namespace)
 	if proxyErr != nil {
 		err = errors.ServiceError(fmt.Sprintf("fns JWT Store Revoke: get %s service proxy failed", s.namespace)).WithCause(proxyErr)
 		return
@@ -175,7 +175,7 @@ func (s *serviceStore) Revoke(ctx fns.Context, id string) (err error) {
 }
 
 func (s *serviceStore) LookUp(ctx fns.Context, id string) (has bool) {
-	proxy, proxyErr := ctx.ServiceProxy(s.namespace)
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, s.namespace)
 	if proxyErr != nil {
 		return
 	}
