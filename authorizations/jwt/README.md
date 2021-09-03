@@ -39,7 +39,7 @@ import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 ## Service 类型 Store
 * [redis](https://github.com/aacfactory/fns-contrib/tree/main/databases/redis)
   * namespace = redis
-  * activeTokenFn = setWithTTL
+  * activeTokenFn = set
   * lookUpTokenFn = contains
   * revokeTokenFn = remove
 
@@ -67,7 +67,7 @@ import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 ```json
 {}
 ```
-### 判断是否存在函数接口订单
+### 判断是否存在函数接口定义
 参数
 ```json
 {
