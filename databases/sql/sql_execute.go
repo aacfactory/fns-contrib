@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (svc *Service) executeFn(ctx fns.Context, param Param) (result *ExecResult, err errors.CodeError) {
+func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult, err errors.CodeError) {
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: execute failed for no query string")

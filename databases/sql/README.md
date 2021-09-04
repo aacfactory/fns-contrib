@@ -51,7 +51,7 @@ import _ "github.com/go-sql-driver/mysql"
     * 支持分布式事务。
 
 ```go
-app.Deply(&sql.Service{})
+app.Deply(sql.Service())
 ```
 
 ### 代理使用

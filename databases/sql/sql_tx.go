@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (svc *Service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
+func (svc *_service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
 	tx, has = svc.gtm.Get(ctx)
 	return
 }
@@ -17,7 +17,7 @@ type TxBeginParam struct {
 	Isolation db.IsolationLevel `json:"isolation,omitempty"`
 }
 
-func (svc *Service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
+func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
 	_, has := svc.gtm.Get(ctx)
 	if has {
 		return
@@ -41,7 +41,7 @@ func (svc *Service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.Cod
 	return
 }
 
-func (svc *Service) txCommit(ctx fns.Context) (err errors.CodeError) {
+func (svc *_service) txCommit(ctx fns.Context) (err errors.CodeError) {
 	tx, has := svc.gtm.Get(ctx)
 	if !has {
 		err = errors.ServiceError("fns SQL: commit tx failed for tx was not found")
@@ -61,7 +61,7 @@ func (svc *Service) txCommit(ctx fns.Context) (err errors.CodeError) {
 	return
 }
 
-func (svc *Service) txRollback(ctx fns.Context) (err errors.CodeError) {
+func (svc *_service) txRollback(ctx fns.Context) (err errors.CodeError) {
 	tx, has := svc.gtm.Get(ctx)
 	if !has {
 		err = errors.ServiceError("fns SQL: rollback tx failed for tx was not found")

@@ -22,21 +22,25 @@ const (
 	ExecuteFn    = "execute"
 )
 
-type Service struct {
+func Service() fns.Service {
+	return &_service{}
+}
+
+type _service struct {
 	running *int64
 	client  Client
 	gtm     *GlobalTransactionManagement
 }
 
-func (svc *Service) Namespace() string {
+func (svc *_service) Namespace() string {
 	return Namespace
 }
 
-func (svc *Service) Internal() bool {
+func (svc *_service) Internal() bool {
 	return true
 }
 
-func (svc *Service) Build(root configuares.Config) (err error) {
+func (svc *_service) Build(root configuares.Config) (err error) {
 	config := Config{}
 	has, readErr := root.Get(configPath, &config)
 	if readErr != nil {
@@ -60,11 +64,11 @@ func (svc *Service) Build(root configuares.Config) (err error) {
 	return
 }
 
-func (svc *Service) Description() (description []byte) {
+func (svc *_service) Description() (description []byte) {
 	return
 }
 
-func (svc *Service) Handle(ctx fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
+func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
 	if atomic.LoadInt64(svc.running) == 0 {
 		err = errors.New(555, "***WARNING***", "fns SQL Handle: service is not ready or closing")
 		return
@@ -119,7 +123,7 @@ func (svc *Service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 	return
 }
 
-func (svc *Service) Close() (err error) {
+func (svc *_service) Close() (err error) {
 	atomic.StoreInt64(svc.running, 0)
 	svc.gtm.Close()
 	err = svc.client.Close()
