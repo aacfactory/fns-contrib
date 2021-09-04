@@ -69,52 +69,55 @@ func (r *Rows) Scan(v interface{}) (err error) {
 	}
 	typ := reflect.TypeOf(v)
 	if typ.Kind() != reflect.Ptr {
-		err = fmt.Errorf("fns SQL Rows: target is not ptr")
-		return
-	}
-	if typ.Elem().Kind() != reflect.Slice {
-		err = fmt.Errorf("fns SQL Rows: target elem is not slice")
+		err = fmt.Errorf("fns SQL Rows: scan failed for target is not ptr")
 		return
 	}
 	if r.Empty() {
 		return
 	}
-
-	var elemType reflect.Type
-	elemIsPtr := false
-	elem := typ.Elem().Elem()
-	if elem.Kind() == reflect.Ptr {
-		if elem.Elem().Kind() != reflect.Struct {
-			err = fmt.Errorf("fns SQL Rows: element of target is not struct or ptr of struct")
+	if typ.Elem().Kind() == reflect.Slice {
+		var elemType reflect.Type
+		elemIsPtr := false
+		elem := typ.Elem().Elem()
+		if elem.Kind() == reflect.Ptr {
+			if elem.Elem().Kind() != reflect.Struct {
+				err = fmt.Errorf("fns SQL Rows: scan failed for element of target is not struct or ptr of struct")
+				return
+			}
+			elemIsPtr = true
+			elemType = elem.Elem()
+		} else if elem.Kind() == reflect.Struct {
+			elemIsPtr = false
+			elemType = elem
+		} else {
+			err = fmt.Errorf("fns SQL Rows: scan failed for element of target is not struct or ptr of struct")
 			return
 		}
-		elemIsPtr = true
-		elemType = elem.Elem()
-	} else if elem.Kind() == reflect.Struct {
-		elemIsPtr = false
-		elemType = elem
+		rv := reflect.ValueOf(v).Elem()
+		rv0 := reflect.ValueOf(v).Elem()
+		for _, value := range r.Values {
+			x := reflect.New(elemType)
+			err = value.Scan(x.Interface())
+			if err != nil {
+				return
+			}
+			if elemIsPtr {
+				rv0 = reflect.Append(rv, x)
+			} else {
+				rv0 = reflect.Append(rv, x.Elem())
+			}
+		}
+		rv.Set(rv0)
+	} else if typ.Elem().Kind() == reflect.Struct {
+		if r.Size() != 1 {
+			err = fmt.Errorf("fns SQL Rows: scan failed for target elem is struct but has many rows")
+			return
+		}
+		err = r.Values[0].Scan(v)
 	} else {
-		err = fmt.Errorf("fns SQL Rows: element of target is not struct or ptr of struct")
+		err = fmt.Errorf("fns SQL Rows: scan failed for target elem is not slice or struct")
 		return
 	}
-
-	rv := reflect.ValueOf(v).Elem()
-
-	rv0 := reflect.ValueOf(v).Elem()
-	for _, value := range r.Values {
-		x := reflect.New(elemType)
-		err = value.Scan(x.Interface())
-		if err != nil {
-			return
-		}
-		if elemIsPtr {
-			rv0 = reflect.Append(rv, x)
-		} else {
-			rv0 = reflect.Append(rv, x.Elem())
-		}
-	}
-	rv.Set(rv0)
-
 	return
 }
 
@@ -150,11 +153,11 @@ func (r *Row) Scan(v interface{}) (err error) {
 	}
 	typ := reflect.TypeOf(v)
 	if typ.Kind() != reflect.Ptr {
-		err = fmt.Errorf("fns SQL Row: target is not ptr")
+		err = fmt.Errorf("fns SQL Row: scan failed for target is not ptr")
 		return
 	}
 	if typ.Elem().Kind() != reflect.Struct {
-		err = fmt.Errorf("fns SQL Row: target elem is not struct")
+		err = fmt.Errorf("fns SQL Row: scan failed for target elem is not struct")
 		return
 	}
 	if r.Columns == nil || len(r.Columns) == 0 {
@@ -275,9 +278,8 @@ func (r *Row) Scan(v interface{}) (err error) {
 				fv.SetBytes(column.Value)
 			}
 		default:
-			err = fmt.Errorf("fns SQL: row scan failed for %s of %v is not supported", fv.Type().String(), name)
+			err = fmt.Errorf("fns SQL Row: scan failed for %s of %v is not supported", fv.Type().String(), name)
 		}
 	}
-
 	return
 }
