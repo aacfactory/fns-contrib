@@ -59,6 +59,8 @@ func (svc *_service) Build(root configuares.Config) (err error) {
 	}
 
 	svc.client = client
+	running := int64(0)
+	svc.running = &running
 	atomic.StoreInt64(svc.running, 1)
 	svc.gtm = NewGlobalTransactionManagement()
 	return
