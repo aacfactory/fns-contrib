@@ -31,16 +31,14 @@ func (gt *GlobalTransaction) checking() {
 
 func NewGlobalTransactionManagement() *GlobalTransactionManagement {
 	return &GlobalTransactionManagement{
-		mutex:     sync.RWMutex{},
-		txMap:     make(map[string]*GlobalTransaction),
+		txMap:     sync.Map{},
 		timeoutCh: make(chan string, 512),
 		closeCh:   make(chan struct{}),
 	}
 }
 
 type GlobalTransactionManagement struct {
-	mutex     sync.RWMutex
-	txMap     map[string]*GlobalTransaction
+	txMap     sync.Map
 	timeoutCh chan string
 	closeCh   chan struct{}
 }
@@ -50,14 +48,11 @@ func (gtm *GlobalTransactionManagement) Set(ctx fns.Context, tx *sql.Tx, timeout
 		timeout = 10 * time.Second
 	}
 	id := ctx.RequestId()
-	gtm.mutex.RLock()
-	_, has := gtm.txMap[id]
-	gtm.mutex.RUnlock()
+	_, has := gtm.Get(ctx)
 	if has {
 		err = fmt.Errorf("fns GlobalTransactionManagement: set failed, %s can not set again", id)
 		return
 	}
-	gtm.mutex.Lock()
 	gt := &GlobalTransaction{
 		id:        id,
 		tx:        tx,
@@ -66,19 +61,17 @@ func (gtm *GlobalTransactionManagement) Set(ctx fns.Context, tx *sql.Tx, timeout
 		timeoutCh: gtm.timeoutCh,
 	}
 	gt.checking()
-	gtm.txMap[id] = gt
-	gtm.mutex.Unlock()
+	gtm.txMap.Store(id, gt)
 	return
 }
 
 func (gtm *GlobalTransactionManagement) Get(ctx fns.Context) (tx *sql.Tx, has bool) {
 	id := ctx.RequestId()
-	gtm.mutex.RLock()
-	gt, hasGt := gtm.txMap[id]
-	gtm.mutex.RUnlock()
-	if !hasGt {
+	value, ok := gtm.txMap.Load(id)
+	if !ok {
 		return
 	}
+	gt := value.(*GlobalTransaction)
 	tx = gt.tx
 	has = true
 	return
@@ -86,15 +79,13 @@ func (gtm *GlobalTransactionManagement) Get(ctx fns.Context) (tx *sql.Tx, has bo
 
 func (gtm *GlobalTransactionManagement) Del(ctx fns.Context) {
 	id := ctx.RequestId()
-	gtm.mutex.Lock()
-	gt, hasGt := gtm.txMap[id]
-	if !hasGt {
-		gtm.mutex.Unlock()
+	value, ok := gtm.txMap.Load(id)
+	if !ok {
 		return
 	}
+	gt := value.(*GlobalTransaction)
 	close(gt.doneCh)
-	delete(gtm.txMap, id)
-	gtm.mutex.Unlock()
+	gtm.txMap.Delete(id)
 	return
 }
 
@@ -106,9 +97,7 @@ func (gtm *GlobalTransactionManagement) handleTimeoutTx() {
 				close(gtm.closeCh)
 				break
 			}
-			gtm.mutex.Lock()
-			delete(gtm.txMap, id)
-			gtm.mutex.Unlock()
+			gtm.txMap.Delete(id)
 		}
 	}(gtm)
 }
@@ -116,11 +105,10 @@ func (gtm *GlobalTransactionManagement) handleTimeoutTx() {
 func (gtm *GlobalTransactionManagement) Close() {
 	close(gtm.timeoutCh)
 	<-gtm.closeCh
-	gtm.mutex.Lock()
-	defer gtm.mutex.Unlock()
-	for _, gt := range gtm.txMap {
+	gtm.txMap.Range(func(_, value interface{}) bool {
+		gt := value.(*GlobalTransaction)
 		_ = gt.tx.Rollback()
 		close(gt.doneCh)
-	}
-	gtm.txMap = nil
+		return true
+	})
 }
