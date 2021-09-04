@@ -23,16 +23,21 @@ func TxBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
 	result := TxAddress{}
 	err = r.Get(ctx, &result)
 	if err != nil {
-		ctx.Meta().SetExactProxyService(Namespace, result.Address)
+		return
+	}
+	if ctx.App().ClusterMode() {
+		ctx.Meta().SetExactProxyServiceAddress(Namespace, result.Address)
 	}
 	return
 }
 
 func TxCommit(ctx fns.Context) (err errors.CodeError) {
-	_, _, has := ctx.Meta().GetExactProxyService()
-	if !has {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context has not tx"))
-		return
+	if ctx.App().ClusterMode() {
+		_, has := ctx.Meta().GetExactProxyServiceAddress(Namespace)
+		if !has {
+			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context does not bind tx"))
+			return
+		}
 	}
 
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
@@ -51,16 +56,19 @@ func TxCommit(ctx fns.Context) (err errors.CodeError) {
 	result := fns.Empty{}
 	err = r.Get(ctx, &result)
 
-	ctx.Meta().DelExactProxyService(Namespace)
-
+	if ctx.App().ClusterMode() {
+		ctx.Meta().DelExactProxyServiceAddress(Namespace)
+	}
 	return
 }
 
 func TxRollback(ctx fns.Context) (err errors.CodeError) {
-	_, _, has := ctx.Meta().GetExactProxyService()
-	if !has {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context has not tx"))
-		return
+	if ctx.App().ClusterMode() {
+		_, has := ctx.Meta().GetExactProxyServiceAddress(Namespace)
+		if !has {
+			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context does not bind tx"))
+			return
+		}
 	}
 
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
@@ -79,8 +87,9 @@ func TxRollback(ctx fns.Context) (err errors.CodeError) {
 	result := fns.Empty{}
 	err = r.Get(ctx, &result)
 
-	ctx.Meta().DelExactProxyService(Namespace)
-
+	if ctx.App().ClusterMode() {
+		ctx.Meta().DelExactProxyServiceAddress(Namespace)
+	}
 	return
 }
 
