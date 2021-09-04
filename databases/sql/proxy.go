@@ -109,7 +109,7 @@ func Query(ctx fns.Context, param Param) (rows *Rows, err errors.CodeError) {
 	r := proxy.Request(ctx, QueryFn, arg)
 
 	rows = &Rows{}
-	err = r.Get(ctx, &rows)
+	err = r.Get(ctx, rows)
 
 	return
 }
@@ -130,7 +130,7 @@ func Execute(ctx fns.Context, param Param) (result *ExecResult, err errors.CodeE
 	r := proxy.Request(ctx, ExecuteFn, arg)
 
 	result = &ExecResult{}
-	err = r.Get(ctx, &result)
+	err = r.Get(ctx, result)
 
 	return
 }

@@ -126,8 +126,8 @@ func (t *Tuple) mapToSQLArgs() (args []interface{}) {
 		return
 	}
 	for _, v := range t.values {
-		kind := v[0:4]
-		value := v[5:]
+		kind := v[0:3]
+		value := v[4:]
 		switch kind {
 		case "nil":
 			args = append(args, nil)

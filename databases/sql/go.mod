@@ -5,10 +5,10 @@ go 1.17
 replace github.com/aacfactory/fns v0.0.1 => ../../../fns
 
 require (
-	github.com/aacfactory/configuares v1.2.1
-	github.com/aacfactory/errors v1.4.0
+	github.com/aacfactory/configuares v1.2.2
+	github.com/aacfactory/errors v1.5.0
 	github.com/aacfactory/fns v0.0.1
-	github.com/aacfactory/json v1.2.0
+	github.com/aacfactory/json v1.3.1
 )
 
 require (
@@ -29,7 +29,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/rs/zerolog v1.24.0 // indirect
-	github.com/tidwall/gjson v1.8.1 // indirect
+	github.com/tidwall/gjson v1.9.0 // indirect
 	github.com/tidwall/match v1.0.3 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.1.7 // indirect
