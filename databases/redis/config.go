@@ -30,7 +30,7 @@ type Config struct {
 
 func (config *Config) CreateClient() (client Client, err error) {
 	if config.Addr == nil || len(config.Addr) < 1 {
-		err = fmt.Errorf("fns Redis Service: addr is empty")
+		err = fmt.Errorf("fns Redis: addr is empty")
 		return
 	}
 	network := strings.TrimSpace(config.Network)
@@ -53,12 +53,12 @@ func (config *Config) CreateClient() (client Client, err error) {
 	}
 	if config.MasterSlaverMode {
 		if len(config.Addr) < 2 {
-			err = fmt.Errorf("fns Redis Service: masterSlaverMode is enabled but num of addr is not gt 1")
+			err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but num of addr is not gt 1")
 			return
 		}
 		masterAddr := strings.TrimSpace(config.Addr[0])
 		if masterAddr == "" {
-			err = fmt.Errorf("fns Redis Service: masterSlaverMode is enabled but first of addr is empty")
+			err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but first of addr is empty")
 			return
 		}
 		master := rds.NewClient(&rds.Options{
@@ -75,7 +75,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := master.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis Service: ping %s failed, %v", masterAddr, pingErr)
+			err = fmt.Errorf("fns Redis: ping %s failed, %v", masterAddr, pingErr)
 			return
 		}
 
@@ -84,7 +84,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		for _, slaverAddr := range slaverAddrs {
 			slaverAddr = strings.TrimSpace(slaverAddr)
 			if slaverAddr == "" {
-				err = fmt.Errorf("fns Redis Service: masterSlaverMode is enabled but one of slavers addr is empty")
+				err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but one of slavers addr is empty")
 				return
 			}
 			slaver := rds.NewClient(&rds.Options{
@@ -101,7 +101,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 			})
 			pingSlaverErr := slaver.Ping(context.TODO()).Err()
 			if pingSlaverErr != nil {
-				err = fmt.Errorf("fns Redis Service: ping %s failed, %v", slaverAddr, pingSlaverErr)
+				err = fmt.Errorf("fns Redis: ping %s failed, %v", slaverAddr, pingSlaverErr)
 				return
 			}
 			slavers = append(slavers, slaver)
@@ -118,7 +118,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 	if len(config.Addr) == 1 {
 		addr := strings.TrimSpace(config.Addr[0])
 		if addr == "" {
-			err = fmt.Errorf("fns Redis Service: first of addr is empty")
+			err = fmt.Errorf("fns Redis: first of addr is empty")
 			return
 		}
 		node := rds.NewClient(&rds.Options{
@@ -135,7 +135,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := node.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis Service: ping %s failed, %v", addr, pingErr)
+			err = fmt.Errorf("fns Redis: ping %s failed, %v", addr, pingErr)
 			return
 		}
 		client = &Standalone{
@@ -148,7 +148,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 	for _, addr := range config.Addr {
 		addr = strings.TrimSpace(addr)
 		if addr == "" {
-			err = fmt.Errorf("fns Redis Service: one of addr is empty")
+			err = fmt.Errorf("fns Redis: one of addr is empty")
 			return
 		}
 		node := rds.NewClient(&rds.Options{
@@ -165,7 +165,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := node.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis Service: ping %s failed, %v", addr, pingErr)
+			err = fmt.Errorf("fns Redis: ping %s failed, %v", addr, pingErr)
 			return
 		}
 		nodes = append(nodes, node)
@@ -185,7 +185,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 
 	pingErr := cluster.Ping(context.TODO()).Err()
 	if pingErr != nil {
-		err = fmt.Errorf("fns Redis Service: ping %s failed, %v", config.Addr, pingErr)
+		err = fmt.Errorf("fns Redis: ping %s failed, %v", config.Addr, pingErr)
 		return
 	}
 
@@ -199,28 +199,28 @@ func (config *Config) CreateClient() (client Client, err error) {
 func (config *Config) LoadSSL() (ssl *tls.Config, err error) {
 	certFilePath := strings.TrimSpace(config.CertFilePath)
 	if certFilePath == "" {
-		err = fmt.Errorf("fns Redis Service: ssl is enabled but certFilePath is empty")
+		err = fmt.Errorf("fns Redis: ssl is enabled but certFilePath is empty")
 		return
 	}
 	keyFilePath := strings.TrimSpace(config.KeyFilePath)
 	if keyFilePath == "" {
-		err = fmt.Errorf("fns Redis Service: ssl is enabled but keyFilePath is empty")
+		err = fmt.Errorf("fns Redis: ssl is enabled but keyFilePath is empty")
 		return
 	}
 	var absErr error
 	certFilePath, absErr = filepath.Abs(certFilePath)
 	if absErr != nil {
-		err = fmt.Errorf("fns Redis Service: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
+		err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
 		return
 	}
 	keyFilePath, absErr = filepath.Abs(keyFilePath)
 	if absErr != nil {
-		err = fmt.Errorf("fns Redis Service: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
+		err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
 		return
 	}
 	certificate, certificateErr := tls.LoadX509KeyPair(certFilePath, keyFilePath)
 	if certificateErr != nil {
-		err = fmt.Errorf("fns Redis Service: ssl is enabled but load x509 key pair failed, %v", certificateErr)
+		err = fmt.Errorf("fns Redis: ssl is enabled but load x509 key pair failed, %v", certificateErr)
 		return
 	}
 
@@ -233,17 +233,17 @@ func (config *Config) LoadSSL() (ssl *tls.Config, err error) {
 	if caFilePath != "" {
 		caFilePath, absErr = filepath.Abs(caFilePath)
 		if absErr != nil {
-			err = fmt.Errorf("fns Redis Service: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
+			err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
 			return
 		}
 		caContent, caReadErr := ioutil.ReadFile(caFilePath)
 		if caReadErr != nil {
-			err = fmt.Errorf("fns Redis Service: ssl is enabled but read caFilePath content failed, %v", caReadErr)
+			err = fmt.Errorf("fns Redis: ssl is enabled but read caFilePath content failed, %v", caReadErr)
 			return
 		}
 		caPool := x509.NewCertPool()
 		if !caPool.AppendCertsFromPEM(caContent) {
-			err = fmt.Errorf("fns Redis Service: ssl is enabled but append ca into cert pool failed")
+			err = fmt.Errorf("fns Redis: ssl is enabled but append ca into cert pool failed")
 			return
 		}
 		ssl.RootCAs = caPool

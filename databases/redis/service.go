@@ -35,27 +35,27 @@ const (
 	OriginCmdFn        = "cmd"
 )
 
-type Service struct {
+type _service struct {
 	client Client
 }
 
-func (svc *Service) Namespace() string {
+func (svc *_service) Namespace() string {
 	return Namespace
 }
 
-func (svc *Service) Internal() bool {
+func (svc *_service) Internal() bool {
 	return true
 }
 
-func (svc *Service) Build(root configuares.Config) (err error) {
+func (svc *_service) Build(root configuares.Config) (err error) {
 	config := Config{}
 	has, readErr := root.Get(configPath, &config)
 	if readErr != nil {
-		err = fmt.Errorf("fns Redis Service Build: read redis config failed, %v", readErr)
+		err = fmt.Errorf("fns Redis Build: read redis config failed, %v", readErr)
 		return
 	}
 	if !has {
-		err = fmt.Errorf("fns Redis Service Build: no redis path in root config")
+		err = fmt.Errorf("fns Redis Build: no redis path in root config")
 		return
 	}
 
@@ -69,11 +69,11 @@ func (svc *Service) Build(root configuares.Config) (err error) {
 	return
 }
 
-func (svc *Service) Description() (description []byte) {
+func (svc *_service) Description() (description []byte) {
 	return
 }
 
-func (svc *Service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
+func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
 	switch fn {
 	case SetFn:
 		param := SetParam{}
@@ -262,12 +262,12 @@ func (svc *Service) Handle(context fns.Context, fn string, argument fns.Argument
 		}
 		result, err = svc.cmd(context, param)
 	default:
-		err = errors.NotFound(fmt.Sprintf("fns Redis Service: %s was not found", fn))
+		err = errors.NotFound(fmt.Sprintf("fns Redis: %s was not found", fn))
 	}
 	return
 }
 
-func (svc *Service) Close() (err error) {
+func (svc *_service) Close() (err error) {
 	err = svc.client.Close()
 	return
 }

@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-func (svc *Service) cmd(ctx fns.Context, arg OriginCommandArg) (result OriginCommandResult, err errors.CodeError) {
+func (svc *_service) cmd(ctx fns.Context, arg OriginCommandArg) (result OriginCommandResult, err errors.CodeError) {
 
 	params, parseErr := arg.MapToRedisDoArgs()
 	if parseErr != nil {
-		err = errors.ServiceError("fns Redis Cmd: map arg to redis cmd args failed").WithCause(parseErr)
+		err = errors.ServiceError("fns Redis: map arg to redis cmd args failed").WithCause(parseErr)
 		return
 	}
 
@@ -27,7 +27,7 @@ func (svc *Service) cmd(ctx fns.Context, arg OriginCommandArg) (result OriginCom
 
 	p, encodeErr := json.Marshal(data)
 	if encodeErr != nil {
-		err = errors.ServiceError("fns Redis Cmd: encode redis cmd result failed").WithCause(encodeErr)
+		err = errors.ServiceError("fns Redis: encode redis cmd result failed").WithCause(encodeErr)
 		return
 	}
 

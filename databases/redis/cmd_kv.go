@@ -13,7 +13,7 @@ type SetParam struct {
 	Expiration time.Duration   `json:"expiration,omitempty"`
 }
 
-func (svc *Service) set(ctx fns.Context, param SetParam) (err errors.CodeError) {
+func (svc *_service) set(ctx fns.Context, param SetParam) (err errors.CodeError) {
 	cmdErr := svc.client.Writer().Set(ctx, param.Key, param.Value, param.Expiration).Err()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -22,7 +22,7 @@ func (svc *Service) set(ctx fns.Context, param SetParam) (err errors.CodeError) 
 	return
 }
 
-func (svc *Service) get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeError) {
+func (svc *_service) get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeError) {
 	v, cmdErr := svc.client.Reader().Get(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -32,7 +32,7 @@ func (svc *Service) get(ctx fns.Context, key string) (result json.RawMessage, er
 	return
 }
 
-func (svc *Service) incr(ctx fns.Context, key string) (err errors.CodeError) {
+func (svc *_service) incr(ctx fns.Context, key string) (err errors.CodeError) {
 	if svc.client.Writer().Exists(ctx, key).Val() == 0 {
 		svc.client.Writer().SetNX(ctx, key, int64(0), 0)
 	}
@@ -45,7 +45,7 @@ func (svc *Service) incr(ctx fns.Context, key string) (err errors.CodeError) {
 	return
 }
 
-func (svc *Service) decr(ctx fns.Context, key string) (err errors.CodeError) {
+func (svc *_service) decr(ctx fns.Context, key string) (err errors.CodeError) {
 	if svc.client.Writer().Exists(ctx, key).Val() == 0 {
 		svc.client.Writer().SetNX(ctx, key, int64(0), 0)
 	}

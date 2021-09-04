@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (svc *Service) contains(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
+func (svc *_service) contains(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().Exists(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -16,7 +16,7 @@ func (svc *Service) contains(ctx fns.Context, key string) (ok bool, err errors.C
 	return
 }
 
-func (svc *Service) remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
+func (svc *_service) remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().Del(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -31,7 +31,7 @@ type ExpireParam struct {
 	TTL time.Duration `json:"ttl,omitempty"`
 }
 
-func (svc *Service) expire(ctx fns.Context, param ExpireParam) (ok bool, err errors.CodeError) {
+func (svc *_service) expire(ctx fns.Context, param ExpireParam) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().Expire(ctx, param.Key, param.TTL).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -41,7 +41,7 @@ func (svc *Service) expire(ctx fns.Context, param ExpireParam) (ok bool, err err
 	return
 }
 
-func (svc *Service) persist(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
+func (svc *_service) persist(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().Persist(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -51,7 +51,7 @@ func (svc *Service) persist(ctx fns.Context, key string) (ok bool, err errors.Co
 	return
 }
 
-func (svc *Service) ttl(ctx fns.Context, key string) (ttl time.Duration, err errors.CodeError) {
+func (svc *_service) ttl(ctx fns.Context, key string) (ttl time.Duration, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().TTL(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())

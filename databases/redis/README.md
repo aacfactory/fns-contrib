@@ -49,7 +49,7 @@ go get github.com/aacfactory/fns-contrib/databases/redis
     * 也可以与fns单机模式一样使用。
 
 ```go
-app.Deply(&redis.Service{})
+app.Deply(redis.Service())
 ```
 
 服务使用，具体参见 [github.com/aacfactory/fns-contrib/databases/redis/proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/redis/proxy.go)
