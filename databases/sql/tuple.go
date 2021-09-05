@@ -102,6 +102,12 @@ func (t *Tuple) Append(values ...interface{}) (err error) {
 		case time.Time:
 			x := v.(time.Time)
 			t.values = append(t.values, fmt.Sprintf("ttt:%s", x.Format(time.RFC3339)))
+		case json.Date:
+			x := v.(json.Date)
+			t.values = append(t.values, fmt.Sprintf("ttt:%s", x.ToTime().Format(time.RFC3339)))
+		case json.Time:
+			x := v.(json.Time)
+			t.values = append(t.values, fmt.Sprintf("ttt:%s", time.Time(x).Format(time.RFC3339)))
 		case sql.NullTime:
 			x := v.(sql.NullTime)
 			if x.Valid {
