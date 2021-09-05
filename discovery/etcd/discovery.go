@@ -112,7 +112,7 @@ func newEtcdDiscovery(option fns.ServiceDiscoveryOption) (discovery *etcdDiscove
 	}
 
 	ed := &etcdDiscovery{
-		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(option.HttpClientPoolSize),
+		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(option.HttpClients),
 		ec:                       ec,
 		address:                  option.Address,
 		grantTTL:                 time.Duration(grantTTL) * time.Second,

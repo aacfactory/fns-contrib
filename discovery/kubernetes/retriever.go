@@ -30,7 +30,7 @@ func Retriever(option fns.ServiceDiscoveryOption) (discovery fns.ServiceDiscover
 		return
 	}
 
-	discovery, err = newKube(namespace, option.HttpClientPoolSize)
+	discovery, err = newKube(namespace, option.HttpClients)
 	if err != nil {
 		err = fmt.Errorf("fns ServiceDiscovery KubernetesRetriever: %v", err)
 	}

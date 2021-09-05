@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func newKube(namespace string, httpClientPoolSize int) (k *Kube, err error) {
+func newKube(namespace string, httpClients *fns.HttpClients) (k *Kube, err error) {
 	config, configErr := rest.InClusterConfig()
 	if configErr != nil {
 		err = fmt.Errorf("get kubernetes cluster config failed, %v", configErr)
@@ -39,7 +39,7 @@ func newKube(namespace string, httpClientPoolSize int) (k *Kube, err error) {
 	}
 
 	k = &Kube{
-		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(httpClientPoolSize),
+		AbstractServiceDiscovery: fns.NewAbstractServiceDiscovery(httpClients),
 		kubeNS:                   namespace,
 		client:                   client,
 		watchingClosedCh:         make(chan struct{}, 1),
