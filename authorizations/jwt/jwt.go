@@ -24,7 +24,8 @@ type Authorizations struct {
 }
 
 func (auth *Authorizations) Encode(ctx fns.Context) (value []byte, err errors.CodeError) {
-	if ctx.User().Exists() {
+	userId := ctx.User().Id()
+	if userId == "" {
 		err = errors.ServiceError("fns UserClaims Encode: sign token failed for user is empty")
 		return
 	}
@@ -58,10 +59,9 @@ func (auth *Authorizations) Encode(ctx fns.Context) (value []byte, err errors.Co
 		return
 	}
 
-	value = make([]byte, 9+len(signed))
-	copy(value[:9], prefix)
-	copy(value[9:], signed)
-
+	value = make([]byte, 7+len(signed))
+	copy(value[:7], prefix)
+	copy(value[7:], signed)
 	ctx.User().SetAuthorization(value)
 	claims.MapToUserPrincipals(ctx.User())
 
@@ -70,7 +70,7 @@ func (auth *Authorizations) Encode(ctx fns.Context) (value []byte, err errors.Co
 
 func (auth *Authorizations) Decode(ctx fns.Context, value []byte) (err errors.CodeError) {
 
-	if value == nil || len(value) < 9 {
+	if value == nil || len(value) < 7 {
 		err = errors.Unauthorized(fmt.Sprintf("fns JWT Decode: %s is not jwt", string(value)))
 		return
 	}
@@ -80,7 +80,7 @@ func (auth *Authorizations) Decode(ctx fns.Context, value []byte) (err errors.Co
 		return
 	}
 
-	token, parseErr := gwt.ParseWithClaims(string(value[9:]), NewUserClaims(), func(token *gwt.Token) (interface{}, error) {
+	token, parseErr := gwt.ParseWithClaims(string(value[7:]), NewUserClaims(), func(token *gwt.Token) (interface{}, error) {
 		return auth.pubKey, nil
 	})
 
