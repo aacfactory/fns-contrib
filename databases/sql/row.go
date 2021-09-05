@@ -102,9 +102,9 @@ func (r *Rows) Scan(v interface{}) (err error) {
 				return
 			}
 			if elemIsPtr {
-				rv0 = reflect.Append(rv, x)
+				rv0 = reflect.Append(rv0, x)
 			} else {
-				rv0 = reflect.Append(rv, x.Elem())
+				rv0 = reflect.Append(rv0, x.Elem())
 			}
 		}
 		rv.Set(rv0)
