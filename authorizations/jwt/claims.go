@@ -11,13 +11,13 @@ import (
 func NewUserClaims() *UserClaims {
 	return &UserClaims{
 		StandardClaims: gwt.StandardClaims{},
-		Attr:           json.Object{},
+		Attr:           json.NewObject(),
 	}
 }
 
 type UserClaims struct {
 	gwt.StandardClaims
-	Attr json.Object `json:"attr,omitempty"`
+	Attr *json.Object `json:"attr,omitempty"`
 }
 
 func (c *UserClaims) Valid() (err error) {

@@ -23,7 +23,11 @@ type Authorizations struct {
 	store       Store
 }
 
-func (auth *Authorizations) Encode(user fns.User) (value []byte, err error) {
+func (auth *Authorizations) Encode(ctx fns.Context) (value []byte, err errors.CodeError) {
+	if ctx.User().Exists() {
+		err = errors.ServiceError("fns UserClaims Encode: sign token failed for user is empty")
+		return
+	}
 
 	claims := NewUserClaims()
 	claims.SetId(fns.UID())
@@ -32,7 +36,13 @@ func (auth *Authorizations) Encode(user fns.User) (value []byte, err error) {
 	claims.SetIssuer(auth.issuer)
 	claims.SetIssuerAt(time.Now())
 	claims.SetNotBefore(time.Now())
-	claims.SetSub(user.Id())
+	claims.SetSub(ctx.User().Id())
+	copyAttrErr := ctx.User().Attributes().WriteTo(claims.Attr)
+
+	if copyAttrErr != nil {
+		err = errors.ServiceError("fns UserClaims Encode: sign token failed for copy user attributes").WithCause(copyAttrErr)
+		return
+	}
 
 	token := gwt.NewWithClaims(auth.method, claims)
 
@@ -42,16 +52,23 @@ func (auth *Authorizations) Encode(user fns.User) (value []byte, err error) {
 		return
 	}
 
-	claims.MapToUserPrincipals(user)
+	activeErr := auth.active(ctx, claims)
+	if activeErr != nil {
+		err = errors.ServiceError("fns UserClaims Encode: sign token failed for active user authorization").WithCause(activeErr)
+		return
+	}
 
 	value = make([]byte, 9+len(signed))
 	copy(value[:9], prefix)
 	copy(value[9:], signed)
 
+	ctx.User().SetAuthorization(value)
+	claims.MapToUserPrincipals(ctx.User())
+
 	return
 }
 
-func (auth *Authorizations) Decode(value []byte, user fns.User) (err error) {
+func (auth *Authorizations) Decode(ctx fns.Context, value []byte) (err errors.CodeError) {
 
 	if value == nil || len(value) < 9 {
 		err = errors.Unauthorized(fmt.Sprintf("fns JWT Decode: %s is not jwt", string(value)))
@@ -63,7 +80,7 @@ func (auth *Authorizations) Decode(value []byte, user fns.User) (err error) {
 		return
 	}
 
-	token, parseErr := gwt.ParseWithClaims(string(value[9:]), &UserClaims{}, func(token *gwt.Token) (interface{}, error) {
+	token, parseErr := gwt.ParseWithClaims(string(value[9:]), NewUserClaims(), func(token *gwt.Token) (interface{}, error) {
 		return auth.pubKey, nil
 	})
 
@@ -105,52 +122,55 @@ func (auth *Authorizations) Decode(value []byte, user fns.User) (err error) {
 		return
 	}
 
-	claims.MapToUserPrincipals(user)
-	_ = user.Attributes().UnmarshalJSON(claims.Attr.Raw())
+	if !auth.isActive(ctx, claims) {
+		err = errors.Unauthorized(fmt.Sprintf("fns JWT Decode: %s is invalid for it is not active", string(value)))
+		return
+	}
+
+	claims.MapToUserPrincipals(ctx.User())
+	if claims.Attr != nil {
+		copyAttrErr := claims.Attr.WriteTo(ctx.User().Attributes())
+		if copyAttrErr != nil {
+			err = errors.Unauthorized(fmt.Sprintf("fns JWT Decode: %s is invalid, copy user attributes failed", string(value))).WithCause(copyAttrErr)
+			return
+		}
+	}
 
 	return
 }
 
-func (auth *Authorizations) IsActive(ctx fns.Context, user fns.User) (ok bool) {
-	id := ""
-	_ = user.Principals().Get("jti", &id)
-	if id == "" {
-		return
-	}
-
-	ok = auth.store.LookUp(ctx, id)
+func (auth *Authorizations) isActive(ctx fns.Context, claims *UserClaims) (ok bool) {
+	ok = auth.store.LookUp(ctx, claims.Id)
 	return
 }
 
-func (auth *Authorizations) Active(ctx fns.Context, user fns.User) (err error) {
-	id := ""
-	_ = user.Principals().Get("jti", &id)
-	if id == "" {
-		return
-	}
+func (auth *Authorizations) active(ctx fns.Context, claims *UserClaims) (err error) {
 
-	exp := int64(0)
-	_ = user.Principals().Get("exp", &exp)
+	exp := claims.ExpiresAt
 
-	if exp == 0 {
-		exp = int64(auth.expirations)
-		_ = user.Principals().Put("exp", time.Now().Add(auth.expirations))
-	} else {
+	if exp > 0 {
 		exp = int64(time.Unix(exp, 0).Sub(time.Now()))
+	} else {
+		exp = int64(auth.expirations)
 	}
 
-	err = auth.store.Active(ctx, id, time.Duration(exp))
+	err = auth.store.Active(ctx, claims.Id, time.Duration(exp))
 
 	return
 }
 
-func (auth *Authorizations) Revoke(ctx fns.Context, user fns.User) (err error) {
+func (auth *Authorizations) Revoke(ctx fns.Context) (err errors.CodeError) {
+
 	id := ""
-	_ = user.Principals().Get("jti", &id)
+	_ = ctx.User().Principals().Get("jti", &id)
 	if id == "" {
 		return
 	}
 
-	err = auth.store.Revoke(ctx, id)
+	revokeErr := auth.store.Revoke(ctx, id)
+	if revokeErr != nil {
+		err = errors.ServiceError("fns JWT Revoke: revoke failed").WithCause(revokeErr)
+		return
+	}
 	return
 }
