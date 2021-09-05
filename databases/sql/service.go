@@ -77,6 +77,7 @@ func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (
 	}
 	switch fn {
 	case TxBeginFn:
+		ctx = fns.WithFn(ctx, fn)
 		param := TxBeginParam{}
 		paramErr := argument.As(&param)
 		if paramErr != nil {
@@ -88,12 +89,15 @@ func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (
 			Address: ctx.App().PublicAddress(),
 		}
 	case TxCommitFn:
+		ctx = fns.WithFn(ctx, fn)
 		err = svc.txCommit(ctx)
 		result = fns.Empty{}
 	case TxRollbackFn:
+		ctx = fns.WithFn(ctx, fn)
 		err = svc.txRollback(ctx)
 		result = fns.Empty{}
 	case QueryFn:
+		ctx = fns.WithFn(ctx, fn)
 		param := Param{}
 		paramErr := argument.As(&param)
 		if paramErr != nil {
@@ -107,6 +111,7 @@ func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (
 		}
 		result = rows
 	case ExecuteFn:
+		ctx = fns.WithFn(ctx, fn)
 		param := Param{}
 		paramErr := argument.As(&param)
 		if paramErr != nil {
