@@ -2,8 +2,10 @@ package sql
 
 import (
 	"database/sql"
+	stdJson "encoding/json"
 	"fmt"
 	"github.com/aacfactory/json"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -18,7 +20,7 @@ type Tuple struct {
 	values []string
 }
 
-func (t *Tuple) Append(values ...interface{}) (err error) {
+func (t *Tuple) Append(values ...interface{}) {
 	if t.values == nil {
 		t.values = make([]string, 0, 1)
 	}
@@ -40,8 +42,12 @@ func (t *Tuple) Append(values ...interface{}) (err error) {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
-		case []byte, json.RawMessage:
+		case []byte:
 			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.([]byte))))
+		case json.RawMessage:
+			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.(json.RawMessage))))
+		case stdJson.RawMessage:
+			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.(stdJson.RawMessage))))
 		case int, int8, int16, int32, int64, uint, uint16, uint32, uint64:
 			t.values = append(t.values, fmt.Sprintf("int:%v", v))
 		case sql.NullInt16:
@@ -119,7 +125,7 @@ func (t *Tuple) Append(values ...interface{}) (err error) {
 			x := v.(time.Duration)
 			t.values = append(t.values, fmt.Sprintf("int:%d", x.Milliseconds()))
 		default:
-			err = fmt.Errorf("fns SQL Tuple: appended %d of values type is not supported", i)
+			panic(fmt.Errorf("fns SQL Tuple: appended %d of values type(%s) is not supported", i, reflect.TypeOf(v).String()))
 			return
 		}
 	}
