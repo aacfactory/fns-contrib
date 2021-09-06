@@ -12,7 +12,6 @@ go get github.com/aacfactory/fns-contrib/discovery/etcd
     "discovery": {
       "enable": true,
       "kind": "etcd",
-      "httpClientPoolSize": 0, // when zero, size is cpu num * 2
       "config": {
         "endpoints": [
           ""

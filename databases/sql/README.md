@@ -25,7 +25,7 @@ go get github.com/aacfactory/fns-contrib/databases/sql
     "masterSlaverMode": false,
     "driver": "",
     "dsn": [
-      "username:password@tcp(ip:port)/databases"
+      "username:password@tcp(ip:port)/databases" // 也可以是 sql.Open() 中的参数值
     ],
     "maxIdles": 0,
     "maxOpens": 0
@@ -57,7 +57,16 @@ app.Deply(sql.Service())
 ### 代理使用
 
 具体参考 [proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/proxy.go)
-
+```go
+// 在上下文中开启事务
+sql.TxBegin(ctx)
+// 提交上下文中的事务
+sql.TxCommit(ctx)
+// 查询，如果 param 中设置在事务中查询，则使用事务查询
+sql.Query(ctx, param)
+// 执行，如果 param 中设置在事务中查询，则使用事务查询
+sql.Execute(ctx, param)
+```
 ## 分布式事务（GlobalTransactionManagement）
 
 使用以请求编号绑定事务，并在请求上下文中标记事务所在服务，在服务发现的精确发现功能中把同一个请求上下文（无论在哪个节点）都转发到事务所在服务。<br/>

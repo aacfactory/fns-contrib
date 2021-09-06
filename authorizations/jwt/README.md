@@ -13,7 +13,7 @@ go get github.com/aacfactory/fns-contrib/authorizations/jwt
       "enable": true,
       "kind": "jwt",
       "config": {
-        "method": "",          // HS256, RS256, SOME VALUE OF ALG
+        "method": "",          // HS256, RS512, SOME VALUE OF ALG
         "sk": "",              // only HSXXX used
         "publicKey": "",       // pem file path
         "privateKey": "",      // pem file path
@@ -36,15 +36,17 @@ go get github.com/aacfactory/fns-contrib/authorizations/jwt
 ```go
 import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 ```
-## Service 类型 Store
+## Store
+令牌存储器，用于存储令牌，一般用于单点登录（一个令牌只能在被申请终端设备上使用），直接吊销等功能。
+### Service 类型 Store
 * [redis](https://github.com/aacfactory/fns-contrib/tree/main/databases/redis)
   * namespace = redis
   * activeTokenFn = set
   * lookUpTokenFn = contains
   * revokeTokenFn = remove
 
-### 存储函数定义
-参数，value 是 json.RawMessage，expiration 是 time.Duration。
+### 保存函数定义
+参数：key 是 JTI，value 是 json.RawMessage 类型的 token，expiration 是 time.Duration。
 ```json
 {
   "key": "",
@@ -57,7 +59,7 @@ import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 {}
 ```
 ### 删除函数接口定义
-参数
+参数：key 是 JTI
 ```json
 {
   "key": ""
@@ -68,7 +70,7 @@ import _ "github.com/aacfactory/fns-contrib/authorizations/jwt"
 {}
 ```
 ### 判断是否存在函数接口定义
-参数
+参数：key 是 JTI
 ```json
 {
   "key": ""

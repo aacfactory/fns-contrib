@@ -2,12 +2,10 @@ module github.com/aacfactory/fns-contrib/databases/sql
 
 go 1.17
 
-replace github.com/aacfactory/fns v0.0.1 => ../../../fns
-
 require (
 	github.com/aacfactory/configuares v1.2.2
 	github.com/aacfactory/errors v1.5.0
-	github.com/aacfactory/fns v0.0.1
+	github.com/aacfactory/fns v0.3.0
 	github.com/aacfactory/json v1.4.2
 )
 
@@ -21,7 +19,7 @@ require (
 	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/goccy/go-yaml v1.9.2 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
-	github.com/klauspost/compress v1.13.4 // indirect
+	github.com/klauspost/compress v1.13.5 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
@@ -35,6 +33,7 @@ require (
 	github.com/tidwall/sjson v1.2.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.29.0 // indirect
+	go.uber.org/automaxprocs v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069 // indirect
 	golang.org/x/text v0.3.6 // indirect

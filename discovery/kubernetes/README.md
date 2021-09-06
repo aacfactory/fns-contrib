@@ -12,7 +12,6 @@ go get github.com/aacfactory/fns-contrib/discovery/kubernetes
     "discovery": {
       "enable": true,
       "kind": "kubernetes",
-      "httpClientPoolSize": 0, // when zero, size is cpu num * 2
       "config": {
         "namespace": ""      // kubernetes 的 namespace
       }
