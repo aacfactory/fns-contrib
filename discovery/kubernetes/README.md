@@ -1,8 +1,8 @@
 # Kubernetes
 基于 Labels 获取 Service 的服务注册与发现。
 ## 安装
-```go
-go get github.com/aacfactory/fns-contrib/discovery/kubernetes
+```shell
+go get github.com/aacfactory/fns-contrib/discovery/kubernetes@main
 ```
 ## 使用
 配置文件，其中kind必须是 kubernetes，且必须小写。

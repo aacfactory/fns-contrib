@@ -1,8 +1,8 @@
 # JWT
 基于 JWT 的 FNS Authorizations。
 ## 安装
-```go
-go get github.com/aacfactory/fns-contrib/authorizations/jwt
+```shell
+go get github.com/aacfactory/fns-contrib/authorizations/jwt@main
 ```
 ## 使用
 配置文件，其中kind必须是jwt，且必须小写。

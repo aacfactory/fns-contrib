@@ -4,8 +4,8 @@
 
 ## 安装
 
-```go
-go get github.com/aacfactory/fns-contrib/databases/redis
+```shell
+go get github.com/aacfactory/fns-contrib/databases/redis@main
 ```
 
 ## 使用
