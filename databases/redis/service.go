@@ -35,6 +35,10 @@ const (
 	OriginCmdFn        = "cmd"
 )
 
+func Service() fns.Service {
+	return &_service{}
+}
+
 type _service struct {
 	client Client
 }
