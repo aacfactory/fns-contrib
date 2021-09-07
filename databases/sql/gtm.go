@@ -45,7 +45,11 @@ type GlobalTransactionManagement struct {
 
 func (gtm *GlobalTransactionManagement) Set(ctx fns.Context, tx *sql.Tx, timeout time.Duration) (err error) {
 	if timeout < 1*time.Second {
-		timeout = 10 * time.Second
+		if ctx.App().ClusterMode() {
+			timeout = 3 * time.Second
+		} else {
+			timeout = 1 * time.Second
+		}
 	}
 	id := ctx.RequestId()
 	_, has := gtm.Get(ctx)
