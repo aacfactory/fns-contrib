@@ -306,7 +306,7 @@ func (r *Row) Scan(target interface{}) (err error) {
 			x := column.Value
 			if fv.Type() == sqlJsonType || fv.Type() == sqlSTDJsonType {
 				fv.SetBytes(x)
-			} else if fv.Type().Kind() == reflect.Ptr {
+			} else if fv.Type().Kind() == reflect.Ptr || fv.Type().Kind() == reflect.Slice {
 				vv := reflect.New(fv.Type()).Interface()
 				decodeErr := json.Unmarshal(x, vv)
 				if decodeErr != nil {
