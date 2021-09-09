@@ -124,7 +124,7 @@ func (c *Column) Scan(src interface{}) error {
 }
 
 func createColumnValueByColumnType(ct *db.ColumnType) (col *Column) {
-	colName := ct.Name()
+	colName := strings.ToUpper(ct.Name())
 	_, scale, isNumber := ct.DecimalSize()
 	if isNumber {
 		if scale > 0 {
@@ -288,4 +288,10 @@ func (v *NullSQLRaw) Scan(src interface{}) error {
 	}
 
 	return nil
+}
+
+type FieldColumn struct {
+	Kind      string
+	FieldType reflect.Type
+	Column    *Column
 }

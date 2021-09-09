@@ -2,6 +2,7 @@ package sql
 
 import (
 	db "database/sql"
+	stdJson "encoding/json"
 	"fmt"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -140,18 +141,20 @@ var (
 	sqlNullTimeType    = reflect.TypeOf(db.NullTime{})
 	sqlTimeType        = reflect.TypeOf(time.Time{})
 	sqlBytesType       = reflect.TypeOf([]byte{})
+	sqlJsonType        = reflect.TypeOf(json.RawMessage{})
+	sqlSTDJsonType     = reflect.TypeOf(stdJson.RawMessage{})
 )
 
 type Row struct {
 	Columns []*Column `json:"columns,omitempty"`
 }
 
-func (r *Row) Scan(v interface{}) (err error) {
-	if v == nil {
+func (r *Row) Scan(target interface{}) (err error) {
+	if target == nil {
 		err = fmt.Errorf("fns SQL Row: scan at a nil point value")
 		return
 	}
-	typ := reflect.TypeOf(v)
+	typ := reflect.TypeOf(target)
 	if typ.Kind() != reflect.Ptr {
 		err = fmt.Errorf("fns SQL Row: scan failed for target is not ptr")
 		return
@@ -164,7 +167,7 @@ func (r *Row) Scan(v interface{}) (err error) {
 		return
 	}
 
-	ref := make(map[string]*Column)
+	ref := make(map[string]*FieldColumn)
 
 	for i := 0; i < typ.Elem().NumField(); i++ {
 		field := typ.Elem().Field(i)
@@ -172,13 +175,31 @@ func (r *Row) Scan(v interface{}) (err error) {
 		if !hasTag {
 			continue
 		}
-		tagValue = strings.TrimSpace(tagValue)
+		tagValue = strings.ToUpper(strings.TrimSpace(tagValue))
 		if tagValue == "" {
 			continue
 		}
+
+		colName := ""
+		colKind := ""
+		if strings.Contains(tagValue, ",") {
+			tagValues := strings.Split(tagValue, ",")
+			colName = strings.TrimSpace(tagValues[0])
+			colKind = strings.TrimSpace(tagValues[1])
+		} else {
+			colName = tagValue
+		}
+		if colName == "-" {
+			continue
+		}
+
 		for _, column := range r.Columns {
-			if column.Name == tagValue {
-				ref[field.Name] = column
+			if column.Name == colName {
+				ref[field.Name] = &FieldColumn{
+					Kind:      colKind,
+					FieldType: field.Type,
+					Column:    column,
+				}
 				break
 			}
 		}
@@ -188,12 +209,14 @@ func (r *Row) Scan(v interface{}) (err error) {
 		return
 	}
 
-	rv := reflect.ValueOf(v)
-	for name, column := range ref {
+	rv := reflect.ValueOf(target)
+	for name, fieldColumn := range ref {
+		column := fieldColumn.Column
 		if column.Nil {
 			continue
 		}
 		fv := rv.Elem().FieldByName(name)
+
 		switch column.Type {
 		case StringType:
 			x := ""
@@ -206,6 +229,10 @@ func (r *Row) Scan(v interface{}) (err error) {
 				fv.Set(reflect.ValueOf(v))
 			} else if fv.Type() == sqlStringType {
 				fv.SetString(x)
+			} else if fv.Type().Kind() == reflect.Ptr {
+				vv := reflect.New(fv.Type())
+				rowScanFK(fieldColumn, vv, x)
+				fv.Set(vv)
 			}
 		case BytesType:
 			x := make([]byte, 0, 1)
@@ -234,6 +261,10 @@ func (r *Row) Scan(v interface{}) (err error) {
 				fv.Set(reflect.ValueOf(v))
 			} else if fv.Type() == sqlIntType || fv.Type() == sqlInt8Type || fv.Type() == sqlInt16Type || fv.Type() == sqlInt32Type || fv.Type() == sqlInt64Type {
 				fv.SetInt(x)
+			} else if fv.Type().Kind() == reflect.Ptr {
+				vv := reflect.New(fv.Type().Elem())
+				rowScanFK(fieldColumn, vv, x)
+				fv.Set(vv)
 			}
 		case FloatType:
 			x := float64(0)
@@ -272,14 +303,61 @@ func (r *Row) Scan(v interface{}) (err error) {
 				fv.SetBool(x)
 			}
 		case JsonType:
-			fv.SetBytes(column.Value)
+			x := column.Value
+			if fv.Type() == sqlJsonType || fv.Type() == sqlSTDJsonType {
+				fv.SetBytes(x)
+			} else if fv.Type().Kind() == reflect.Ptr {
+				vv := reflect.New(fv.Type()).Interface()
+				decodeErr := json.Unmarshal(x, vv)
+				if decodeErr != nil {
+					err = fmt.Errorf("fns SQL Row: scan failed for decode json of %v is not supported", name)
+					return
+				}
+				fv.Set(reflect.ValueOf(vv).Elem())
+			}
 		case UnknownType:
 			if fv.Type().AssignableTo(sqlBytesType) {
 				fv.SetBytes(column.Value)
 			}
 		default:
-			err = fmt.Errorf("fns SQL Row: scan failed for %s of %v is not supported", fv.Type().String(), name)
+			err = fmt.Errorf("fns SQL Row: scan failed for %s of %s is not supported", fv.Type().String(), name)
 		}
 	}
 	return
+}
+
+func rowScanFK(fc *FieldColumn, fv reflect.Value, v interface{}) {
+	fvType := fv.Elem().Type()
+	pkFieldName := ""
+	for i := 0; i < fvType.NumField(); i++ {
+		field := fvType.Field(i)
+		tagValue, hasTag := field.Tag.Lookup(columnStructTag)
+		if !hasTag {
+			continue
+		}
+		tagValue = strings.ToUpper(strings.TrimSpace(tagValue))
+		if tagValue == "" || tagValue == "-" || !strings.Contains(tagValue, ",") {
+			continue
+		}
+		kind := tagValue[strings.Index(tagValue, ",")+1:]
+		if kind == "PK" {
+			pkFieldName = field.Name
+			break
+		}
+	}
+	if pkFieldName == "" {
+		return
+	}
+	switch fc.Column.Type {
+	case StringType:
+		sv, ok := v.(string)
+		if ok {
+			fv.Elem().FieldByName(pkFieldName).SetString(sv)
+		}
+	case IntType:
+		sv, ok := v.(int64)
+		if ok {
+			fv.Elem().FieldByName(pkFieldName).SetInt(sv)
+		}
+	}
 }

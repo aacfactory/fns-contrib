@@ -20,12 +20,12 @@ type Tuple struct {
 	values []string
 }
 
-func (t *Tuple) Append(values ...interface{}) {
+func (t *Tuple) Append(values ...interface{}) *Tuple {
 	if t.values == nil {
 		t.values = make([]string, 0, 1)
 	}
 	if values == nil {
-		return
+		return t
 	}
 	for i, v := range values {
 		if v == nil {
@@ -126,10 +126,10 @@ func (t *Tuple) Append(values ...interface{}) {
 			t.values = append(t.values, fmt.Sprintf("int:%d", x.Milliseconds()))
 		default:
 			panic(fmt.Errorf("fns SQL Tuple: appended %d of values type(%s) is not supported", i, reflect.TypeOf(v).String()))
-			return
+			return t
 		}
 	}
-	return
+	return t
 }
 
 func (t *Tuple) mapToSQLArgs() (args []interface{}) {
