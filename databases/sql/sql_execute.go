@@ -11,24 +11,18 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: execute failed for no query string")
+		svc.txRollbackIfHas(ctx)
 		return
 	}
-	var exec Executor
-	if param.InTx {
-		tx, hasTx := svc.getTx(ctx)
-		if !hasTx {
-			err = errors.ServiceError("fns SQL: execute in tx failed cause tx was not found")
-			return
-		}
-		exec = tx
-	}
-	exec = svc.client.Writer()
+
+	exec := svc.getExecutor(ctx)
 
 	var dbResult db.Result
 	if param.Args == nil {
 		dbResult0, execErr := exec.ExecContext(ctx, query)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
+			svc.txRollbackIfHas(ctx)
 			return
 		}
 		dbResult = dbResult0
@@ -37,6 +31,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		dbResult0, execErr := exec.ExecContext(ctx, query, args...)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
+			svc.txRollbackIfHas(ctx)
 			return
 		}
 		dbResult = dbResult0
@@ -44,6 +39,10 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 
 	lastInsertId, _ := dbResult.LastInsertId()
 	affected, _ := dbResult.RowsAffected()
+
+	if affected == 0 {
+		svc.txRollbackIfHas(ctx)
+	}
 
 	result = &ExecResult{
 		Affected:     affected,

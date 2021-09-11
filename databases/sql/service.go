@@ -137,12 +137,31 @@ func (svc *_service) Close() (err error) {
 	return
 }
 
+func (svc *_service) getExecutor(ctx fns.Context) (v Executor) {
+	tx, hasTx := svc.getTx(ctx)
+	if hasTx {
+		v = tx
+	} else {
+		v = svc.client.Writer()
+	}
+	return
+}
+
+func (svc *_service) getQueryAble(ctx fns.Context) (v QueryAble) {
+	tx, hasTx := svc.getTx(ctx)
+	if hasTx {
+		v = tx
+	} else {
+		v = svc.client.Reader()
+	}
+	return
+}
+
 // +-------------------------------------------------------------------------------------------------------------------+
 
 type Param struct {
 	Query string `json:"query,omitempty"`
 	Args  *Tuple `json:"args,omitempty"`
-	InTx  bool   `json:"inTx,omitempty"`
 }
 
 // +-------------------------------------------------------------------------------------------------------------------+

@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-func (svc *_service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
-	tx, has = svc.gtm.Get(ctx)
-	return
-}
-
 type TxBeginParam struct {
 	Timeout   time.Duration     `json:"timeout,omitempty"`
 	Isolation db.IsolationLevel `json:"isolation,omitempty"`
+}
+
+func (svc *_service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
+	tx, has = svc.gtm.Get(ctx)
+	return
 }
 
 func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
@@ -36,6 +36,8 @@ func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.Co
 	setErr := svc.gtm.Set(ctx, tx, param.Timeout)
 	if setErr != nil {
 		_ = tx.Rollback()
+		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(setErr)
+		return
 	}
 
 	return
@@ -71,5 +73,15 @@ func (svc *_service) txRollback(ctx fns.Context) (err errors.CodeError) {
 	_ = tx.Rollback()
 	svc.gtm.Del(ctx)
 
+	return
+}
+
+func (svc *_service) txRollbackIfHas(ctx fns.Context) {
+	tx, has := svc.gtm.Get(ctx)
+	if !has {
+		return
+	}
+	_ = tx.Rollback()
+	svc.gtm.Del(ctx)
 	return
 }

@@ -11,24 +11,18 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: query failed for no query string")
+		svc.txRollbackIfHas(ctx)
 		return
 	}
-	var q QueryAble
-	if param.InTx {
-		tx, hasTx := svc.getTx(ctx)
-		if !hasTx {
-			err = errors.ServiceError("fns SQL: query in tx failed cause tx was not found")
-			return
-		}
-		q = tx
-	}
-	q = svc.client.Reader()
+
+	q := svc.getQueryAble(ctx)
 
 	var dbRows *db.Rows
 	if param.Args == nil {
 		dbRows0, queryErr := q.QueryContext(ctx, query)
 		if queryErr != nil {
 			err = errors.ServiceError("fns SQL: query failed").WithCause(queryErr)
+			svc.txRollbackIfHas(ctx)
 			return
 		}
 		dbRows = dbRows0
@@ -37,6 +31,7 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 		dbRows0, queryErr := q.QueryContext(ctx, query, args...)
 		if queryErr != nil {
 			err = errors.ServiceError("fns SQL: query failed").WithCause(queryErr)
+			svc.txRollbackIfHas(ctx)
 			return
 		}
 		dbRows = dbRows0
@@ -45,6 +40,7 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 	rows0, rowErr := NewRows(dbRows)
 	if rowErr != nil {
 		err = errors.ServiceError("fns SQL: query failed").WithCause(rowErr)
+		svc.txRollbackIfHas(ctx)
 		return
 	}
 	rows = rows0
