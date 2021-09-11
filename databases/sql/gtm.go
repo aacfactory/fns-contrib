@@ -1,7 +1,7 @@
 package sql
 
 import (
-	"database/sql"
+	db "database/sql"
 	"fmt"
 	"github.com/aacfactory/fns"
 	"sync"
@@ -10,7 +10,8 @@ import (
 
 type GlobalTransaction struct {
 	id        string
-	tx        *sql.Tx
+	tx        *db.Tx
+	times     int
 	doneCh    chan struct{}
 	timeout   time.Duration
 	timeoutCh chan string
@@ -43,7 +44,7 @@ type GlobalTransactionManagement struct {
 	closeCh   chan struct{}
 }
 
-func (gtm *GlobalTransactionManagement) Set(ctx fns.Context, tx *sql.Tx, timeout time.Duration) (err error) {
+func (gtm *GlobalTransactionManagement) Begin(ctx fns.Context, db0 *db.DB, isolation db.IsolationLevel, timeout time.Duration) (err error) {
 	if timeout < 1*time.Second {
 		if ctx.App().ClusterMode() {
 			timeout = 3 * time.Second
@@ -51,25 +52,40 @@ func (gtm *GlobalTransactionManagement) Set(ctx fns.Context, tx *sql.Tx, timeout
 			timeout = 1 * time.Second
 		}
 	}
+	if isolation < 0 || isolation > 7 {
+		isolation = 0
+	}
 	id := ctx.RequestId()
-	_, has := gtm.Get(ctx)
-	if has {
-		err = fmt.Errorf("fns GlobalTransactionManagement: set failed, %s can not set again", id)
-		return
+	var gt *GlobalTransaction
+	value, has := gtm.txMap.Load(id)
+	if !has {
+		tx, txErr := db0.BeginTx(ctx, &db.TxOptions{
+			Isolation: isolation,
+			ReadOnly:  false,
+		})
+		if txErr != nil {
+			err = fmt.Errorf("fns GlobalTransactionManagement: begin failed, %v", txErr)
+			return
+		}
+
+		gt = &GlobalTransaction{
+			id:        id,
+			tx:        tx,
+			times:     0,
+			doneCh:    make(chan struct{}, 1),
+			timeout:   timeout,
+			timeoutCh: gtm.timeoutCh,
+		}
+		gt.checking()
+	} else {
+		gt = value.(*GlobalTransaction)
 	}
-	gt := &GlobalTransaction{
-		id:        id,
-		tx:        tx,
-		doneCh:    make(chan struct{}, 1),
-		timeout:   timeout,
-		timeoutCh: gtm.timeoutCh,
-	}
-	gt.checking()
+	gt.times = gt.times + 1
 	gtm.txMap.Store(id, gt)
 	return
 }
 
-func (gtm *GlobalTransactionManagement) Get(ctx fns.Context) (tx *sql.Tx, has bool) {
+func (gtm *GlobalTransactionManagement) GetTx(ctx fns.Context) (tx *db.Tx, has bool) {
 	id := ctx.RequestId()
 	value, ok := gtm.txMap.Load(id)
 	if !ok {
@@ -81,13 +97,34 @@ func (gtm *GlobalTransactionManagement) Get(ctx fns.Context) (tx *sql.Tx, has bo
 	return
 }
 
-func (gtm *GlobalTransactionManagement) Del(ctx fns.Context) {
+func (gtm *GlobalTransactionManagement) Commit(ctx fns.Context) (err error) {
+	id := ctx.RequestId()
+	value, ok := gtm.txMap.Load(id)
+	if !ok {
+		err = fmt.Errorf("fns SQL: no tx")
+		return
+	}
+	gt := value.(*GlobalTransaction)
+	gt.times = gt.times - 1
+	if gt.times < 1 {
+		err = gt.tx.Commit()
+		_ = gt.tx.Rollback()
+		close(gt.doneCh)
+		gtm.txMap.Delete(id)
+	} else {
+		gtm.txMap.Store(id, gt)
+	}
+	return
+}
+
+func (gtm *GlobalTransactionManagement) Rollback(ctx fns.Context) {
 	id := ctx.RequestId()
 	value, ok := gtm.txMap.Load(id)
 	if !ok {
 		return
 	}
 	gt := value.(*GlobalTransaction)
+	_ = gt.tx.Rollback()
 	close(gt.doneCh)
 	gtm.txMap.Delete(id)
 	return

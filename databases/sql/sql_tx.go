@@ -13,75 +13,29 @@ type TxBeginParam struct {
 }
 
 func (svc *_service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
-	tx, has = svc.gtm.Get(ctx)
+	tx, has = svc.gtm.GetTx(ctx)
 	return
 }
 
 func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
-	_, has := svc.gtm.Get(ctx)
-	if has {
-		return
-	}
-
-	tx, txErr := svc.client.Writer().BeginTx(ctx, &db.TxOptions{
-		Isolation: param.Isolation,
-		ReadOnly:  false,
-	})
-
+	txErr := svc.gtm.Begin(ctx, svc.client.Writer(), param.Isolation, param.Timeout)
 	if txErr != nil {
 		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(txErr)
 		return
 	}
-
-	setErr := svc.gtm.Set(ctx, tx, param.Timeout)
-	if setErr != nil {
-		_ = tx.Rollback()
-		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(setErr)
-		return
-	}
-
 	return
 }
 
 func (svc *_service) txCommit(ctx fns.Context) (err errors.CodeError) {
-	tx, has := svc.gtm.Get(ctx)
-	if !has {
-		err = errors.ServiceError("fns SQL: commit tx failed for tx was not found")
-		return
-	}
-
-	commitErr := tx.Commit()
+	commitErr := svc.gtm.Commit(ctx)
 	if commitErr != nil {
-		_ = tx.Rollback()
-		svc.gtm.Del(ctx)
 		err = errors.ServiceError("fns SQL: commit tx failed").WithCause(commitErr)
 		return
 	}
-
-	svc.gtm.Del(ctx)
-
 	return
 }
 
 func (svc *_service) txRollback(ctx fns.Context) (err errors.CodeError) {
-	tx, has := svc.gtm.Get(ctx)
-	if !has {
-		err = errors.ServiceError("fns SQL: rollback tx failed for tx was not found")
-		return
-	}
-
-	_ = tx.Rollback()
-	svc.gtm.Del(ctx)
-
-	return
-}
-
-func (svc *_service) txRollbackIfHas(ctx fns.Context) {
-	tx, has := svc.gtm.Get(ctx)
-	if !has {
-		return
-	}
-	_ = tx.Rollback()
-	svc.gtm.Del(ctx)
+	svc.gtm.Rollback(ctx)
 	return
 }

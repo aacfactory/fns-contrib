@@ -11,7 +11,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: execute failed for no query string")
-		svc.txRollbackIfHas(ctx)
+		_ = svc.txRollback(ctx)
 		return
 	}
 
@@ -22,7 +22,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		dbResult0, execErr := exec.ExecContext(ctx, query)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
-			svc.txRollbackIfHas(ctx)
+			_ = svc.txRollback(ctx)
 			return
 		}
 		dbResult = dbResult0
@@ -31,7 +31,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		dbResult0, execErr := exec.ExecContext(ctx, query, args...)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
-			svc.txRollbackIfHas(ctx)
+			_ = svc.txRollback(ctx)
 			return
 		}
 		dbResult = dbResult0
