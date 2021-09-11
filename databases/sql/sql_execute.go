@@ -40,10 +40,6 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 	lastInsertId, _ := dbResult.LastInsertId()
 	affected, _ := dbResult.RowsAffected()
 
-	if affected == 0 {
-		svc.txRollbackIfHas(ctx)
-	}
-
 	result = &ExecResult{
 		Affected:     affected,
 		LastInsertId: lastInsertId,
