@@ -5,7 +5,7 @@
 ## 安装
 
 ```shell
-go get github.com/aacfactory/fns-contrib/databases/sql@main
+go get github.com/aacfactory/fns-contrib/databases/sql
 ```
 
 ## 使用

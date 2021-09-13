@@ -3,8 +3,8 @@ module github.com/aacfactory/fns-contrib/discovery/etcd
 go 1.17
 
 require (
-	github.com/aacfactory/errors v1.5.0
-	github.com/aacfactory/fns v0.3.0
+	github.com/aacfactory/errors v1.6.0
+	github.com/aacfactory/fns v0.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 )
 

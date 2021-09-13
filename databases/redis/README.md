@@ -5,7 +5,7 @@
 ## 安装
 
 ```shell
-go get github.com/aacfactory/fns-contrib/databases/redis@main
+go get github.com/aacfactory/fns-contrib/databases/redis
 ```
 
 ## 使用

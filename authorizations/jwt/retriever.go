@@ -40,10 +40,8 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 	pf := strings.TrimSpace(config.PublicKey)
 	sf := strings.TrimSpace(config.PrivateKey)
 
-
 	var pubKey interface{} = nil
 	var priKey interface{} = nil
-
 
 	switch method.(type) {
 	case *gwt.SigningMethodHMAC:
@@ -55,7 +53,7 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 	case *gwt.SigningMethodECDSA:
 		pub, pri, readErr := readPairKeyPem(pf, sf)
 		if readErr != nil {
-			err= readErr
+			err = readErr
 			return
 		}
 		var parseErr error
@@ -72,7 +70,7 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 	case *gwt.SigningMethodRSAPSS, *gwt.SigningMethodRSA:
 		pub, pri, readErr := readPairKeyPem(pf, sf)
 		if readErr != nil {
-			err= readErr
+			err = readErr
 			return
 		}
 		var parseErr error
@@ -89,7 +87,7 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 	case *gwt.SigningMethodEd25519:
 		pub, pri, readErr := readPairKeyPem(pf, sf)
 		if readErr != nil {
-			err= readErr
+			err = readErr
 			return
 		}
 		var parseErr error
@@ -134,13 +132,6 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 		return
 	}
 
-	store, storeErr := NewStore(config.Store)
-	if storeErr != nil {
-		err = fmt.Errorf("fns Authorizations JWT: create store failed, %v", storeErr)
-		return
-	}
-
-
 	authorizations = &Authorizations{
 		method:      method,
 		pubKey:      pubKey,
@@ -148,9 +139,7 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 		issuer:      issuer,
 		audience:    audience,
 		expirations: expires,
-		store:       store,
 	}
-
 
 	return
 }

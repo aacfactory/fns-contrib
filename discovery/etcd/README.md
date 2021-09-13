@@ -2,7 +2,7 @@
 基于 ETCD 的 FNS 服务注册与发现。
 ## 安装
 ```shell
-go get github.com/aacfactory/fns-contrib/discovery/etcd@main
+go get github.com/aacfactory/fns-contrib/discovery/etcd
 ```
 ## 使用
 配置文件，其中kind必须是etcd，且必须小写。
