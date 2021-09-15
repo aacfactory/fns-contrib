@@ -789,3 +789,12 @@ type linkColumnInfo struct {
 	Type            reflect.Type
 	StructFieldName string
 }
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+func mapRelationName(name string) string {
+	if driver == "postgres" {
+		return `"` + name + `"`
+	}
+	return name
+}

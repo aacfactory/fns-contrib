@@ -14,27 +14,15 @@ type TableRow interface {
 	Table() (namespace string, name string, alias string)
 }
 
-type QueryParam struct {
-	Condition string
-	Sorts     string
-	params    *Tuple
-}
-
-type Paged struct {
-	No    int
-	Num   int // int(math.Ceil(float64(total)/float64(pageSize)))
-	Total int
-}
-
 type DatabaseAccessObject interface {
 	Insert(ctx fns.Context) (affected int, err errors.CodeError)
 	Update(ctx fns.Context) (affected int, err errors.CodeError)
 	Delete(ctx fns.Context) (affected int, err errors.CodeError)
 	Exist(ctx fns.Context) (has bool, err errors.CodeError)
 	Get(ctx fns.Context) (has bool, err errors.CodeError)
-	Query(ctx fns.Context, param QueryParam, offset int, length int) (has bool, err errors.CodeError)
-	Count(ctx fns.Context, param QueryParam) (num int, err errors.CodeError)
-	Page(ctx fns.Context, param QueryParam, pageNo int, pageSize int) (has Paged, err errors.CodeError)
+	Query(ctx fns.Context, param *QueryParam) (has bool, err errors.CodeError)
+	Count(ctx fns.Context, param *QueryParam) (num int, err errors.CodeError)
+	Page(ctx fns.Context, param *QueryParam) (page Paged, err errors.CodeError)
 }
 
 // +-------------------------------------------------------------------------------------------------------------------+
@@ -149,35 +137,4 @@ func (d *dao) beginTx(ctx fns.Context) (err errors.CodeError) {
 func (d *dao) commitTx(ctx fns.Context) (err errors.CodeError) {
 	err = TxCommit(ctx)
 	return
-}
-
-
-func (d *dao) Update(ctx fns.Context) (affected int, err errors.CodeError) {
-	panic("implement me")
-}
-
-func (d *dao) Delete(ctx fns.Context) (affected int, err errors.CodeError) {
-	panic("implement me")
-}
-
-func (d *dao) Exist(ctx fns.Context) (has bool, err errors.CodeError) {
-
-	return
-}
-
-func (d *dao) Get(ctx fns.Context) (has bool, err errors.CodeError) {
-	panic("implement me")
-}
-
-// select * from test a inner join (select id from test where val=4 limit 300000,5) b on a.id=b.id;
-func (d *dao) Query(ctx fns.Context, param QueryParam, offset int, length int) (has bool, err errors.CodeError) {
-	panic("implement me")
-}
-
-func (d *dao) Count(ctx fns.Context, param QueryParam) (num int, err errors.CodeError) {
-	panic("implement me")
-}
-
-func (d *dao) Page(ctx fns.Context, param QueryParam, pageNo int, pageSize int) (has Paged, err errors.CodeError) {
-	panic("implement me")
 }
