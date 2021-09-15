@@ -81,7 +81,7 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 				}
 				fkTableInfo := newTableInfo(fvv, d.Driver)
 				fpk := fkTableInfo.Pks[0]
-				ffv := fv.FieldByName(fpk.StructFieldName)
+				ffv := fv.Elem().FieldByName(fpk.StructFieldName)
 				params.Append(ffv.Interface())
 			}
 			continue
@@ -96,7 +96,7 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 				if fv.IsNil() {
 					params.Append([]byte("{}"))
 				} else {
-					fvi := fv.Interface()
+					fvi := fv.Elem().Interface()
 					fvv, encodeErr := json.Marshal(fvi)
 					if encodeErr != nil {
 						err = errors.ServiceError("fns SQL: dao insert failed for json marshal").WithCause(encodeErr)
@@ -108,7 +108,7 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 				if fv.Len() == 0 {
 					params.Append([]byte("[]"))
 				} else {
-					fvi := fv.Interface()
+					fvi := fv.Elem().Interface()
 					fvv, encodeErr := json.Marshal(fvi)
 					if encodeErr != nil {
 						err = errors.ServiceError("fns SQL: dao insert failed for json marshal").WithCause(encodeErr)

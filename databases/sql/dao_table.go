@@ -87,8 +87,8 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 		defineOp := ""
 		defineOpIdx := strings.Index(define, ":")
 		if defineOpIdx > 0 {
-			define = define[0:defineOpIdx]
 			defineOp = define[defineOpIdx+1:]
+			define = define[0:defineOpIdx]
 		}
 		if columnName != "" {
 			// JSON
