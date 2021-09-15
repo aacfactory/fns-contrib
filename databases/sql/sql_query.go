@@ -2,9 +2,11 @@ package sql
 
 import (
 	db "database/sql"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
 	"strings"
+	"time"
 )
 
 func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err errors.CodeError) {
@@ -16,7 +18,10 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 	}
 
 	q := svc.getQueryAble(ctx)
-
+	var startTime time.Time
+	if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
+		startTime = time.Now()
+	}
 	var dbRows *db.Rows
 	if param.Args == nil {
 		dbRows0, queryErr := q.QueryContext(ctx, query)
@@ -36,7 +41,10 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 		}
 		dbRows = dbRows0
 	}
-
+	if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
+		latency := time.Now().Sub(startTime)
+		ctx.App().Log().Debug().With("sql", "query").With("sql_latency", latency.String()).Message(fmt.Sprintf("\n%s\n", query))
+	}
 	rows0, rowErr := NewRows(dbRows)
 	if rowErr != nil {
 		err = errors.ServiceError("fns SQL: query failed").WithCause(rowErr)

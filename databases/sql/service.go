@@ -27,9 +27,10 @@ func Service() fns.Service {
 }
 
 type _service struct {
-	running *int64
-	client  Client
-	gtm     *GlobalTransactionManagement
+	running        *int64
+	enableDebugLog bool
+	client         Client
+	gtm            *GlobalTransactionManagement
 }
 
 func (svc *_service) Namespace() string {
@@ -62,6 +63,7 @@ func (svc *_service) Build(root configuares.Config) (err error) {
 	running := int64(0)
 	svc.running = &running
 	atomic.StoreInt64(svc.running, 1)
+	svc.enableDebugLog = config.EnableDebugLog
 	svc.gtm = NewGlobalTransactionManagement()
 	return
 }

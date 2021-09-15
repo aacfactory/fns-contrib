@@ -340,7 +340,7 @@ func rowScanFK(fc *FieldColumn, fv reflect.Value, v interface{}) {
 			continue
 		}
 		kind := tagValue[strings.Index(tagValue, ",")+1:]
-		if kind == "PK" {
+		if kind == associationKindFK {
 			pkFieldName = field.Name
 			break
 		}

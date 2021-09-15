@@ -14,6 +14,7 @@ type Config struct {
 	DSN              []string `json:"dsn,omitempty"`
 	MaxIdles         int      `json:"maxIdles,omitempty"`
 	MaxOpens         int      `json:"maxOpens,omitempty"`
+	EnableDebugLog   bool     `json:"enableDebugLog"`
 }
 
 func (config *Config) CreateClient() (client Client, err error) {
