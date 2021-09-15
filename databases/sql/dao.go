@@ -33,15 +33,27 @@ var (
 	tableInfoMap   = sync.Map{}
 )
 
+func RegisterDialect(name string) {
+	if name != "mysql" && name != "postgres" {
+		panic(fmt.Sprintf("fns SQL: use DAO failed for %s dialect is not supported", name))
+	}
+	driver = name
+}
+
 func DAO(target interface{}) (v DatabaseAccessObject) {
 	driverLoadOnce.Do(func() {
-		drivers := db.Drivers()
-		if drivers == nil || len(drivers) != 1 {
-			panic("fns SQL: use DAO failed for no drivers or too many drivers")
-		}
-		driver = drivers[0]
-		if driver != "postgres" && driver != "mysql" {
-			panic(fmt.Sprintf("fns SQL: use DAO failed for %s driver is not supported", driver))
+		if driver == "" {
+			drivers := db.Drivers()
+			if drivers == nil || len(drivers) != 1 {
+				panic("fns SQL: use DAO failed for no drivers or too many drivers")
+			}
+			driver = drivers[0]
+			if driver == "pgx" {
+				driver = "postgres"
+			}
+			if driver != "postgres" && driver != "mysql" {
+				panic(fmt.Sprintf("fns SQL: use DAO failed for %s driver is not supported", driver))
+			}
 		}
 	})
 	v = newDAO(target, make(map[string]interface{}), make(map[string]bool))
