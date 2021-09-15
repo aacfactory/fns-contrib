@@ -28,6 +28,9 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		dbResult0, execErr := exec.ExecContext(ctx, query)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
+			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
+				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+			}
 			_ = svc.txRollback(ctx)
 			return
 		}
@@ -37,6 +40,9 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		dbResult0, execErr := exec.ExecContext(ctx, query, args...)
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
+			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
+				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+			}
 			_ = svc.txRollback(ctx)
 			return
 		}
@@ -44,7 +50,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 	}
 	if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
 		latency := time.Now().Sub(startTime)
-		ctx.App().Log().Debug().With("sql", "execute").With("sql_latency", latency.String()).Message(fmt.Sprintf("\n%s\n", query))
+		ctx.App().Log().Debug().With("sql_latency", latency.String()).Message(fmt.Sprintf("\n%s\n", query))
 	}
 
 	lastInsertId, _ := dbResult.LastInsertId()

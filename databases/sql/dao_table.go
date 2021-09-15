@@ -489,7 +489,7 @@ func (info *tableInfo) genGetQuery() {
 }
 
 // genInsert
-// insert ... ON CONSTRAINT (pk) DO NOTHING http://www.postgres.cn/docs/13/sql-insert.html
+// insert ... ON CONFLICT (pk) DO NOTHING http://www.postgres.cn/docs/13/sql-insert.html
 // insert ... ON DUPLICATE KEY UPDATE ... https://dev.mysql.com/doc/refman/5.7/en/insert-on-duplicate.html
 func (info *tableInfo) genInsert() {
 	query := "INSERT INTO "
@@ -570,7 +570,7 @@ func (info *tableInfo) genInsert() {
 	}
 	query = query + ") VALUES (" + args[2:] + ")"
 	if info.Driver == "postgres" {
-		query = query + " ON CONSTRAINT (" + pks + ") DO NOTHING"
+		query = query + " ON CONFLICT (" + pks + ") DO NOTHING"
 	} else if info.Driver == "mysql" {
 		query = query + " ON DUPLICATE KEY UPDATE " + info.Columns[0].Name + " = " + info.Columns[0].Name
 	}
