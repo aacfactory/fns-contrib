@@ -170,33 +170,34 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 		rv.FieldByName(d.TableInfo.Pks[0].StructFieldName).SetInt(result.LastInsertId)
 	}
 	affected = int(result.Affected)
-	d.affected(pks)
-	// version
-	if d.TableInfo.Version != nil {
-		rvv := rv.FieldByName(d.TableInfo.Version.StructFieldName)
-		pre := rvv.Int()
-		rvv.SetInt(pre + 1)
-	}
-
-	// fk
-	for _, fc := range fcs {
-		fd := newDAO(fc, d.Loaded, d.Affected)
-		fcAffected, fcErr := fd.insertOne(ctx)
-		if fcErr != nil {
-			err = errors.ServiceError("fns SQL: dao insert failed for foreign columns")
-			return
+	if affected > 0 {
+		d.affected(pks)
+		// version
+		if d.TableInfo.Version != nil {
+			rvv := rv.FieldByName(d.TableInfo.Version.StructFieldName)
+			pre := rvv.Int()
+			rvv.SetInt(pre + 1)
 		}
-		affected = affected + fcAffected
-	}
-	// lk
-	for _, lc := range lcs {
-		ld := newDAO(lc, d.Loaded, d.Affected)
-		lkAffected, lcErr := ld.insertOne(ctx)
-		if lcErr != nil {
-			err = errors.ServiceError("fns SQL: dao insert failed for link columns")
-			return
+		// fk
+		for _, fc := range fcs {
+			fd := newDAO(fc, d.Loaded, d.Affected)
+			fcAffected, fcErr := fd.insertOne(ctx)
+			if fcErr != nil {
+				err = errors.ServiceError("fns SQL: dao insert failed for foreign columns")
+				return
+			}
+			affected = affected + fcAffected
 		}
-		affected = affected + lkAffected
+		// lk
+		for _, lc := range lcs {
+			ld := newDAO(lc, d.Loaded, d.Affected)
+			lkAffected, lcErr := ld.insertOne(ctx)
+			if lcErr != nil {
+				err = errors.ServiceError("fns SQL: dao insert failed for link columns")
+				return
+			}
+			affected = affected + lkAffected
+		}
 	}
 	return
 }
