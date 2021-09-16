@@ -64,6 +64,7 @@ func DAO(target interface{}) (v DatabaseAccessObject) {
 
 func newDAO(target interface{}, loaded map[string]interface{}, affected map[string]bool) (v *dao) {
 	rt := reflect.TypeOf(target)
+
 	if rt.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("fns SQL: use DAO failed for target must be ptr"))
 	}

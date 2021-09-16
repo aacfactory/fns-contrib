@@ -5,6 +5,8 @@ import (
 	"github.com/aacfactory/fns"
 	"github.com/aacfactory/json"
 	"reflect"
+	"strconv"
+	"time"
 )
 
 func (d *dao) Insert(ctx fns.Context) (affected int, err errors.CodeError) {
@@ -48,22 +50,50 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 
 	fcs := make([]interface{}, 0, 1)
 	lcs := make([]interface{}, 0, 1)
+	for _, column := range d.TableInfo.LinkColumns {
+		if column.Sync {
+			fv := rv.FieldByName(column.StructFieldName)
+			if fv.Len() > 0 {
+				for i := 0; i < fv.Len(); i++ {
+					lcs = append(lcs, fv.Index(i).Interface())
+				}
+			}
+		}
+	}
 
 	params := NewTuple()
 
-	for _, field := range paramFields {
-		fv := rv.FieldByName(field)
-		// lk
-		if d.TableInfo.IsLink(field) {
-			lk := d.TableInfo.GetLink(field)
-			if lk.Sync {
-				if fv.Len() > 0 {
-					fvv := fv.Interface()
-					lcs = append(lcs, &fvv)
+	// create by
+	if d.TableInfo.CreateBY != nil {
+		createBy := ctx.User().Id()
+		if createBy != "" {
+			rct, _ := rt.FieldByName(d.TableInfo.CreateBY.StructFieldName)
+			rvv := rv.FieldByName(d.TableInfo.CreateBY.StructFieldName)
+			switch rct.Type.Kind() {
+			case reflect.String:
+				rvv.SetString(createBy)
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				userId, parseErr := strconv.Atoi(createBy)
+				if parseErr == nil {
+					rvv.SetInt(int64(userId))
+				}
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				userId, parseErr := strconv.Atoi(createBy)
+				if parseErr == nil {
+					rvv.SetUint(uint64(userId))
 				}
 			}
-			continue
 		}
+	}
+	// create at
+	if d.TableInfo.CreateAT != nil {
+		rvv := rv.FieldByName(d.TableInfo.CreateAT.StructFieldName)
+		rvv.Set(reflect.ValueOf(time.Now()))
+	}
+
+	for _, field := range paramFields {
+		fv := rv.FieldByName(field)
+
 		// fk
 		if d.TableInfo.IsForeign(field) {
 			if fv.IsNil() {
@@ -141,6 +171,12 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 	}
 	affected = int(result.Affected)
 	d.affected(pks)
+	// version
+	if d.TableInfo.Version != nil {
+		rvv := rv.FieldByName(d.TableInfo.Version.StructFieldName)
+		pre := rvv.Int()
+		rvv.SetInt(pre + 1)
+	}
 
 	// fk
 	for _, fc := range fcs {
@@ -155,7 +191,7 @@ func (d *dao) insertOne(ctx fns.Context) (affected int, err errors.CodeError) {
 	// lk
 	for _, lc := range lcs {
 		ld := newDAO(lc, d.Loaded, d.Affected)
-		lkAffected, lcErr := ld.insertArray(ctx)
+		lkAffected, lcErr := ld.insertOne(ctx)
 		if lcErr != nil {
 			err = errors.ServiceError("fns SQL: dao insert failed for link columns")
 			return
