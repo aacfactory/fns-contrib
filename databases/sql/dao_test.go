@@ -9,20 +9,19 @@ import (
 
 type FooRow struct {
 	Id       string    `col:"ID,PK"`
-	CreateBY string    `col:"CREATE_BY,CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,MODIFY_AT"`
-	//DeleteBY string     `col:"DELETE_BY,DELETE_BY"`
-	//DeleteAT time.Time  `col:"DELETE_AT,DELETE_AT"`
-	Version  int64      `col:"VERSION,VERSION"`
-	Kind     string     `col:"KIND"`
-	Name     string     `col:"NAME"`
-	Phase    int        `col:"PHASE"`
-	Bar      *BarRow    `col:"BAR,FK"`
-	BazList  []*BazRow  `col:"-,LK" ref:"Id,FOO_ID" sort:"ID,CREATE_AT DESC"`
-	ManyList []*ManyRow `col:"-,LK" ref:"Id, MANY_ID)"`
-	Likes    int        `col:"LIKES,VC" src:"select count(1) from \"FNS\".\"FOO_LIKE\" where \"FOO_ID\" = \"S\".\"ID\""`
+	CreateBY string    `col:"CREATE_BY,ACB"`
+	CreateAT time.Time `col:"CREATE_AT,ACT"`
+	ModifyBY string    `col:"MODIFY_BY,AMB"`
+	ModifyAT time.Time `col:"MODIFY_AT,AMT"`
+	//DeleteBY string     `col:"DELETE_BY,ADB"`
+	//DeleteAT time.Time  `col:"DELETE_AT,ADT"`
+	Version int64     `col:"VERSION,OL"`
+	Kind    string    `col:"KIND"`
+	Name    string    `col:"NAME"`
+	Phase   int       `col:"PHASE"`
+	Bar     *BarRow   `col:"BAR,FK"`
+	BazList []*BazRow `col:"-,LK" ref:"ID,FOO_ID" sort:"ID,CREATE_AT DESC"`
+	Likes   int       `col:"LIKES,VC" src:"select count(1) from \"FNS\".\"FOO_LIKE\" where \"FOO_ID\" = \"S\".\"ID\""`
 }
 
 func (f FooRow) Table() (string, string, string) {
@@ -31,13 +30,13 @@ func (f FooRow) Table() (string, string, string) {
 
 type BarRow struct {
 	Id       string    `col:"ID,PK"`
-	CreateBY string    `col:"CREATE_BY,CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,MODIFY_AT"`
-	DeleteBY string    `col:"DELETE_BY,DELETE_BY"`
-	DeleteAT time.Time `col:"DELETE_AT,DELETE_AT"`
-	Version  int64     `col:"VERSION,VERSION"`
+	CreateBY string    `col:"CREATE_BY,ACB"`
+	CreateAT time.Time `col:"CREATE_AT,ACT"`
+	ModifyBY string    `col:"MODIFY_BY,AMB"`
+	ModifyAT time.Time `col:"MODIFY_AT,AMT"`
+	DeleteBY string    `col:"DELETE_BY,ADB"`
+	DeleteAT time.Time `col:"DELETE_AT,ADT"`
+	Version  int64     `col:"VERSION,OL"`
 	Name     string    `col:"NAME"`
 	Foo      *FooRow   `col:"FOO_ID,FK"`
 }
@@ -48,13 +47,13 @@ func (f BarRow) Table() (string, string, string) {
 
 type BazRow struct {
 	Id       string    `col:"ID,PK"`
-	CreateBY string    `col:"CREATE_BY,CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,MODIFY_AT"`
-	DeleteBY string    `col:"DELETE_BY,DELETE_BY"`
-	DeleteAT time.Time `col:"DELETE_AT,DELETE_AT"`
-	Version  int64     `col:"VERSION,VERSION"`
+	CreateBY string    `col:"CREATE_BY,ACB"`
+	CreateAT time.Time `col:"CREATE_AT,ACT"`
+	ModifyBY string    `col:"MODIFY_BY,AMB"`
+	ModifyAT time.Time `col:"MODIFY_AT,AMT"`
+	DeleteBY string    `col:"DELETE_BY,ADB"`
+	DeleteAT time.Time `col:"DELETE_AT,ADT"`
+	Version  int64     `col:"VERSION,OL"`
 	Name     string    `col:"NAME"`
 	Foo      *FooRow   `col:"FOO_ID,FK"`
 }
@@ -65,13 +64,13 @@ func (f BazRow) Table() (string, string, string) {
 
 type ManyRow struct {
 	Id       string    `col:"ID,PK"`
-	CreateBY string    `col:"CREATE_BY,CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,MODIFY_AT"`
-	DeleteBY string    `col:"DELETE_BY,DELETE_BY"`
-	DeleteAT time.Time `col:"DELETE_AT,DELETE_AT"`
-	Version  int64     `col:"VERSION,VERSION"`
+	CreateBY string    `col:"CREATE_BY,ACB"`
+	CreateAT time.Time `col:"CREATE_AT,ACT"`
+	ModifyBY string    `col:"MODIFY_BY,AMB"`
+	ModifyAT time.Time `col:"MODIFY_AT,AMT"`
+	DeleteBY string    `col:"DELETE_BY,ADB"`
+	DeleteAT time.Time `col:"DELETE_AT,ADT"`
+	Version  int64     `col:"VERSION,OL"`
 	Name     string    `col:"NAME"`
 }
 

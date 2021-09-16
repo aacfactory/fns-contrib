@@ -6,6 +6,27 @@ import (
 	"strings"
 )
 
+const (
+	columnTagPk       = "PK"
+	columnTagCreateBY = "ACB"
+	columnTagCreateAT = "ACT"
+	columnTagModifyBY = "AMB"
+	columnTagModifyAT = "AMT"
+	columnTagDeleteBY = "ADB"
+	columnTagDeleteAT = "ADT"
+	columnTagVersion  = "OL"
+	columnTagVirtual  = "VC"
+	columnTagFk       = "FK"
+	columnTagLk       = "LK"
+	columnTagJson     = "JSON"
+)
+
+const (
+	refTag        = "ref"
+	sortTag       = "sort"
+	virtualSrcTag = "src"
+)
+
 // +-------------------------------------------------------------------------------------------------------------------+
 
 func newTableInfo(v interface{}, driver string) (info *tableInfo) {
@@ -229,9 +250,10 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 					if driver == "postgres" {
 						x := ""
 						sortItems := strings.Split(sort, ",")
-						for i, item := range sortItems {
+						for j, item := range sortItems {
+							item = strings.TrimSpace(item)
 							colIdx := strings.Index(item, " ")
-							if i == 0 {
+							if j == 0 {
 								if colIdx > 0 {
 									x = fmt.Sprintf("\"%s\"", item[0:colIdx]) + item[colIdx:]
 								} else {
@@ -788,27 +810,6 @@ func (info *tableInfo) genDelete() {
 	info.DeleteQuery.Params = params
 }
 
-const (
-	columnTagPk       = "PK"
-	columnTagCreateBY = "CREATE_BY"
-	columnTagCreateAT = "CREATE_AT"
-	columnTagModifyBY = "MODIFY_BY"
-	columnTagModifyAT = "MODIFY_AT"
-	columnTagDeleteBY = "DELETE_BY"
-	columnTagDeleteAT = "DELETE_AT"
-	columnTagVersion  = "VERSION"
-	columnTagVirtual  = "VC"
-	columnTagFk       = "FK"
-	columnTagLk       = "LK"
-	columnTagJson     = "JSON"
-)
-
-const (
-	refTag        = "ref"
-	sortTag       = "sort"
-	virtualSrcTag = "src" // sum(foo)
-)
-
 type queryInfo struct {
 	Query  string
 	Params []string
@@ -849,6 +850,9 @@ type linkColumnInfo struct {
 
 func mapRelationName(name string) string {
 	if driver == "postgres" {
+		if strings.Index(name, "\"") == 0 {
+			return name
+		}
 		return `"` + name + `"`
 	}
 	return name
