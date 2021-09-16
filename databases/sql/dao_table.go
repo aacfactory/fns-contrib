@@ -239,10 +239,13 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 					ref = strings.ToUpper(strings.TrimSpace(ref))
 					refs := strings.Split(ref, ",")
 					if len(refs) != 2 {
-						panic(fmt.Sprintf("fns SQL: use DAO failed for LK Tag must define link columns, %s/%s", rt.PkgPath(), rt.Name()))
+						panic(fmt.Sprintf("fns SQL: use DAO failed for LK Tag must use ref to define link columns, %s/%s", rt.PkgPath(), rt.Name()))
 					}
 					refLeftColumn = mapRelationName(strings.TrimSpace(refs[0]))
 					refRightColumn = mapRelationName(strings.TrimSpace(refs[1]))
+				}
+				if refLeftColumn == "" || refRightColumn == "" {
+					panic(fmt.Sprintf("fns SQL: use DAO failed for LK Tag must use ref to define link columns, %s/%s", rt.PkgPath(), rt.Name()))
 				}
 				sort, hasSort := field.Tag.Lookup(sortTag)
 				if hasSort {
@@ -539,6 +542,14 @@ func (info *tableInfo) genLinkQuery(link *linkColumnInfo) (query string) {
 	}
 	if info.Version != nil {
 		selects = selects + ", " + info.Alias + "." + info.Version.Name
+	}
+	// col
+	for _, column := range info.Columns {
+		selects = selects + ", " + info.Alias + "." + column.Name
+	}
+	// fk
+	for _, column := range info.ForeignColumns {
+		selects = selects + ", " + info.Alias + "." + column.Name
 	}
 	// vc
 	for _, column := range info.VirtualColumns {

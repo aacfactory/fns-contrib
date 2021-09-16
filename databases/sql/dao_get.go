@@ -49,9 +49,10 @@ func (d *dao) getOne(ctx fns.Context) (has bool, err errors.CodeError) {
 		pks = append(pks, rv.FieldByName(pk.StructFieldName).Interface())
 	}
 	loaded, hasLoaded := d.getLoaded(pks)
+
 	if hasLoaded {
 		has = true
-		reflect.ValueOf(d.Target).Set(reflect.ValueOf(loaded))
+		reflect.ValueOf(d.Target).Elem().Set(reflect.ValueOf(loaded).Elem())
 		return
 	}
 
@@ -82,46 +83,61 @@ func (d *dao) getOne(ctx fns.Context) (has bool, err errors.CodeError) {
 		return
 	}
 
+	d.setLoaded(pks, d.Target)
+
 	// fk
 	for _, column := range d.TableInfo.ForeignColumns {
 		frv := rv.FieldByName(column.StructFieldName)
 		if frv.IsNil() {
 			continue
 		}
-		fd := newDAO(frv.Interface(), d.Loaded, d.Affected)
+		x := frv.Interface()
+		fd := newDAO(x, d.Loaded, d.Affected)
 		_, loadFCErr := fd.getOne(ctx)
 		if loadFCErr != nil {
 			err = loadFCErr
 			return
 		}
+		frv.Set(reflect.ValueOf(x))
 	}
 	// lk
 	for _, column := range d.TableInfo.LinkColumns {
 		lrv := rv.FieldByName(column.StructFieldName)
-		lkInfo := newTableInfo(reflect.New(column.ElementType.Elem()).Interface(), d.Driver)
-		linkQuery := lkInfo.genLinkQuery(column)
-		leftField := d.TableInfo.GetColumnField(column.LeftColumn)
-		left := rv.FieldByName(leftField).Interface()
-		lkParams := NewTuple().Append(left)
-		linkRows, queryLinkErr := Query(ctx, Param{
-			Query: linkQuery,
-			Args:  lkParams,
-		})
-		if queryLinkErr != nil {
-			err = queryLinkErr
-			return
+		if lrv.Len() == 0 {
+			lkInfo := newTableInfo(reflect.New(column.ElementType.Elem()).Interface(), d.Driver)
+			linkQuery := lkInfo.genLinkQuery(column)
+			leftField := d.TableInfo.GetColumnField(column.LeftColumn)
+			left := rv.FieldByName(leftField).Interface()
+			lkParams := NewTuple().Append(left)
+			linkRows, queryLinkErr := Query(ctx, Param{
+				Query: linkQuery,
+				Args:  lkParams,
+			})
+			if queryLinkErr != nil {
+				err = queryLinkErr
+				return
+			}
+			if linkRows.Empty() {
+				continue
+			}
+			x := reflect.MakeSlice(column.SliceType, 0, 1).Interface()
+			scanLinkErr := linkRows.Scan(&x)
+			if scanLinkErr != nil {
+				err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanLinkErr)
+				return
+			}
+			lrv.Set(reflect.ValueOf(x))
 		}
-		if linkRows.Empty() {
-			continue
+		for i := 0; i < lrv.Len(); i++ {
+			rxe := lrv.Index(i).Interface()
+			fl := newDAO(rxe, d.Loaded, d.Affected)
+			_, loadFCErr := fl.getOne(ctx)
+			if loadFCErr != nil {
+				err = loadFCErr
+				return
+			}
 		}
-		x := reflect.MakeSlice(column.SliceType, 0, 1).Interface()
-		scanLinkErr := rows.Scan(&x)
-		if scanLinkErr != nil {
-			err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanLinkErr)
-			return
-		}
-		lrv.Set(reflect.ValueOf(x))
 	}
-
+	has = true
 	return
 }

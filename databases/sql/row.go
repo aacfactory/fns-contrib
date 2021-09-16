@@ -379,10 +379,7 @@ func rowScanFK(fc *FieldColumn, fv reflect.Value, v interface{}) {
 			continue
 		}
 		kind := tagValue[strings.Index(tagValue, ",")+1:]
-		if strings.Contains(kind, ":") {
-			kind = kind[0:strings.Index(kind, ":")]
-		}
-		if kind == columnTagFk {
+		if kind == columnTagPk {
 			pkFieldName = field.Name
 			break
 		}
