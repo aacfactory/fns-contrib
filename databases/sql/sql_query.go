@@ -28,7 +28,7 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 		if queryErr != nil {
 			err = errors.ServiceError("fns SQL: query failed").WithCause(queryErr)
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
-				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
 			_ = svc.txRollback(ctx)
 			return
@@ -40,7 +40,7 @@ func (svc *_service) queryFn(ctx fns.Context, param Param) (rows *Rows, err erro
 		if queryErr != nil {
 			err = errors.ServiceError("fns SQL: query failed").WithCause(queryErr)
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
-				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
 			_ = svc.txRollback(ctx)
 			return

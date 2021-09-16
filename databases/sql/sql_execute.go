@@ -29,7 +29,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
-				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
 			_ = svc.txRollback(ctx)
 			return
@@ -41,7 +41,7 @@ func (svc *_service) executeFn(ctx fns.Context, param Param) (result *ExecResult
 		if execErr != nil {
 			err = errors.ServiceError("fns SQL: execute failed").WithCause(execErr)
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
-				ctx.App().Log().Debug().Message(fmt.Sprintf("\n%+v\n", err.WithMeta("query", query)))
+				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
 			_ = svc.txRollback(ctx)
 			return
