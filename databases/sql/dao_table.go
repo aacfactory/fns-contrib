@@ -216,41 +216,12 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 				refRightColumn := ""
 				if hasRef {
 					ref = strings.ToUpper(strings.TrimSpace(ref))
-					refLeftIdx := strings.Index(ref, "(")
-					refRightIdx := strings.Index(ref, ")")
-					if refLeftIdx < 0 || refRightIdx < refLeftIdx {
+					refs := strings.Split(ref, ",")
+					if len(refs) != 2 {
 						panic(fmt.Sprintf("fns SQL: use DAO failed for LK Tag must define link columns, %s/%s", rt.PkgPath(), rt.Name()))
 					}
-					refNST := ref[0:refLeftIdx]
-					refColumns := strings.Split(ref[refLeftIdx+1:refRightIdx], ",")
-					if len(refColumns) != 2 {
-						panic(fmt.Sprintf("fns SQL: use DAO failed for LK Tag must define link columns, %s/%s", rt.PkgPath(), rt.Name()))
-					}
-
-					refLeftColumn = strings.TrimSpace(refColumns[0])
-					refRightColumn = strings.TrimSpace(refColumns[1])
-					refNs := ""
-					refTable := ""
-					if strings.Contains(ref, ".") {
-						refItems := strings.Split(refNST, ".")
-						refNs = refItems[0]
-						refTable = refItems[1]
-						if driver == "postgres" {
-							refNs = fmt.Sprintf("\"%s\"", refNs)
-							refTable = fmt.Sprintf("\"%s\"", refTable)
-							refLeftColumn = fmt.Sprintf("\"%s\"", refLeftColumn)
-							refRightColumn = fmt.Sprintf("\"%s\"", refRightColumn)
-						}
-						ref = fmt.Sprintf("%s.%s", refNs, refTable)
-					} else {
-						refTable = ref
-						if driver == "postgres" {
-							refTable = fmt.Sprintf("\"%s\"", refTable)
-							refLeftColumn = fmt.Sprintf("\"%s\"", refLeftColumn)
-							refRightColumn = fmt.Sprintf("\"%s\"", refRightColumn)
-						}
-						ref = refTable
-					}
+					refLeftColumn = mapRelationName(strings.TrimSpace(refs[0]))
+					refRightColumn = mapRelationName(strings.TrimSpace(refs[1]))
 				}
 				sort, hasSort := field.Tag.Lookup(sortTag)
 				if hasSort {
@@ -258,12 +229,20 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 					if driver == "postgres" {
 						x := ""
 						sortItems := strings.Split(sort, ",")
-						for _, item := range sortItems {
+						for i, item := range sortItems {
 							colIdx := strings.Index(item, " ")
-							if colIdx > 0 {
-								x = x + "," + fmt.Sprintf("\"%s\"", item[0:colIdx]) + item[colIdx:]
+							if i == 0 {
+								if colIdx > 0 {
+									x = fmt.Sprintf("\"%s\"", item[0:colIdx]) + item[colIdx:]
+								} else {
+									x = fmt.Sprintf("\"%s\"", item)
+								}
 							} else {
-								x = x + "," + fmt.Sprintf("\"%s\"", item)
+								if colIdx > 0 {
+									x = x + "," + fmt.Sprintf("\"%s\"", item[0:colIdx]) + item[colIdx:]
+								} else {
+									x = x + "," + fmt.Sprintf("\"%s\"", item)
+								}
 							}
 						}
 						sort = x
@@ -272,11 +251,11 @@ func newTableInfo(v interface{}, driver string) (info *tableInfo) {
 
 				info.LinkColumns = append(info.LinkColumns, &linkColumnInfo{
 					Sync:            defineOp == "SYNC",
-					Table:           ref,
 					LeftColumn:      refLeftColumn,
 					RightColumn:     refRightColumn,
 					OrderBy:         sort,
-					Type:            field.Type,
+					SliceType:       field.Type,
+					ElementType:     field.Type.Elem(),
 					StructFieldName: field.Name,
 				})
 				continue
@@ -336,6 +315,28 @@ func (info *tableInfo) IsJson(fieldName string) (ok bool) {
 				ok = true
 				return
 			}
+		}
+	}
+	return
+}
+
+func (info *tableInfo) GetColumnField(columnName string) (name string) {
+	for _, pk := range info.Pks {
+		if pk.Name == columnName {
+			name = pk.StructFieldName
+			return
+		}
+	}
+	for _, column := range info.Columns {
+		if column.Name == columnName {
+			name = column.StructFieldName
+			return
+		}
+	}
+	for _, column := range info.ForeignColumns {
+		if column.Name == columnName {
+			name = column.StructFieldName
+			return
 		}
 	}
 	return
@@ -486,6 +487,60 @@ func (info *tableInfo) genGetQuery() {
 	}
 	info.GetQuery.Query = query
 	info.GetQuery.Params = params
+}
+
+func (info *tableInfo) genLinkQuery(link *linkColumnInfo) (query string) {
+	query = "SELECT "
+	selects := ""
+	// pk
+	for _, pk := range info.Pks {
+		selects = selects + ", " + info.Alias + "." + pk.Name
+	}
+	// audit
+	if info.CreateBY != nil {
+		selects = selects + ", " + info.Alias + "." + info.CreateBY.Name
+	}
+	if info.CreateAT != nil {
+		selects = selects + ", " + info.Alias + "." + info.CreateAT.Name
+	}
+	if info.ModifyBY != nil {
+		selects = selects + ", " + info.Alias + "." + info.ModifyBY.Name
+	}
+	if info.ModifyAT != nil {
+		selects = selects + ", " + info.Alias + "." + info.ModifyAT.Name
+	}
+	if info.DeleteBY != nil {
+		selects = selects + ", " + info.Alias + "." + info.DeleteBY.Name
+	}
+	if info.DeleteAT != nil {
+		selects = selects + ", " + info.Alias + "." + info.DeleteAT.Name
+	}
+	if info.Version != nil {
+		selects = selects + ", " + info.Alias + "." + info.Version.Name
+	}
+	// vc
+	for _, column := range info.VirtualColumns {
+		selects = selects + ", (" + column.Source + ") AS " + column.Name
+	}
+
+	query = query + selects[1:]
+	if info.Namespace != "" {
+		query = query + " FROM " + info.Namespace + "." + info.Name + " AS " + info.Alias
+	} else {
+		query = query + " FROM " + info.Name + " AS " + info.Alias
+	}
+	query = query + " WHERE "
+
+	if info.Driver == "postgres" {
+		query = query + info.Alias + "." + link.RightColumn + "=$1"
+	} else {
+		query = query + info.Alias + "." + link.RightColumn + "=?"
+	}
+
+	if link.OrderBy != "" {
+		query = query + " ORDER BY " + link.OrderBy
+	}
+	return
 }
 
 // genInsert
@@ -782,11 +837,11 @@ type foreignColumnInfo struct {
 
 type linkColumnInfo struct {
 	Sync            bool
-	Table           string
 	LeftColumn      string
 	RightColumn     string
 	OrderBy         string
-	Type            reflect.Type
+	SliceType       reflect.Type
+	ElementType     reflect.Type
 	StructFieldName string
 }
 
