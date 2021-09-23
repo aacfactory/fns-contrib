@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/aacfactory/configuares v1.2.3
 	github.com/aacfactory/errors v1.6.2
-	github.com/aacfactory/fns v0.6.14
+	github.com/aacfactory/fns v0.6.15
 	github.com/aacfactory/json v1.4.2
 )
 
@@ -38,4 +38,5 @@ require (
 	golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 )
