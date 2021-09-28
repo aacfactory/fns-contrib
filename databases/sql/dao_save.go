@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (d *dao) Insert(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError) {
+func (d *dao) Save(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError) {
 	if rows == nil || len(rows) == 0 {
 		affected = 0
 		return
@@ -25,7 +25,7 @@ func (d *dao) Insert(ctx fns.Context, rows ...TableRow) (affected int, err error
 		if row == nil {
 			continue
 		}
-		affected0, err0 := d.insertOne(ctx, row)
+		affected0, err0 := d.saveOne(ctx, row)
 		if err0 != nil {
 			err = err0
 			return
@@ -40,22 +40,24 @@ func (d *dao) Insert(ctx fns.Context, rows ...TableRow) (affected int, err error
 	return
 }
 
-func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors.CodeError) {
+func (d *dao) saveOne(ctx fns.Context, row TableRow) (affected int, err errors.CodeError) {
 	if d.hasAffected(row) {
 		return
 	}
 	info := getTableRowInfo(row)
 
-	query := info.InsertQuery.Query
-	paramFields := info.InsertQuery.Params
+	query := info.SaveQuery.Query
+	paramFields := info.SaveQuery.Params
 
 	rt := reflect.TypeOf(row).Elem()
 	rv := reflect.Indirect(reflect.ValueOf(row))
 
 	fcs := make([]TableRow, 0, 1)
 	lcs := make([]TableRow, 0, 1)
+	linkSyncs := make([]string, 0, 1)
 	for _, column := range info.LinkColumns {
 		if column.Sync {
+			linkSyncs = append(linkSyncs, column.StructFieldName)
 			fv := rv.FieldByName(column.StructFieldName)
 			if fv.Len() > 0 {
 				for i := 0; i < fv.Len(); i++ {
@@ -99,6 +101,33 @@ func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors
 		rvv := rv.FieldByName(info.CreateAT.StructFieldName)
 		rvv.Set(reflect.ValueOf(time.Now()))
 	}
+	// modify by
+	if info.ModifyBY != nil {
+		modifyBy := ctx.User().Id()
+		if modifyBy != "" {
+			rct, _ := rt.FieldByName(info.ModifyBY.StructFieldName)
+			rvv := rv.FieldByName(info.ModifyBY.StructFieldName)
+			switch rct.Type.Kind() {
+			case reflect.String:
+				rvv.SetString(modifyBy)
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				userId, parseErr := strconv.Atoi(modifyBy)
+				if parseErr == nil {
+					rvv.SetInt(int64(userId))
+				}
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				userId, parseErr := strconv.Atoi(modifyBy)
+				if parseErr == nil {
+					rvv.SetUint(uint64(userId))
+				}
+			}
+		}
+	}
+	// modify at
+	if info.ModifyAT != nil {
+		rvv := rv.FieldByName(info.ModifyAT.StructFieldName)
+		rvv.Set(reflect.ValueOf(time.Now()))
+	}
 	// version
 	version := int64(0)
 	if info.Version != nil {
@@ -111,7 +140,7 @@ func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors
 
 	for _, field := range paramFields {
 		fv := rv.FieldByName(field)
-		if field == info.Version.StructFieldName {
+		if info.Version != nil && field == info.Version.StructFieldName {
 			params.Append(version)
 			continue
 		}
@@ -182,6 +211,7 @@ func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors
 		fvv := fv.Interface()
 		params.Append(fvv)
 	}
+
 	// do
 	result, execErr := Execute(ctx, Param{
 		Query: query,
@@ -204,7 +234,7 @@ func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors
 		}
 		// fk
 		for _, fc := range fcs {
-			fcAffected, fcErr := d.insertOne(ctx, fc)
+			fcAffected, fcErr := d.saveOne(ctx, fc)
 			if fcErr != nil {
 				err = errors.ServiceError("fns SQL: dao failed for foreign columns")
 				return
@@ -213,12 +243,38 @@ func (d *dao) insertOne(ctx fns.Context, row TableRow) (affected int, err errors
 		}
 		// lk
 		for _, lc := range lcs {
-			lkAffected, lcErr := d.insertOne(ctx, lc)
+			lkAffected, lcErr := d.saveOne(ctx, lc)
 			if lcErr != nil {
 				err = errors.ServiceError("fns SQL: dao failed for link columns")
 				return
 			}
 			affected = affected + lkAffected
+		}
+		// delete lk
+		if len(linkSyncs) > 0 {
+			pkv := rv.FieldByName(info.Pks[0].StructFieldName).Interface()
+			for _, linkFieldName := range linkSyncs {
+				linkField := info.GetLink(linkFieldName)
+				lkInfo := getTableRowInfo(reflect.New(linkField.ElementType.Elem()).Interface())
+				linkFieldValue := rv.FieldByName(linkFieldName)
+				cleanQuery := lkInfo.genLinkSaveCleanQuery(linkField, linkFieldValue.Len())
+				cleanParam := NewTuple()
+				cleanParam.Append(pkv)
+				if linkFieldValue.Len() > 0 {
+					for i := 0; i < linkFieldValue.Len(); i++ {
+						cleanParam.Append(linkFieldValue.Index(i).Elem().FieldByName(lkInfo.Pks[0].StructFieldName).Interface())
+					}
+				}
+				// do
+				_, cleanErr := Execute(ctx, Param{
+					Query: cleanQuery,
+					Args:  cleanParam,
+				})
+				if cleanErr != nil {
+					err = cleanErr
+					return
+				}
+			}
 		}
 	}
 	return

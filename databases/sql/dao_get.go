@@ -1,99 +1,65 @@
 package sql
 
 import (
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
 	"reflect"
 )
 
-func (d *dao) Get(ctx fns.Context) (has bool, err errors.CodeError) {
-	if d.TargetIsArray {
-		has, err = d.getArray(ctx)
-	} else {
-		has, err = d.getOne(ctx)
+func (d *dao) Get(ctx fns.Context, row TableRow) (has bool, err errors.CodeError) {
+	if row == nil {
+		panic(fmt.Sprintf("fns SQL: use DAO failed for row is nil"))
 	}
-	return
-}
-
-func (d *dao) getArray(ctx fns.Context) (has bool, err errors.CodeError) {
-	rv := reflect.Indirect(reflect.ValueOf(d.Target))
-	size := rv.Len()
-	if size < 1 {
+	hasGot, synced := d.Cache.GetAndFill(row)
+	if hasGot {
+		has = true
+	}
+	if synced {
 		return
 	}
-	loaded := 0
-	for i := 0; i < size; i++ {
-		v := rv.Index(i)
-		if v.IsNil() {
-			continue
+	info := getTableRowInfo(row)
+	rv := reflect.Indirect(reflect.ValueOf(row))
+	if !hasGot {
+		query := info.GetQuery.Query
+		paramFields := info.GetQuery.Params
+		params := NewTuple()
+		for _, field := range paramFields {
+			params.Append(rv.FieldByName(field).Interface())
 		}
-		x := v.Interface()
-		xDAO := newDAO(x, d.Loaded, d.Affected)
-		xHas, xErr := xDAO.getOne(ctx)
-		if xErr != nil {
-			err = xErr
+		rows, queryErr := Query(ctx, Param{
+			Query: query,
+			Args:  params,
+		})
+		if queryErr != nil {
+			err = queryErr
 			return
 		}
-		if xHas {
-			loaded++
+		if rows.Empty() {
+			d.Cache.Set(row, true)
+			return
 		}
-	}
-	has = loaded == size
-	return
-}
-
-func (d *dao) getOne(ctx fns.Context) (has bool, err errors.CodeError) {
-	rv := reflect.Indirect(reflect.ValueOf(d.Target))
-	pks := make([]interface{}, 0, 1)
-	for _, pk := range d.TableInfo.Pks {
-		pks = append(pks, rv.FieldByName(pk.StructFieldName).Interface())
-	}
-	loaded, hasLoaded := d.getLoaded(pks)
-
-	if hasLoaded {
+		scanErr := rows.Scan(row)
+		if scanErr != nil {
+			err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanErr)
+			return
+		}
+		d.Cache.Set(row, false)
 		has = true
-		reflect.ValueOf(d.Target).Elem().Set(reflect.ValueOf(loaded).Elem())
-		return
 	}
-
-	query := d.TableInfo.GetQuery.Query
-	paramFields := d.TableInfo.GetQuery.Params
-
-	params := NewTuple()
-	for _, field := range paramFields {
-		params.Append(rv.FieldByName(field).Interface())
-	}
-
-	rows, queryErr := Query(ctx, Param{
-		Query: query,
-		Args:  params,
-	})
-	if queryErr != nil {
-		err = queryErr
-		return
-	}
-
-	if rows.Empty() {
-		return
-	}
-
-	scanErr := rows.Scan(d.Target)
-	if scanErr != nil {
-		err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanErr)
-		return
-	}
-
-	d.setLoaded(pks, d.Target)
 
 	// fk
-	for _, column := range d.TableInfo.ForeignColumns {
+	for _, column := range info.ForeignColumns {
 		frv := rv.FieldByName(column.StructFieldName)
 		if frv.IsNil() {
 			continue
 		}
 		x := frv.Interface()
-		fd := newDAO(x, d.Loaded, d.Affected)
-		_, loadFCErr := fd.getOne(ctx)
+		xRow, mapOk := x.(TableRow)
+		if !mapOk {
+			panic(fmt.Sprintf("fns SQL: use DAO failed for %s of row is not sql.TableRow", column.StructFieldName))
+		}
+		_, loadFCErr := d.Get(ctx, xRow)
 		if loadFCErr != nil {
 			err = loadFCErr
 			return
@@ -101,12 +67,14 @@ func (d *dao) getOne(ctx fns.Context) (has bool, err errors.CodeError) {
 		frv.Set(reflect.ValueOf(x))
 	}
 	// lk
-	for _, column := range d.TableInfo.LinkColumns {
+	for _, column := range info.LinkColumns {
 		lrv := rv.FieldByName(column.StructFieldName)
+		lkHasRef := false
 		if lrv.Len() == 0 {
-			lkInfo := newTableInfo(reflect.New(column.ElementType.Elem()).Interface(), d.Driver)
+			lkInfo := getTableRowInfo(reflect.New(column.ElementType.Elem()).Interface())
+			lkHasRef = len(lkInfo.ForeignColumns) != 0 || len(lkInfo.LinkColumns) != 0
 			linkQuery := lkInfo.genLinkQuery(column)
-			leftField := d.TableInfo.GetColumnField(column.LeftColumn)
+			leftField := info.GetColumnField(column.LeftColumn)
 			left := rv.FieldByName(leftField).Interface()
 			lkParams := NewTuple().Append(left)
 			linkRows, queryLinkErr := Query(ctx, Param{
@@ -128,16 +96,21 @@ func (d *dao) getOne(ctx fns.Context) (has bool, err errors.CodeError) {
 			}
 			lrv.Set(reflect.ValueOf(x))
 		}
-		for i := 0; i < lrv.Len(); i++ {
-			rxe := lrv.Index(i).Interface()
-			fl := newDAO(rxe, d.Loaded, d.Affected)
-			_, loadFCErr := fl.getOne(ctx)
-			if loadFCErr != nil {
-				err = loadFCErr
-				return
+		if lkHasRef {
+			for i := 0; i < lrv.Len(); i++ {
+				rxe := lrv.Index(i).Interface()
+				xRow, mapOk := rxe.(TableRow)
+				if !mapOk {
+					panic(fmt.Sprintf("fns SQL: use DAO failed for %s of row is not sql.TableRow", column.StructFieldName))
+				}
+				_, loadLCErr := d.Get(ctx, xRow)
+				if loadLCErr != nil {
+					err = loadLCErr
+					return
+				}
 			}
 		}
 	}
-	has = true
+	d.Cache.Set(row, true)
 	return
 }

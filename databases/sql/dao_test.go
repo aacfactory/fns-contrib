@@ -80,10 +80,11 @@ func (f ManyRow) Table() (string, string, string) {
 
 func Test_TableInfo(t *testing.T) {
 
+	RegisterDialect("postgres")
+
 	v := &FooRow{}
-	info := newTableInfo(v, "postgres")
+	info := newTableInfo(v)
 	fmt.Println(fmt.Sprintf("%+v", info))
-	fmt.Println(info.VirtualColumns[0].Source)
 
 	fmt.Println(info.GetQuery.Query)
 	fmt.Println(info.GetQuery.Params)
@@ -100,15 +101,8 @@ func Test_TableInfo(t *testing.T) {
 	fmt.Println(info.ExistQuery.Query)
 	fmt.Println(info.ExistQuery.Params)
 
-	fmt.Println(int(math.Ceil(float64(20) / float64(10))))
-}
+	fmt.Println(info.SaveQuery.Query)
+	fmt.Println(info.SaveQuery.Params)
 
-func TestDAO(t *testing.T) {
-
-	d1 := DAO(&FooRow{})
-	fmt.Println(d1)
-	rows := make([]*FooRow, 0, 1)
-	d2 := DAO(&rows)
-	fmt.Println(d2)
-
+	fmt.Println(int(math.Ceil(float64(0) / float64(10))))
 }

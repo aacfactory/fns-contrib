@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"time"
 )
 
 func NewQueryParam() *QueryParam {
@@ -30,17 +29,23 @@ func (p *QueryParam) Conditions() *QueryConditions {
 }
 
 func (p *QueryParam) DESC(column string) *QueryParam {
+	if dialect == "postgres" {
+		column = tableInfoConvertToPostgresName(column)
+	}
 	p.sorts = append(p.sorts, &QuerySort{
 		asc:    false,
-		column: mapRelationName(column),
+		column: column,
 	})
 	return p
 }
 
 func (p *QueryParam) ASC(column string) *QueryParam {
+	if dialect == "postgres" {
+		column = tableInfoConvertToPostgresName(column)
+	}
 	p.sorts = append(p.sorts, &QuerySort{
 		asc:    true,
-		column: mapRelationName(column),
+		column: column,
 	})
 	return p
 }
@@ -54,8 +59,11 @@ func (p *QueryParam) Range(offset int, length int) *QueryParam {
 	}
 	p.offset = offset
 	p.length = length
-
-	p.pageNo = int(math.Ceil(float64(p.offset) / float64(p.length)))
+	if p.offset == 0 {
+		p.pageNo = 1
+	} else {
+		p.pageNo = int(math.Ceil(float64(p.offset) / float64(p.length)))
+	}
 	p.pageSize = p.length
 	return p
 }
@@ -74,29 +82,35 @@ func (p *QueryParam) Page(no int, size int) *QueryParam {
 	return p
 }
 
-func (p *QueryParam) mapToConditionString(alias string) (v string) {
+func (p *QueryParam) mapToConditionString(alias string, args *Tuple) (v string) {
 	if len(p.conditions.values) > 0 {
-		v = p.conditions.toString(alias)
+		v = p.conditions.map0(alias, args)
 	}
 	return
 }
 
 func (p *QueryParam) mapToSortsString(alias string) (v string) {
 	if len(p.sorts) > 0 {
-		alias = mapRelationName(alias)
+		if dialect == "postgres" {
+			alias = tableInfoConvertToPostgresName(alias)
+		}
 		v = " ORDER BY"
 		for i, sort := range p.sorts {
+			column := sort.column
+			if dialect == "postgres" {
+				column = tableInfoConvertToPostgresName(column)
+			}
 			if i == 0 {
 				if sort.asc {
-					v = v + " " + alias + "." + mapRelationName(sort.column)
+					v = v + " " + alias + "." + column
 				} else {
-					v = v + " " + alias + "." + mapRelationName(sort.column) + " DESC"
+					v = v + " " + alias + "." + column + " DESC"
 				}
 			} else {
 				if sort.asc {
-					v = v + "," + alias + "." + mapRelationName(sort.column)
+					v = v + "," + alias + "." + column
 				} else {
-					v = v + "," + alias + "." + mapRelationName(sort.column) + " DESC"
+					v = v + "," + alias + "." + column + " DESC"
 				}
 			}
 		}
@@ -104,10 +118,16 @@ func (p *QueryParam) mapToSortsString(alias string) (v string) {
 	return
 }
 
-func (p *QueryParam) mapToRangeString(alias string) (v string) {
+func (p *QueryParam) mapToRangeString() (v string) {
 	if p.length > 0 {
-		alias = mapRelationName(alias)
-		v = v + " OFFSET " + fmt.Sprintf("%d", p.offset) + " LIMIT " + fmt.Sprintf("%d", p.length)
+		switch dialect {
+		case "postgres":
+			v = v + " OFFSET " + fmt.Sprintf("%d", p.offset) + " LIMIT " + fmt.Sprintf("%d", p.length)
+		case "mysql":
+			v = v + " LIMIT " + fmt.Sprintf("%d", p.offset) + "," + fmt.Sprintf("%d", p.length)
+		default:
+			panic(fmt.Sprintf("fns SQL: use DAO failed for %s dialect is not supported", dialect))
+		}
 	}
 	return
 }
@@ -133,194 +153,171 @@ type QueryConditions struct {
 	values []*QueryCondition
 }
 
-func (c *QueryConditions) toString(alias string) string {
-	alias = mapRelationName(alias)
-	conditions := " WHERE 1=1"
+func (c *QueryConditions) map0(alias string, args *Tuple) (conditions string) {
+	argIdx := 0
 	for _, value := range c.values {
+		argIdx++
 		op := value.op
+		column := value.column
+		mark := "?"
+		if dialect == "postgres" {
+			column = tableInfoConvertToPostgresName(column)
+			mark = fmt.Sprintf("$%d", argIdx)
+		}
 		switch op {
 		case "eq":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " = " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " = " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " = " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " = " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " = " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " = " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " = " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " = " + mark
+				args.Append(x)
 			}
 		case "not":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <> " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " <> " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <> " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " <> " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <> " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <> " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <> " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " <> " + mark
+				args.Append(x)
 			}
 		case "gt":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " > " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " > " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " > " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " > " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " > " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " > " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " > " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " > " + mark
+				args.Append(x)
 			}
 		case "lt":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " < " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " < " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " < " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " < " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " < " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " < " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " < " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " < " + mark
+				args.Append(x)
 			}
 		case "gte":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " >= " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " >= " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " >= " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " >= " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " >= " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " >= " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " >= " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " >= " + mark
+				args.Append(x)
 			}
 		case "lte":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
 				v := x.(string)
-				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <= " + v
+				if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
+					conditions = conditions + " AND " + alias + "." + column + " <= " + v
 				} else {
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <= " + fmt.Sprintf("'%s'", v)
+					conditions = conditions + " AND " + alias + "." + column + " <= " + mark
+					args.Append(x)
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <= " + fmt.Sprintf("%d", x)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <= " + fmt.Sprintf("%f", x)
-			case time.Time:
-				xx := x.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " <= " + fmt.Sprintf("'%s'", xx)
+			default:
+				conditions = conditions + " AND " + alias + "." + column + " <= " + mark
+				args.Append(x)
 			}
 		case "like":
 			x := value.values[0]
 			switch x.(type) {
 			case string:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " LIKE '" + x.(string) + "%'"
+				conditions = conditions + " AND " + alias + "." + column + " LIKE '" + x.(string) + "%'"
 			}
 		case "between":
 			beg := value.values[0]
 			end := value.values[1]
-			switch beg.(type) {
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " BETWEEN " + fmt.Sprintf("%d", beg) + " AND " + fmt.Sprintf("%d", end)
-			case float32, float64:
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " BETWEEN " + fmt.Sprintf("%f", beg) + " AND " + fmt.Sprintf("%f", end)
-			case time.Time:
-				x := beg.(time.Time).Format("2006-01-02 15:04:05")
-				y := end.(time.Time).Format("2006-01-02 15:04:05")
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " BETWEEN " + fmt.Sprintf("'%s'", x) + " AND " + fmt.Sprintf("'%s'", y)
+			argIdx++
+			endMark := "?"
+			if dialect == "postgres" {
+				endMark = fmt.Sprintf("$%d", argIdx)
 			}
+			conditions = conditions + " AND " + alias + "." + column + " BETWEEN " + mark + " AND " + endMark
+			args.Append(beg, end)
 		case "in":
 			switch value.values[0].(type) {
 			case string:
 				block := ""
 				if len(value.values) == 1 {
 					v := value.values[0].(string)
-					if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 {
+					if strings.Index(v, "(") == 0 && strings.LastIndex(v, ")") == len(v)-1 && strings.Contains(strings.ToUpper(v), "SELECT") {
 						block = v
 					}
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " IN " + block
+					conditions = conditions + " AND " + alias + "." + column + " IN " + block
 				} else {
 					for i, x := range value.values {
-						if i == 0 {
-							block = fmt.Sprintf("'%s'", x)
-						} else {
-							block = block + ", " + fmt.Sprintf("'%s'", x)
+						inMark := "?"
+						if dialect == "postgres" {
+							inMark = fmt.Sprintf("$%d", argIdx)
 						}
+						if i == 0 {
+							block = inMark
+						} else {
+							argIdx++
+							block = block + ", " + inMark
+						}
+						args.Append(x)
 					}
-					conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " IN (" + block + ")"
+					conditions = conditions + " AND " + alias + "." + column + " IN (" + block + ")"
 				}
-			case int, int8, int32, int64, uint, uint8, uint16, uint32, uint64:
+			default:
 				block := ""
 				for i, x := range value.values {
-					if i == 0 {
-						block = fmt.Sprintf("%d", x)
-					} else {
-						block = block + ", " + fmt.Sprintf("%d", x)
+					inMark := "?"
+					if dialect == "postgres" {
+						inMark = fmt.Sprintf("$%d", argIdx)
 					}
-				}
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " IN (" + block + ")"
-			case float32, float64:
-				block := ""
-				for i, x := range value.values {
 					if i == 0 {
-						block = fmt.Sprintf("%f", x)
+						block = inMark
 					} else {
-						block = block + ", " + fmt.Sprintf("%f", x)
+						argIdx++
+						block = block + ", " + inMark
 					}
+					args.Append(x)
 				}
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " IN (" + block + ")"
-			case time.Time:
-				block := ""
-				for i, x := range value.values {
-					xx := x.(time.Time).Format("2006-01-02 15:04:05")
-					if i == 0 {
-						block = fmt.Sprintf("'%s'", xx)
-					} else {
-						block = block + ", " + fmt.Sprintf("'%s'", xx)
-					}
-				}
-				conditions = conditions + " AND " + alias + "." + mapRelationName(value.column) + " IN (" + block + ")"
+				conditions = conditions + " AND " + alias + "." + column + " IN (" + block + ")"
 			}
 		}
 	}
-	return conditions
+	conditions = "WHERE " + conditions[5:]
+	return
 }
 
 func (c *QueryConditions) Eq(column string, value interface{}) *QueryConditions {

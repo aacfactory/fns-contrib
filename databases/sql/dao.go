@@ -15,126 +15,105 @@ type TableRow interface {
 }
 
 type DatabaseAccessObject interface {
-	Insert(ctx fns.Context) (affected int, err errors.CodeError)
-	Update(ctx fns.Context) (affected int, err errors.CodeError)
-	Delete(ctx fns.Context) (affected int, err errors.CodeError)
-	Exist(ctx fns.Context) (has bool, err errors.CodeError)
-	Get(ctx fns.Context) (has bool, err errors.CodeError)
-	Query(ctx fns.Context, param *QueryParam) (has bool, err errors.CodeError)
-	Count(ctx fns.Context, param *QueryParam) (num int, err errors.CodeError)
-	Page(ctx fns.Context, param *QueryParam) (page Paged, err errors.CodeError)
+	Save(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError)
+	Insert(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError)
+	Update(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError)
+	Delete(ctx fns.Context, rows ...TableRow) (affected int, err errors.CodeError)
+	Exist(ctx fns.Context, row TableRow) (has bool, err errors.CodeError)
+	Get(ctx fns.Context, row TableRow) (has bool, err errors.CodeError)
+	Query(ctx fns.Context, param *QueryParam, rows interface{}) (has bool, err errors.CodeError)
+	Count(ctx fns.Context, param *QueryParam, row TableRow) (num int, err errors.CodeError)
+	Page(ctx fns.Context, param *QueryParam, rows interface{}) (page Paged, err errors.CodeError)
+	Close()
 }
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
 var (
-	driver         = ""
-	driverLoadOnce = sync.Once{}
-	tableInfoMap   = sync.Map{}
+	dialect         = ""
+	dialectLoadOnce = sync.Once{}
+	tableInfoMap    = sync.Map{}
 )
 
 func RegisterDialect(name string) {
 	if name != "mysql" && name != "postgres" {
 		panic(fmt.Sprintf("fns SQL: use DAO failed for %s dialect is not supported", name))
 	}
-	driver = name
+	dialect = name
+	if dialect == "pgx" {
+		dialect = "postgres"
+	}
 }
 
-func DAO(target interface{}) (v DatabaseAccessObject) {
-	driverLoadOnce.Do(func() {
-		if driver == "" {
+func DAO(ctx fns.Context) (v DatabaseAccessObject) {
+	dialectLoadOnce.Do(func() {
+		if dialect == "" {
 			drivers := db.Drivers()
 			if drivers == nil || len(drivers) != 1 {
 				panic("fns SQL: use DAO failed for no drivers or too many drivers")
 			}
-			driver = drivers[0]
-			if driver == "pgx" {
-				driver = "postgres"
+			dialect = drivers[0]
+			if dialect == "pgx" {
+				dialect = "postgres"
 			}
-			if driver != "postgres" && driver != "mysql" {
-				panic(fmt.Sprintf("fns SQL: use DAO failed for %s driver is not supported", driver))
+			if dialect != "postgres" && dialect != "mysql" {
+				panic(fmt.Sprintf("fns SQL: use DAO failed for %s driver is not supported", dialect))
 			}
 		}
 	})
-	v = newDAO(target, make(map[string]interface{}), make(map[string]bool))
-	return
-}
-
-// +-------------------------------------------------------------------------------------------------------------------+
-
-func newDAO(target interface{}, loaded map[string]interface{}, affected map[string]bool) (v *dao) {
-	rt := reflect.TypeOf(target)
-	if rt.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("fns SQL: use DAO failed for target must be ptr"))
-	}
-	targetIsArray := false
-	var info *tableInfo
-	rt = rt.Elem()
-	if rt.Kind() == reflect.Struct {
-		targetIsArray = false
-		info = newTableInfo(target, driver)
-	} else if rt.Kind() == reflect.Slice || rt.Kind() == reflect.Array {
-		rt = rt.Elem()
-		targetIsArray = true
-		if rt.Kind() != reflect.Ptr {
-			panic(fmt.Sprintf("fns SQL: use DAO failed for element of slice target must be ptr struct"))
-		}
-		if rt.Elem().Kind() != reflect.Struct {
-			panic(fmt.Sprintf("fns SQL: use DAO failed for element of slice target must be ptr struct"))
-		}
-		x := reflect.New(rt.Elem()).Interface()
-		info = newTableInfo(x, driver)
-	} else {
-		panic(fmt.Sprintf("fns SQL: use DAO failed for element of target must be struct of slice"))
-	}
 	v = &dao{
-		Driver:        driver,
-		Target:        target,
-		TargetIsArray: targetIsArray,
-		TableInfo:     info,
-		Loaded:        loaded,
-		Affected:      affected,
+		Cache:    getDAOCache(ctx),
+		Affected: sync.Map{},
 	}
 	return
 }
 
 type dao struct {
-	Driver        string
-	Target        interface{}
-	TargetIsArray bool
-	TableInfo     *tableInfo
-	Loaded        map[string]interface{}
-	Affected      map[string]bool
+	Cache    DaoCache
+	Affected sync.Map
 }
 
-func (d *dao) buildKeyOfPK(pkValues []interface{}) (key string) {
-	for i, value := range pkValues {
-		if i == 0 {
-			key = fmt.Sprintf("%v", value)
-		} else {
-			key = key + "," + fmt.Sprintf("%v", value)
-		}
+func (d *dao) hasAffected(row interface{}) (has bool) {
+	info := getTableRowInfo(row)
+	rv := reflect.Indirect(reflect.ValueOf(row))
+	pks := make([]interface{}, 0, 1)
+	for _, pk := range info.Pks {
+		pks = append(pks, rv.FieldByName(pk.StructFieldName).Interface())
 	}
+	rt := reflect.TypeOf(row)
+	key := fmt.Sprintf("%s:%s", rt.PkgPath(), rt.Name())
+	for _, value := range pks {
+		key = key + "," + fmt.Sprintf("%v", value)
+	}
+	_, has = d.Affected.Load(key)
 	return
 }
 
-func (d *dao) getLoaded(pkValues []interface{}) (v interface{}, has bool) {
-	v, has = d.Loaded[d.buildKeyOfPK(pkValues)]
+func (d *dao) affected(row interface{}) {
+	info := getTableRowInfo(row)
+	rv := reflect.Indirect(reflect.ValueOf(row))
+	pks := make([]interface{}, 0, 1)
+	for _, pk := range info.Pks {
+		pks = append(pks, rv.FieldByName(pk.StructFieldName).Interface())
+	}
+	rt := reflect.TypeOf(row)
+	key := fmt.Sprintf("%s:%s", rt.PkgPath(), rt.Name())
+	for _, value := range pks {
+		key = key + "," + fmt.Sprintf("%v", value)
+	}
+	d.Affected.Store(key, 1)
 	return
 }
 
-func (d *dao) setLoaded(pkValues []interface{}, v interface{}) {
-	d.Loaded[d.buildKeyOfPK(pkValues)] = v
-	return
-}
-
-func (d *dao) hasAffected(pkValues []interface{}) (has bool) {
-	_, has = d.Affected[d.buildKeyOfPK(pkValues)]
-	return
-}
-
-func (d *dao) affected(pkValues []interface{}) {
-	d.Affected[d.buildKeyOfPK(pkValues)] = true
+func (d *dao) affectedClean() {
+	keys := make([]interface{}, 0, 1)
+	d.Affected.Range(func(key, value interface{}) bool {
+		keys = append(keys, key)
+		return true
+	})
+	for _, key := range keys {
+		d.Affected.Delete(key)
+	}
 	return
 }
 
@@ -149,4 +128,9 @@ func (d *dao) beginTx(ctx fns.Context) (err errors.CodeError) {
 func (d *dao) commitTx(ctx fns.Context) (err errors.CodeError) {
 	err = TxCommit(ctx)
 	return
+}
+
+func (d *dao) Close() {
+	d.Cache.Clean()
+	d.affectedClean()
 }

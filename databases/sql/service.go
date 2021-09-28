@@ -20,6 +20,8 @@ const (
 	TxRollbackFn = "tx_rollback"
 	QueryFn      = "query"
 	ExecuteFn    = "execute"
+
+	daoCacheConfigLoadFn = "dao_cache_config"
 )
 
 func Service() fns.Service {
@@ -31,6 +33,7 @@ type _service struct {
 	enableDebugLog bool
 	client         Client
 	gtm            *GlobalTransactionManagement
+	daoConfig      *DAOConfig
 }
 
 func (svc *_service) Namespace() string {
@@ -65,6 +68,7 @@ func (svc *_service) Build(root configuares.Config) (err error) {
 	atomic.StoreInt64(svc.running, 1)
 	svc.enableDebugLog = config.EnableDebugLog
 	svc.gtm = NewGlobalTransactionManagement()
+	svc.daoConfig = &config.DAO
 	return
 }
 
@@ -126,6 +130,8 @@ func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (
 			return
 		}
 		result = execResult
+	case daoCacheConfigLoadFn:
+		result = svc.daoConfig
 	default:
 		err = errors.NotFound(fmt.Sprintf("fns SQL Handle: %s fn was not found", fn))
 	}
