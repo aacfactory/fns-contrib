@@ -136,9 +136,9 @@ type PostRow struct {
   Version  int64             `col:"VERSION,OL"`
   Title    string            `col:"TITLE"`
   Content  string            `col:"CONTENT"`
-  Author   *UserRow          `col:"AUTHOR_ID,FK"` // FK，外键（当类型是另一个TableRow后，则可以设置，当设置后，会自动处理读写级联操作）
+  Author   *UserRow          `col:"AUTHOR_ID,FK"` // FK，外键（当设置后，会自动读出，如果追加SYNC（FK:SYNC），会自动触发写操作）
   Likes    int               `col:"LIKES,VC" src:"SELECT COUNT(1) FROM \"FNS\".\"POST_LIKE\" WHERE \"POST_ID\" = \"P\".\"ID\" "` // VC，虚拟列
-  Comments []*PostCommentRow `col:"-,LK:SYNC" ref:"ID,POST_ID" sort:"CREATE_AT DESC"` // LK，一对多（当设置后，会自动处理读写级联操作）
+  Comments []*PostCommentRow `col:"-,LK:SYNC" ref:"ID,POST_ID" sort:"CREATE_AT DESC"` // LK，一对多（当设置后，会自动读出，如果追加SYNC（LK:SYNC），会自动触发写操作）
 }
 
 func (r *PostRow) Table() (string, string, string) {
