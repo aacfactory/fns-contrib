@@ -13,7 +13,7 @@ import (
 
 type DAOConfig struct {
 	CacheKind string          `json:"cacheKind,omitempty"`
-	Raw       json.RawMessage `json:"raw,omitempty"`
+	Raw       json.RawMessage `json:"options,omitempty"`
 }
 
 type DaoCache interface {
