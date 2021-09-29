@@ -115,7 +115,7 @@ func (d *dao) deleteOne(ctx fns.Context, row TableRow) (affected int, err errors
 		fv := rv.FieldByName(field)
 		// builtin
 		if !fv.CanInterface() {
-			err = errors.ServiceError("fns SQL: dao insert for get field interface value").WithMeta(field, "can not interface")
+			err = errors.ServiceError("fns SQL: dao failed for get field interface value").WithMeta(field, "can not interface")
 			return
 		}
 		fvv := fv.Interface()
@@ -159,5 +159,6 @@ func (d *dao) deleteOne(ctx fns.Context, row TableRow) (affected int, err errors
 			affected = affected + lkAffected
 		}
 	}
+	d.Cache.Remove(row)
 	return
 }
