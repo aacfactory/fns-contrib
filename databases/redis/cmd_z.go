@@ -17,7 +17,7 @@ type ZAddParam struct {
 func (svc *_service) zAdd(ctx fns.Context, param ZAddParam) (err errors.CodeError) {
 	cmdErr := svc.client.Writer().ZAdd(ctx, param.Key, &rds.Z{
 		Score:  param.Score,
-		Member: param.Value,
+		Member: string(param.Value),
 	}).Err()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())

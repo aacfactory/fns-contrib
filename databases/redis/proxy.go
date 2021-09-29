@@ -43,7 +43,7 @@ func Contains(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 	return
 }
 
-func Remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
+func Remove(ctx fns.Context, key string) (err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
@@ -56,7 +56,7 @@ func Remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
 	}
 
 	r := proxy.Request(ctx, RemoveFn, arg)
-	err = r.Get(ctx, &ok)
+	err = r.Get(ctx, &json.RawMessage{})
 	return
 }
 
@@ -128,7 +128,7 @@ func Set(ctx fns.Context, param SetParam) (err errors.CodeError) {
 	return
 }
 
-func Get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeError) {
+func Get(ctx fns.Context, key string) (result *GetResult, err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
@@ -139,13 +139,30 @@ func Get(ctx fns.Context, key string) (result json.RawMessage, err errors.CodeEr
 		err = argErr
 		return
 	}
-	result = json.RawMessage{}
+	result = &GetResult{}
 	r := proxy.Request(ctx, GetFn, arg)
-	err = r.Get(ctx, &result)
+	err = r.Get(ctx, result)
 	return
 }
 
-func Incr(ctx fns.Context, key string) (err errors.CodeError) {
+func GetSet(ctx fns.Context, param SetParam) (result *GetResult, err errors.CodeError) {
+	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
+	if proxyErr != nil {
+		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
+		return
+	}
+	arg, argErr := fns.NewArgument(param)
+	if argErr != nil {
+		err = argErr
+		return
+	}
+	result = &GetResult{}
+	r := proxy.Request(ctx, GetSetFn, arg)
+	err = r.Get(ctx, result)
+	return
+}
+
+func Incr(ctx fns.Context, key string) (v int64, err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
@@ -157,11 +174,13 @@ func Incr(ctx fns.Context, key string) (err errors.CodeError) {
 		return
 	}
 	r := proxy.Request(ctx, IncrFn, arg)
-	err = r.Get(ctx, &json.RawMessage{})
+	x := atomicResult{}
+	err = r.Get(ctx, &x)
+	v = x.Value
 	return
 }
 
-func Decr(ctx fns.Context, key string) (err errors.CodeError) {
+func Decr(ctx fns.Context, key string) (v int64, err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns Redis Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
@@ -173,7 +192,9 @@ func Decr(ctx fns.Context, key string) (err errors.CodeError) {
 		return
 	}
 	r := proxy.Request(ctx, DecrFn, arg)
-	err = r.Get(ctx, &json.RawMessage{})
+	x := atomicResult{}
+	err = r.Get(ctx, &x)
+	v = x.Value
 	return
 }
 

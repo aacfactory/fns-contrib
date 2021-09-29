@@ -14,6 +14,7 @@ const (
 
 	SetFn              = "set"
 	GetFn              = "get"
+	GetSetFn           = "get_set"
 	IncrFn             = "incr"
 	DecrFn             = "decr"
 	ContainsFn         = "contains"
@@ -100,6 +101,15 @@ func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argumen
 			return
 		}
 		result, err = svc.get(context, key)
+	case GetSetFn:
+		context = fns.WithFn(context, fn)
+		param := SetParam{}
+		argErr := argument.As(&param)
+		if argErr != nil {
+			err = argErr
+			return
+		}
+		result, err = svc.getAndSet(context, param)
 	case IncrFn:
 		context = fns.WithFn(context, fn)
 		key := ""
@@ -108,7 +118,7 @@ func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argumen
 			err = argErr
 			return
 		}
-		err = svc.incr(context, key)
+		result, err = svc.incr(context, key)
 		if err == nil {
 			result = struct{}{}
 		}
@@ -120,7 +130,7 @@ func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argumen
 			err = argErr
 			return
 		}
-		err = svc.decr(context, key)
+		result, err = svc.decr(context, key)
 		if err == nil {
 			result = struct{}{}
 		}
@@ -141,7 +151,10 @@ func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argumen
 			err = argErr
 			return
 		}
-		result, err = svc.remove(context, key)
+		err = svc.remove(context, key)
+		if err == nil {
+			result = struct{}{}
+		}
 	case ExpireFn:
 		context = fns.WithFn(context, fn)
 		param := ExpireParam{}

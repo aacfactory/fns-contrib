@@ -156,7 +156,7 @@ func (args *OriginArgs) convert() (v []interface{}, err error) {
 		case "sss":
 			v = append(v, data)
 		case "bbb":
-			v = append(v, []byte(data))
+			v = append(v, data)
 		case "i00":
 			n, parseErr := strconv.Atoi(data)
 			if parseErr != nil {

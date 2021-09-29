@@ -16,13 +16,12 @@ func (svc *_service) contains(ctx fns.Context, key string) (ok bool, err errors.
 	return
 }
 
-func (svc *_service) remove(ctx fns.Context, key string) (ok bool, err errors.CodeError) {
-	n, cmdErr := svc.client.Writer().Del(ctx, key).Result()
+func (svc *_service) remove(ctx fns.Context, key string) (err errors.CodeError) {
+	cmdErr := svc.client.Writer().Del(ctx, key).Err()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
 		return
 	}
-	ok = n > 0
 	return
 }
 
