@@ -66,13 +66,43 @@ func (d *dao) Get(ctx fns.Context, row TableRow) (has bool, err errors.CodeError
 		}
 		frv.Set(reflect.ValueOf(x))
 	}
+	// vc
+	if info.VirtualQuery != nil {
+		query := info.VirtualQuery.Query
+		paramFields := info.VirtualQuery.Params
+		params := NewTuple()
+		for _, field := range paramFields {
+			params.Append(rv.FieldByName(field).Interface())
+		}
+		rows, queryErr := Query(ctx, Param{
+			Query: query,
+			Args:  params,
+		})
+		if queryErr != nil {
+			err = queryErr
+			return
+		}
+		if queryErr != nil {
+			err = queryErr
+			return
+		}
+		if rows.Empty() {
+			d.Cache.Set(row, true)
+			return
+		}
+		scanErr := rows.Scan(row)
+		if scanErr != nil {
+			err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanErr)
+			return
+		}
+	}
 	// lk
 	for _, column := range info.LinkColumns {
 		lrv := rv.FieldByName(column.StructFieldName)
 		lkHasRef := false
 		if lrv.Len() == 0 {
 			lkInfo := getTableRowInfo(reflect.New(column.ElementType.Elem()).Interface())
-			lkHasRef = len(lkInfo.ForeignColumns) != 0 || len(lkInfo.LinkColumns) != 0
+			lkHasRef = len(lkInfo.ForeignColumns) != 0 || len(lkInfo.LinkColumns) != 0 || lkInfo.VirtualQuery != nil
 			linkQuery := lkInfo.genLinkQuery(column)
 			leftField := info.GetColumnField(column.LeftColumn)
 			left := rv.FieldByName(leftField).Interface()
@@ -94,16 +124,16 @@ func (d *dao) Get(ctx fns.Context, row TableRow) (has bool, err errors.CodeError
 				err = errors.ServiceError("fns SQL: use DAO failed for scan rows in Get").WithCause(scanLinkErr)
 				return
 			}
+
 			lrv.Set(reflect.ValueOf(x))
 		}
 		if lkHasRef {
-			for i := 0; i < lrv.Len(); i++ {
-				rxe := lrv.Index(i).Interface()
-				xRow, mapOk := rxe.(TableRow)
-				if !mapOk {
-					panic(fmt.Sprintf("fns SQL: use DAO failed for %s of row is not sql.TableRow", column.StructFieldName))
-				}
-				_, loadLCErr := d.Get(ctx, xRow)
+			size := lrv.Len()
+			for i := 0; i < size; i++ {
+				rvxe := lrv.Index(i).Interface()
+				rvxr := rvxe.(TableRow)
+				d.Cache.Set(rvxr, false)
+				_, loadLCErr := d.Get(ctx, rvxr)
 				if loadLCErr != nil {
 					err = loadLCErr
 					return

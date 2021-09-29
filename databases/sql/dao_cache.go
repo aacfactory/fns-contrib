@@ -1,11 +1,14 @@
 package sql
 
 import (
+	"crypto/md5"
 	"fmt"
 	"github.com/aacfactory/fns"
 	"github.com/aacfactory/json"
+	"github.com/tidwall/gjson"
 	"reflect"
 	"sync"
+	"time"
 )
 
 type DAOConfig struct {
@@ -16,6 +19,7 @@ type DAOConfig struct {
 type DaoCache interface {
 	GetAndFill(row TableRow) (has bool, synced bool)
 	Set(row TableRow, synced bool)
+	Remove(row TableRow)
 	Clean()
 }
 
@@ -52,11 +56,10 @@ func getDAOCache(ctx fns.Context) (cache DaoCache) {
 		case "local":
 			daoCache = newLocalDaoCache()
 		case "redis":
-			// todo
+			daoCache = newRedisDaoCache(ctx, config.Raw)
 		default:
 			daoCache = newLocalDaoCache()
 		}
-
 	})
 	cache = daoCache
 	return
@@ -113,8 +116,10 @@ func (cache *localDaoCache) Set(row TableRow, synced bool) {
 	v, loaded := cache.values.Load(cache.buildKey(row))
 	if loaded {
 		cached = v.(*cachedTableRow)
-		cached.value = row
-		cached.synced = synced
+		if !cached.synced {
+			cached.value = row
+			cached.synced = synced
+		}
 	} else {
 		cached = &cachedTableRow{
 			value:  row,
@@ -122,6 +127,10 @@ func (cache *localDaoCache) Set(row TableRow, synced bool) {
 		}
 	}
 	cache.values.Store(cache.buildKey(row), cached)
+}
+
+func (cache *localDaoCache) Remove(row TableRow) {
+	cache.values.Delete(cache.buildKey(row))
 }
 
 func (cache *localDaoCache) Clean() {
@@ -133,4 +142,217 @@ func (cache *localDaoCache) Clean() {
 	for _, key := range keys {
 		cache.values.Delete(key)
 	}
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+func newRedisDaoCache(ctx fns.Context, configRaw json.RawMessage) (cache DaoCache) {
+	ttl := 24 * time.Hour
+	ttlNode := gjson.GetBytes(configRaw, "ttl")
+	if ttlNode.Exists() {
+		ttl0, parseErr := time.ParseDuration(ttlNode.String())
+		if parseErr != nil {
+			panic(fmt.Sprintf("fns SQL: use DAO failed for parse sql.dao.ttl in config failed"))
+		}
+		ttl = ttl0
+	}
+	cache = &redisDaoCache{
+		ctx:   ctx,
+		local: newLocalDaoCache(),
+		ttl:   ttl,
+	}
+	return
+}
+
+type redisDaoCache struct {
+	ctx   fns.Context
+	local DaoCache
+	ttl   time.Duration
+}
+
+func (cache *redisDaoCache) GetAndFill(row TableRow) (has bool, synced bool) {
+	has, synced = cache.local.GetAndFill(row)
+	if has {
+		return
+	}
+	has = cache.getFromRedis(row)
+	return
+}
+
+func (cache *redisDaoCache) Set(row TableRow, synced bool) {
+	cache.local.Set(row, synced)
+	if synced {
+		return
+	}
+	cache.setIntoRedis(row)
+	return
+}
+
+func (cache *redisDaoCache) Remove(row TableRow) {
+	cache.local.Remove(row)
+	cache.removeFromRedis(row)
+}
+
+type redisGetResult struct {
+	Value json.RawMessage `json:"value,omitempty"`
+	Has   bool            `json:"has,omitempty"`
+}
+
+func (cache *redisDaoCache) getFromRedis(row TableRow) (has bool) {
+	key := cache.buildRowCacheKey(row)
+	proxy, proxyErr := cache.ctx.App().ServiceProxy(cache.ctx, "redis")
+	if proxyErr != nil {
+		return
+	}
+	arg, argErr := fns.NewArgument(key)
+	if argErr != nil {
+		return
+	}
+	result := &redisGetResult{}
+	r := proxy.Request(cache.ctx, "get", arg)
+	fnErr := r.Get(cache.ctx, result)
+	if fnErr != nil {
+		return
+	}
+	if !result.Has {
+		return
+	}
+	cache.mapJsonToRow(result.Value, row)
+	has = true
+	return
+}
+
+type redisSetParam struct {
+	Key        string          `json:"key,omitempty"`
+	Value      json.RawMessage `json:"value,omitempty"`
+	Expiration time.Duration   `json:"expiration,omitempty"`
+}
+
+func (cache *redisDaoCache) setIntoRedis(row TableRow) {
+	key := cache.buildRowCacheKey(row)
+	proxy, proxyErr := cache.ctx.App().ServiceProxy(cache.ctx, "redis")
+	if proxyErr != nil {
+		return
+	}
+	param := &redisSetParam{
+		Key:        key,
+		Value:      cache.mapRowToJson(row),
+		Expiration: cache.ttl,
+	}
+	arg, argErr := fns.NewArgument(param)
+	if argErr != nil {
+		return
+	}
+	r := proxy.Request(cache.ctx, "set", arg)
+	fnErr := r.Get(cache.ctx, &json.RawMessage{})
+	if fnErr != nil {
+		return
+	}
+	return
+}
+
+func (cache *redisDaoCache) removeFromRedis(row TableRow) {
+	key := cache.buildRowCacheKey(row)
+	proxy, proxyErr := cache.ctx.App().ServiceProxy(cache.ctx, "redis")
+	if proxyErr != nil {
+		return
+	}
+	arg, argErr := fns.NewArgument(key)
+	if argErr != nil {
+		return
+	}
+	r := proxy.Request(cache.ctx, "remove", arg)
+	fnErr := r.Get(cache.ctx, &json.RawMessage{})
+	if fnErr != nil {
+		return
+	}
+	return
+}
+
+func (cache *redisDaoCache) Clean() {
+	cache.local.Clean()
+	return
+}
+
+func (cache *redisDaoCache) mapRowToJson(row TableRow) (p []byte) {
+	o := json.NewObject()
+	info := getTableRowInfo(row)
+	rv := reflect.Indirect(reflect.ValueOf(row))
+	if info.Pks != nil {
+		for _, pk := range info.Pks {
+			pkv := rv.FieldByName(pk.StructFieldName).Interface()
+			_ = o.Put(pk.StructFieldName, pkv)
+		}
+	}
+	if info.CreateBY != nil {
+		x := rv.FieldByName(info.CreateBY.StructFieldName).Interface()
+		_ = o.Put(info.CreateBY.StructFieldName, x)
+	}
+	if info.CreateAT != nil {
+		x := rv.FieldByName(info.CreateAT.StructFieldName).Interface()
+		_ = o.Put(info.CreateAT.StructFieldName, x)
+	}
+	if info.ModifyBY != nil {
+		x := rv.FieldByName(info.ModifyBY.StructFieldName).Interface()
+		_ = o.Put(info.ModifyBY.StructFieldName, x)
+	}
+	if info.ModifyAT != nil {
+		x := rv.FieldByName(info.ModifyAT.StructFieldName).Interface()
+		_ = o.Put(info.ModifyAT.StructFieldName, x)
+	}
+	if info.DeleteBY != nil {
+		x := rv.FieldByName(info.DeleteBY.StructFieldName).Interface()
+		_ = o.Put(info.DeleteBY.StructFieldName, x)
+	}
+	if info.DeleteAT != nil {
+		x := rv.FieldByName(info.DeleteAT.StructFieldName).Interface()
+		_ = o.Put(info.DeleteAT.StructFieldName, x)
+	}
+	if info.Version != nil {
+		x := rv.FieldByName(info.Version.StructFieldName).Interface()
+		_ = o.Put(info.Version.StructFieldName, x)
+	}
+	if info.Columns != nil {
+		for _, col := range info.Columns {
+			x := rv.FieldByName(col.StructFieldName).Interface()
+			_ = o.Put(col.StructFieldName, x)
+		}
+	}
+	if info.ForeignColumns != nil {
+		for _, col := range info.ForeignColumns {
+			fcv := rv.FieldByName(col.StructFieldName)
+			if fcv.IsNil() {
+				continue
+			}
+			fc := fcv.Interface()
+			fcInfo := getTableRowInfo(fc)
+			fcPkv := fcv.Elem().FieldByName(fcInfo.Pks[0].StructFieldName).Interface()
+			_ = o.Put(col.StructFieldName, map[string]interface{}{fcInfo.Pks[0].StructFieldName: fcPkv})
+		}
+	}
+	p = o.Raw()
+	return
+}
+
+func (cache *redisDaoCache) mapJsonToRow(p []byte, row TableRow) {
+	err := json.Unmarshal(p, row)
+	if err != nil {
+		panic(fmt.Sprintf("fns SQL: use DAO failed for decode redis cache failed, %v", err))
+	}
+	return
+}
+
+func (cache *redisDaoCache) buildRowCacheKey(row TableRow) (key string) {
+	info := getTableRowInfo(row)
+	if info.Pks == nil || len(info.Pks) == 0 {
+		p := cache.mapRowToJson(row)
+		key = fmt.Sprintf("fns_dao:%s:%s:%x", info.Namespace, info.Name, md5.Sum(p))
+		return
+	}
+	rv := reflect.Indirect(reflect.ValueOf(row))
+	for _, pk := range info.Pks {
+		key = key + "-" + fmt.Sprintf("%v", rv.FieldByName(pk.StructFieldName).Interface())
+	}
+	key = "fns_dao:" + info.Namespace + ":" + info.Name + ":" + key[1:]
+	return
 }

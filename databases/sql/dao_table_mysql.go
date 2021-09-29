@@ -270,10 +270,7 @@ func tableInfoGenMysqlGetQuery(info *tableInfo) {
 	for _, column := range info.ForeignColumns {
 		selects = selects + ", " + alias + "." + column.Name
 	}
-	// vc
-	for _, column := range info.VirtualColumns {
-		selects = selects + ", (" + column.Source + ") AS " + column.Name
-	}
+
 	info.Selects = selects[1:]
 	query = query + info.Selects
 	if ns != "" {
@@ -321,6 +318,43 @@ func tableInfoGenMysqlExistQuery(info *tableInfo) {
 	info.ExistQuery.Params = params
 }
 
+func tableInfoGenMysqlVirtualQuery(info *tableInfo) {
+	if info.VirtualColumns == nil || len(info.VirtualColumns) == 0 {
+		return
+	}
+	ns := info.Namespace
+	name := info.Name
+	alias := info.Alias
+	query := "SELECT"
+	selects := ""
+	// vc
+	for _, column := range info.VirtualColumns {
+		selects = selects + ", (" + column.Source + ") AS " + column.Name
+	}
+	query = query + selects[1:]
+	if ns != "" {
+		query = query + " FROM " + ns + "." + name + " AS " + alias
+	} else {
+		query = query + " FROM " + name + " AS " + alias
+	}
+	info.SimpleQuery = query
+	params := make([]string, 0, 1)
+	query = query + " WHERE "
+	for i, pk := range info.Pks {
+		if i == 0 {
+			query = query + alias + "." + pk.Name + "=?"
+
+		} else {
+			query = query + "AND " + alias + "." + pk.Name + "=?"
+		}
+		params = append(params, pk.StructFieldName)
+	}
+	info.VirtualQuery = &queryInfo{
+		Query:  query,
+		Params: params,
+	}
+}
+
 func tableInfoGenMysqlLinkQuery(info *tableInfo) {
 	if len(info.ForeignColumns) == 0 {
 		return
@@ -364,10 +398,6 @@ func tableInfoGenMysqlLinkQuery(info *tableInfo) {
 		// fk
 		for _, column := range info.ForeignColumns {
 			selects = selects + ", " + alias + "." + column.Name
-		}
-		// vc
-		for _, column := range info.VirtualColumns {
-			selects = selects + ", (" + column.Source + ") AS " + column.Name
 		}
 
 		query = query + selects[1:]

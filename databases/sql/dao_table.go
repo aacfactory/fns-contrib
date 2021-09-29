@@ -330,6 +330,7 @@ func newTableInfo(table TableRow) (info *tableInfo) {
 		tableInfoGenPostgresSaveQuery(info)
 		tableInfoGenPostgresGetQuery(info)
 		tableInfoGenPostgresExistQuery(info)
+		tableInfoGenPostgresVirtualQuery(info)
 		tableInfoGenPostgresLinkQuery(info)
 		tableInfoGenPostgresLinkSaveCleanQuery(info)
 	case "mysql":
@@ -371,6 +372,7 @@ type tableInfo struct {
 	SaveQuery             queryInfo
 	GetQuery              queryInfo
 	ExistQuery            queryInfo
+	VirtualQuery 		  *queryInfo
 	LinkQueryMap          map[string]queryInfo // key=fk_name
 	LinkSaveCleanQueryMap map[string]queryInfo // key=fk_name
 }

@@ -296,6 +296,43 @@ func tableInfoGenPostgresSaveQuery(info *tableInfo) {
 	info.SaveQuery.Params = params
 }
 
+func tableInfoGenPostgresVirtualQuery(info *tableInfo) {
+	if info.VirtualColumns == nil || len(info.VirtualColumns) == 0 {
+		return
+	}
+	ns := tableInfoConvertToPostgresName(info.Namespace)
+	name := tableInfoConvertToPostgresName(info.Name)
+	alias := tableInfoConvertToPostgresName(info.Alias)
+	query := "SELECT"
+	selects := ""
+	// vc
+	for _, column := range info.VirtualColumns {
+		selects = selects + ", (" + column.Source + ") AS " + tableInfoConvertToPostgresName(column.Name)
+	}
+	query = query + selects[1:]
+	if ns != "" {
+		query = query + " FROM " + ns + "." + name + " AS " + alias
+	} else {
+		query = query + " FROM " + name + " AS " + alias
+	}
+	info.SimpleQuery = query
+	params := make([]string, 0, 1)
+	query = query + " WHERE "
+	for i, pk := range info.Pks {
+		if i == 0 {
+			query = query + alias + "." + tableInfoConvertToPostgresName(pk.Name) + fmt.Sprintf("=$%d", i+1)
+
+		} else {
+			query = query + "AND " + alias + "." + tableInfoConvertToPostgresName(pk.Name) + fmt.Sprintf("=$%d", i+1)
+		}
+		params = append(params, pk.StructFieldName)
+	}
+	info.VirtualQuery = &queryInfo{
+		Query:  query,
+		Params: params,
+	}
+}
+
 func tableInfoGenPostgresGetQuery(info *tableInfo) {
 	ns := tableInfoConvertToPostgresName(info.Namespace)
 	name := tableInfoConvertToPostgresName(info.Name)
@@ -336,10 +373,7 @@ func tableInfoGenPostgresGetQuery(info *tableInfo) {
 	for _, column := range info.ForeignColumns {
 		selects = selects + ", " + alias + "." + tableInfoConvertToPostgresName(column.Name)
 	}
-	// vc
-	for _, column := range info.VirtualColumns {
-		selects = selects + ", (" + column.Source + ") AS " + tableInfoConvertToPostgresName(column.Name)
-	}
+
 	info.Selects = selects[1:]
 	query = query + info.Selects
 	if ns != "" {
@@ -430,10 +464,6 @@ func tableInfoGenPostgresLinkQuery(info *tableInfo) {
 		// fk
 		for _, column := range info.ForeignColumns {
 			selects = selects + ", " + alias + "." + tableInfoConvertToPostgresName(column.Name)
-		}
-		// vc
-		for _, column := range info.VirtualColumns {
-			selects = selects + ", (" + column.Source + ") AS " + tableInfoConvertToPostgresName(column.Name)
 		}
 
 		query = query + selects[1:]
