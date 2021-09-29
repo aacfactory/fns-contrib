@@ -176,6 +176,9 @@ func (cache *redisDaoCache) GetAndFill(row TableRow) (has bool, synced bool) {
 		return
 	}
 	has = cache.getFromRedis(row)
+	if has {
+		cache.local.Set(row, false)
+	}
 	return
 }
 
