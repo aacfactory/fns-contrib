@@ -3,15 +3,15 @@ module github.com/aacfactory/fns-contrib/authorizations/jwt
 go 1.17
 
 require (
-	github.com/aacfactory/configuares v1.2.2
-	github.com/aacfactory/errors v1.6.0
-	github.com/aacfactory/fns v0.5.0
-	github.com/aacfactory/json v1.4.2
+	github.com/aacfactory/configuares v1.2.3
+	github.com/aacfactory/errors v1.6.2
+	github.com/aacfactory/fns v0.6.18
+	github.com/aacfactory/json v1.4.3
 	github.com/golang-jwt/jwt/v4 v4.0.0
 )
 
 require (
-	github.com/aacfactory/logs v1.1.3 // indirect
+	github.com/aacfactory/logs v1.2.0 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.3 // indirect
 	github.com/fatih/color v1.12.0 // indirect

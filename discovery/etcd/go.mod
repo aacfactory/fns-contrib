@@ -3,15 +3,15 @@ module github.com/aacfactory/fns-contrib/discovery/etcd
 go 1.17
 
 require (
-	github.com/aacfactory/errors v1.6.0
-	github.com/aacfactory/fns v0.5.0
+	github.com/aacfactory/errors v1.6.2
+	github.com/aacfactory/fns v0.6.18
 	go.etcd.io/etcd/client/v3 v3.5.0
 )
 
 require (
-	github.com/aacfactory/configuares v1.2.2 // indirect
-	github.com/aacfactory/json v1.4.2 // indirect
-	github.com/aacfactory/logs v1.1.3 // indirect
+	github.com/aacfactory/configuares v1.2.3 // indirect
+	github.com/aacfactory/json v1.4.3 // indirect
+	github.com/aacfactory/logs v1.2.0 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.3 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
