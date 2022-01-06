@@ -25,10 +25,10 @@ const (
 )
 
 func Service() fns.Service {
-	return &_service{}
+	return &service{}
 }
 
-type _service struct {
+type service struct {
 	running        *int64
 	enableDebugLog bool
 	client         Client
@@ -36,15 +36,15 @@ type _service struct {
 	daoConfig      *DAOConfig
 }
 
-func (svc *_service) Namespace() string {
+func (svc *service) Namespace() string {
 	return Namespace
 }
 
-func (svc *_service) Internal() bool {
+func (svc *service) Internal() bool {
 	return true
 }
 
-func (svc *_service) Build(root configuares.Config) (err error) {
+func (svc *service) Build(root configuares.Config) (err error) {
 	config := Config{}
 	has, readErr := root.Get(configPath, &config)
 	if readErr != nil {
@@ -72,11 +72,11 @@ func (svc *_service) Build(root configuares.Config) (err error) {
 	return
 }
 
-func (svc *_service) Description() (description []byte) {
+func (svc *service) Document() (doc *fns.ServiceDocument) {
 	return
 }
 
-func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
+func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
 	if atomic.LoadInt64(svc.running) == 0 {
 		err = errors.New(555, "***WARNING***", "fns SQL Handle: service is not ready or closing")
 		return
@@ -138,14 +138,14 @@ func (svc *_service) Handle(ctx fns.Context, fn string, argument fns.Argument) (
 	return
 }
 
-func (svc *_service) Close() (err error) {
+func (svc *service) Shutdown() (err error) {
 	atomic.StoreInt64(svc.running, 0)
 	svc.gtm.Close()
 	err = svc.client.Close()
 	return
 }
 
-func (svc *_service) getExecutor(ctx fns.Context) (v Executor) {
+func (svc *service) getExecutor(ctx fns.Context) (v Executor) {
 	tx, hasTx := svc.getTx(ctx)
 	if hasTx {
 		v = tx
@@ -155,7 +155,7 @@ func (svc *_service) getExecutor(ctx fns.Context) (v Executor) {
 	return
 }
 
-func (svc *_service) getQueryAble(ctx fns.Context) (v QueryAble) {
+func (svc *service) getQueryAble(ctx fns.Context) (v QueryAble) {
 	tx, hasTx := svc.getTx(ctx)
 	if hasTx {
 		v = tx

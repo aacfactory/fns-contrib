@@ -37,22 +37,22 @@ const (
 )
 
 func Service() fns.Service {
-	return &_service{}
+	return &service{}
 }
 
-type _service struct {
+type service struct {
 	client Client
 }
 
-func (svc *_service) Namespace() string {
+func (svc *service) Namespace() string {
 	return Namespace
 }
 
-func (svc *_service) Internal() bool {
+func (svc *service) Internal() bool {
 	return true
 }
 
-func (svc *_service) Build(root configuares.Config) (err error) {
+func (svc *service) Build(root configuares.Config) (err error) {
 	config := Config{}
 	has, readErr := root.Get(configPath, &config)
 	if readErr != nil {
@@ -74,11 +74,11 @@ func (svc *_service) Build(root configuares.Config) (err error) {
 	return
 }
 
-func (svc *_service) Description() (description []byte) {
+func (svc *service) Document() (doc *fns.ServiceDocument) {
 	return
 }
 
-func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
+func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
 	switch fn {
 	case SetFn:
 		context = fns.WithFn(context, fn)
@@ -305,7 +305,7 @@ func (svc *_service) Handle(context fns.Context, fn string, argument fns.Argumen
 	return
 }
 
-func (svc *_service) Close() (err error) {
+func (svc *service) Shutdown() (err error) {
 	err = svc.client.Close()
 	return
 }

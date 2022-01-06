@@ -12,12 +12,12 @@ type TxBeginParam struct {
 	Isolation db.IsolationLevel `json:"isolation,omitempty"`
 }
 
-func (svc *_service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
+func (svc *service) getTx(ctx fns.Context) (tx *db.Tx, has bool) {
 	tx, has = svc.gtm.GetTx(ctx)
 	return
 }
 
-func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
+func (svc *service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
 	txErr := svc.gtm.Begin(ctx, svc.client.Writer(), param.Isolation, param.Timeout)
 	if txErr != nil {
 		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(txErr)
@@ -26,7 +26,7 @@ func (svc *_service) txBegin(ctx fns.Context, param TxBeginParam) (err errors.Co
 	return
 }
 
-func (svc *_service) txCommit(ctx fns.Context) (err errors.CodeError) {
+func (svc *service) txCommit(ctx fns.Context) (err errors.CodeError) {
 	commitErr := svc.gtm.Commit(ctx)
 	if commitErr != nil {
 		err = errors.ServiceError("fns SQL: commit tx failed").WithCause(commitErr)
@@ -35,7 +35,7 @@ func (svc *_service) txCommit(ctx fns.Context) (err errors.CodeError) {
 	return
 }
 
-func (svc *_service) txRollback(ctx fns.Context) (err errors.CodeError) {
+func (svc *service) txRollback(ctx fns.Context) (err errors.CodeError) {
 	svc.gtm.Rollback(ctx)
 	return
 }

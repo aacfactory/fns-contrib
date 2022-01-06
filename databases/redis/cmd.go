@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (svc *_service) cmd(ctx fns.Context, arg OriginCommandArg) (result OriginCommandResult, err errors.CodeError) {
+func (svc *service) cmd(ctx fns.Context, arg OriginCommandArg) (result OriginCommandResult, err errors.CodeError) {
 
 	params, parseErr := arg.MapToRedisDoArgs()
 	if parseErr != nil {

@@ -14,7 +14,7 @@ type SetParam struct {
 	Expiration time.Duration   `json:"expiration,omitempty"`
 }
 
-func (svc *_service) set(ctx fns.Context, param SetParam) (err errors.CodeError) {
+func (svc *service) set(ctx fns.Context, param SetParam) (err errors.CodeError) {
 	cmdErr := svc.client.Writer().Set(ctx, param.Key, string(param.Value), param.Expiration).Err()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -28,7 +28,7 @@ type GetResult struct {
 	Has   bool            `json:"has,omitempty"`
 }
 
-func (svc *_service) get(ctx fns.Context, key string) (result *GetResult, err errors.CodeError) {
+func (svc *service) get(ctx fns.Context, key string) (result *GetResult, err errors.CodeError) {
 	v, cmdErr := svc.client.Reader().Get(ctx, key).Result()
 	if cmdErr != nil {
 		if cmdErr == rds.Nil {
@@ -48,7 +48,7 @@ func (svc *_service) get(ctx fns.Context, key string) (result *GetResult, err er
 	return
 }
 
-func (svc *_service) getAndSet(ctx fns.Context, param SetParam) (result *GetResult, err errors.CodeError) {
+func (svc *service) getAndSet(ctx fns.Context, param SetParam) (result *GetResult, err errors.CodeError) {
 	v, cmdErr := svc.client.Writer().GetSet(ctx, param.Key, string(param.Value)).Result()
 	if cmdErr != nil {
 		if cmdErr == rds.Nil {
@@ -80,7 +80,7 @@ type atomicResult struct {
 	Value int64 `json:"value,omitempty"`
 }
 
-func (svc *_service) incr(ctx fns.Context, key string) (result *atomicResult, err errors.CodeError) {
+func (svc *service) incr(ctx fns.Context, key string) (result *atomicResult, err errors.CodeError) {
 	if svc.client.Writer().Exists(ctx, key).Val() == 0 {
 		svc.client.Writer().SetNX(ctx, key, int64(0), 0)
 	}
@@ -95,7 +95,7 @@ func (svc *_service) incr(ctx fns.Context, key string) (result *atomicResult, er
 	return
 }
 
-func (svc *_service) decr(ctx fns.Context, key string) (result *atomicResult, err errors.CodeError) {
+func (svc *service) decr(ctx fns.Context, key string) (result *atomicResult, err errors.CodeError) {
 	if svc.client.Writer().Exists(ctx, key).Val() == 0 {
 		svc.client.Writer().SetNX(ctx, key, int64(0), 0)
 	}

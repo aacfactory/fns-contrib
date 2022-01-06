@@ -14,7 +14,7 @@ type ZAddParam struct {
 	Value json.RawMessage `json:"value,omitempty"`
 }
 
-func (svc *_service) zAdd(ctx fns.Context, param ZAddParam) (err errors.CodeError) {
+func (svc *service) zAdd(ctx fns.Context, param ZAddParam) (err errors.CodeError) {
 	cmdErr := svc.client.Writer().ZAdd(ctx, param.Key, &rds.Z{
 		Score:  param.Score,
 		Member: string(param.Value),
@@ -26,7 +26,7 @@ func (svc *_service) zAdd(ctx fns.Context, param ZAddParam) (err errors.CodeErro
 	return
 }
 
-func (svc *_service) zCard(ctx fns.Context, key string) (num int64, err errors.CodeError) {
+func (svc *service) zCard(ctx fns.Context, key string) (num int64, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().ZCard(ctx, key).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -42,7 +42,7 @@ type ZRangeParam struct {
 	Stop  int64  `json:"stop,omitempty"`
 }
 
-func (svc *_service) zRange(ctx fns.Context, param ZRangeParam) (result *json.Array, err errors.CodeError) {
+func (svc *service) zRange(ctx fns.Context, param ZRangeParam) (result *json.Array, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().ZRange(ctx, param.Key, param.Start, param.Stop).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -77,7 +77,7 @@ type ZRangeByScoreParam struct {
 	Count  int64  `json:"count,omitempty"`
 }
 
-func (svc *_service) zRangeByScore(ctx fns.Context, param ZRangeByScoreParam) (result *json.Array, err errors.CodeError) {
+func (svc *service) zRangeByScore(ctx fns.Context, param ZRangeByScoreParam) (result *json.Array, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().ZRangeByScore(ctx, param.Key, &rds.ZRangeBy{
 		Min:    param.Min,
 		Max:    param.Max,
@@ -114,7 +114,7 @@ type ZRemParam struct {
 	Member json.RawMessage `json:"min,omitempty"`
 }
 
-func (svc *_service) zRem(ctx fns.Context, param ZRemParam) (ok bool, err errors.CodeError) {
+func (svc *service) zRem(ctx fns.Context, param ZRemParam) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().ZRem(ctx, param.Key, param.Member).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -131,7 +131,7 @@ type ZRemByRankParam struct {
 	Stop  int64  `json:"stop,omitempty"`
 }
 
-func (svc *_service) zRemByRank(ctx fns.Context, param ZRemByRankParam) (ok bool, err errors.CodeError) {
+func (svc *service) zRemByRank(ctx fns.Context, param ZRemByRankParam) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().ZRemRangeByRank(ctx, param.Key, param.Start, param.Stop).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -148,7 +148,7 @@ type ZRemByScoreParam struct {
 	Max string `json:"max,omitempty"`
 }
 
-func (svc *_service) zRemByScore(ctx fns.Context, param ZRemByScoreParam) (ok bool, err errors.CodeError) {
+func (svc *service) zRemByScore(ctx fns.Context, param ZRemByScoreParam) (ok bool, err errors.CodeError) {
 	n, cmdErr := svc.client.Writer().ZRemRangeByScore(ctx, param.Key, param.Min, param.Max).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -165,7 +165,7 @@ type ZRevRangeParam struct {
 	Stop  int64  `json:"stop,omitempty"`
 }
 
-func (svc *_service) zRevRange(ctx fns.Context, param ZRevRangeParam) (result *json.Array, err errors.CodeError) {
+func (svc *service) zRevRange(ctx fns.Context, param ZRevRangeParam) (result *json.Array, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().ZRevRange(ctx, param.Key, param.Start, param.Stop).Result()
 	if cmdErr != nil {
 		err = errors.ServiceError(cmdErr.Error())
@@ -200,7 +200,7 @@ type ZRevRangeByScoreParam struct {
 	Count  int64  `json:"count,omitempty"`
 }
 
-func (svc *_service) zRevRangeByScore(ctx fns.Context, param ZRevRangeByScoreParam) (result *json.Array, err errors.CodeError) {
+func (svc *service) zRevRangeByScore(ctx fns.Context, param ZRevRangeByScoreParam) (result *json.Array, err errors.CodeError) {
 	n, cmdErr := svc.client.Reader().ZRevRangeByScore(ctx, param.Key, &rds.ZRangeBy{
 		Min:    param.Min,
 		Max:    param.Max,

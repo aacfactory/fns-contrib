@@ -88,6 +88,14 @@ func (k *Kube) init() (err error) {
 	return
 }
 
+func (k *Kube) Registrations() (registrations map[string]*fns.Registration) {
+	registrations = make(map[string]*fns.Registration)
+	for _, v := range k.Manager.Registrations() {
+		registrations[v.Id] = &v
+	}
+	return
+}
+
 func (k *Kube) Close() {
 	close(k.watchingClosedCh)
 	k.watcher.Stop()

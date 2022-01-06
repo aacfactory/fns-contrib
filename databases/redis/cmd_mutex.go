@@ -11,7 +11,7 @@ type LockParam struct {
 	TTL time.Duration `json:"ttl,omitempty"`
 }
 
-func (svc *_service) lock(ctx fns.Context, param LockParam) (err errors.CodeError) {
+func (svc *service) lock(ctx fns.Context, param LockParam) (err errors.CodeError) {
 
 	ttl := param.TTL
 	if ttl < time.Second {
@@ -51,7 +51,7 @@ func (svc *_service) lock(ctx fns.Context, param LockParam) (err errors.CodeErro
 	return
 }
 
-func (svc *_service) unlock(ctx fns.Context, key string) (err errors.CodeError) {
+func (svc *service) unlock(ctx fns.Context, key string) (err errors.CodeError) {
 
 	popErr := svc.client.Writer().LPop(ctx, key).Err()
 	if popErr != nil {
