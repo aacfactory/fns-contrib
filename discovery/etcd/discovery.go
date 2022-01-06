@@ -222,6 +222,14 @@ func (discovery *etcdDiscovery) init() (err error) {
 	return
 }
 
+func (discovery *etcdDiscovery) Registrations() (registrations map[string]*fns.Registration) {
+	registrations = make(map[string]*fns.Registration)
+	for _, v := range discovery.Manager.Registrations() {
+		registrations[v.Id] = &v
+	}
+	return
+}
+
 func (discovery *etcdDiscovery) Close() {
 
 	close(discovery.watchingClosedCh)
