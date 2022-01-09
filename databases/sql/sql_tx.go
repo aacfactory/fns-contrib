@@ -16,7 +16,7 @@ func DefaultTransactionOption() (v BeginTransactionParam) {
 	return
 }
 
-func TxOption(timeout string, isolation db.IsolationLevel) (v BeginTransactionParam) {
+func TransactionOption(timeout string, isolation db.IsolationLevel) (v BeginTransactionParam) {
 	d, parseErr := time.ParseDuration(timeout)
 	if parseErr != nil {
 		panic(fmt.Sprintf("parse sql tx timeout(%s) failed, %v", timeout, parseErr))
