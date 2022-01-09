@@ -2,10 +2,31 @@ package sql
 
 import (
 	db "database/sql"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
 	"time"
 )
+
+func DefaultTxOption() (v TxBeginParam) {
+	v = TxBeginParam{
+		Timeout:   2 * time.Second,
+		Isolation: 0,
+	}
+	return
+}
+
+func TxOption(timeout string, isolation db.IsolationLevel) (v TxBeginParam) {
+	d, parseErr := time.ParseDuration(timeout)
+	if parseErr != nil {
+		panic(fmt.Sprintf("parse sql tx timeout(%s) failed, %v", timeout, parseErr))
+	}
+	v = TxBeginParam{
+		Timeout:   d,
+		Isolation: isolation,
+	}
+	return
+}
 
 type TxBeginParam struct {
 	Timeout   time.Duration     `json:"timeout,omitempty"`
