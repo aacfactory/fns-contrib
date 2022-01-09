@@ -6,7 +6,12 @@ import (
 	"github.com/aacfactory/fns"
 )
 
-func TxBegin(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
+func TxBegin(ctx fns.Context) (err errors.CodeError) {
+	err = TxBeginWithOption(ctx, DefaultTxOption())
+	return
+}
+
+func TxBeginWithOption(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)
