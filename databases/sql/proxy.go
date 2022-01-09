@@ -7,11 +7,11 @@ import (
 )
 
 func BeginTransaction(ctx fns.Context) (err errors.CodeError) {
-	err = BeginTransactionWithOption(ctx, DefaultTxOption())
+	err = BeginTransactionWithOption(ctx, DefaultTransactionOption())
 	return
 }
 
-func BeginTransactionWithOption(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
+func BeginTransactionWithOption(ctx fns.Context, param BeginTransactionParam) (err errors.CodeError) {
 	proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
 	if proxyErr != nil {
 		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", Namespace)).WithCause(proxyErr)

@@ -84,7 +84,7 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 	switch fn {
 	case TxBeginFn:
 		ctx = fns.WithFn(ctx, fn)
-		param := TxBeginParam{}
+		param := BeginTransactionParam{}
 		paramErr := argument.As(&param)
 		if paramErr != nil {
 			err = errors.BadRequest("fns SQL: parse tx begin param failed").WithCause(paramErr)

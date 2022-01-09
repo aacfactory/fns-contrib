@@ -8,27 +8,27 @@ import (
 	"time"
 )
 
-func DefaultTxOption() (v TxBeginParam) {
-	v = TxBeginParam{
+func DefaultTransactionOption() (v BeginTransactionParam) {
+	v = BeginTransactionParam{
 		Timeout:   2 * time.Second,
 		Isolation: 0,
 	}
 	return
 }
 
-func TxOption(timeout string, isolation db.IsolationLevel) (v TxBeginParam) {
+func TxOption(timeout string, isolation db.IsolationLevel) (v BeginTransactionParam) {
 	d, parseErr := time.ParseDuration(timeout)
 	if parseErr != nil {
 		panic(fmt.Sprintf("parse sql tx timeout(%s) failed, %v", timeout, parseErr))
 	}
-	v = TxBeginParam{
+	v = BeginTransactionParam{
 		Timeout:   d,
 		Isolation: isolation,
 	}
 	return
 }
 
-type TxBeginParam struct {
+type BeginTransactionParam struct {
 	Timeout   time.Duration     `json:"timeout,omitempty"`
 	Isolation db.IsolationLevel `json:"isolation,omitempty"`
 }
@@ -38,7 +38,7 @@ func (svc *service) getTransaction(ctx fns.Context) (tx *db.Tx, has bool) {
 	return
 }
 
-func (svc *service) beginTransaction(ctx fns.Context, param TxBeginParam) (err errors.CodeError) {
+func (svc *service) beginTransaction(ctx fns.Context, param BeginTransactionParam) (err errors.CodeError) {
 	txErr := svc.gtm.Begin(ctx, svc.client.Writer(), param.Isolation, param.Timeout)
 	if txErr != nil {
 		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(txErr)
