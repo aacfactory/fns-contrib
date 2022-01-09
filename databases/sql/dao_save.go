@@ -15,7 +15,7 @@ func (d *dao) Save(ctx fns.Context, rows ...TableRow) (affected int, err errors.
 		affected = 0
 		return
 	}
-	txErr := d.beginTx(ctx)
+	txErr := d.beginTransaction(ctx)
 	if txErr != nil {
 		err = errors.ServiceError("fns SQL: dao begin tx failed").WithCause(txErr)
 		return
@@ -32,7 +32,7 @@ func (d *dao) Save(ctx fns.Context, rows ...TableRow) (affected int, err errors.
 		}
 		affected = affected + affected0
 	}
-	cmtErr := d.commitTx(ctx)
+	cmtErr := d.commitTransaction(ctx)
 	if cmtErr != nil {
 		err = errors.ServiceError("fns SQL: dao commit tx failed").WithCause(cmtErr)
 		return

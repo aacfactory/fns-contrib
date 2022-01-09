@@ -90,17 +90,17 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 			err = errors.BadRequest("fns SQL: parse tx begin param failed").WithCause(paramErr)
 			return
 		}
-		err = svc.txBegin(ctx, param)
+		err = svc.beginTransaction(ctx, param)
 		result = &TxAddress{
 			Address: ctx.App().PublicAddress(),
 		}
 	case TxCommitFn:
 		ctx = fns.WithFn(ctx, fn)
-		err = svc.txCommit(ctx)
+		err = svc.commitTransaction(ctx)
 		result = fns.Empty{}
 	case TxRollbackFn:
 		ctx = fns.WithFn(ctx, fn)
-		err = svc.txRollback(ctx)
+		err = svc.rollbackTransaction(ctx)
 		result = fns.Empty{}
 	case QueryFn:
 		ctx = fns.WithFn(ctx, fn)
@@ -146,7 +146,7 @@ func (svc *service) Shutdown() (err error) {
 }
 
 func (svc *service) getExecutor(ctx fns.Context) (v Executor) {
-	tx, hasTx := svc.getTx(ctx)
+	tx, hasTx := svc.getTransaction(ctx)
 	if hasTx {
 		v = tx
 	} else {
@@ -156,7 +156,7 @@ func (svc *service) getExecutor(ctx fns.Context) (v Executor) {
 }
 
 func (svc *service) getQueryAble(ctx fns.Context) (v QueryAble) {
-	tx, hasTx := svc.getTx(ctx)
+	tx, hasTx := svc.getTransaction(ctx)
 	if hasTx {
 		v = tx
 	} else {

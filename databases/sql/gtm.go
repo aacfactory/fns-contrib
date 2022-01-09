@@ -85,7 +85,7 @@ func (gtm *GlobalTransactionManagement) Begin(ctx fns.Context, db0 *db.DB, isola
 	return
 }
 
-func (gtm *GlobalTransactionManagement) GetTx(ctx fns.Context) (tx *db.Tx, has bool) {
+func (gtm *GlobalTransactionManagement) Get(ctx fns.Context) (tx *db.Tx, has bool) {
 	id := ctx.RequestId()
 	value, ok := gtm.txMap.Load(id)
 	if !ok {

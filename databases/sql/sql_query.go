@@ -13,7 +13,7 @@ func (svc *service) queryFn(ctx fns.Context, param Param) (rows *Rows, err error
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: query failed for no query string")
-		_ = svc.txRollback(ctx)
+		_ = svc.rollbackTransaction(ctx)
 		return
 	}
 
@@ -30,7 +30,7 @@ func (svc *service) queryFn(ctx fns.Context, param Param) (rows *Rows, err error
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
 				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
-			_ = svc.txRollback(ctx)
+			_ = svc.rollbackTransaction(ctx)
 			return
 		}
 		dbRows = dbRows0
@@ -42,7 +42,7 @@ func (svc *service) queryFn(ctx fns.Context, param Param) (rows *Rows, err error
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
 				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
-			_ = svc.txRollback(ctx)
+			_ = svc.rollbackTransaction(ctx)
 			return
 		}
 		dbRows = dbRows0
@@ -54,7 +54,7 @@ func (svc *service) queryFn(ctx fns.Context, param Param) (rows *Rows, err error
 	rows0, rowErr := NewRows(dbRows)
 	if rowErr != nil {
 		err = errors.ServiceError("fns SQL: query failed").WithCause(rowErr)
-		_ = svc.txRollback(ctx)
+		_ = svc.rollbackTransaction(ctx)
 		return
 	}
 	rows = rows0

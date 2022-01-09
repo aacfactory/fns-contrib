@@ -13,7 +13,7 @@ func (svc *service) executeFn(ctx fns.Context, param Param) (result *ExecResult,
 	query := strings.TrimSpace(param.Query)
 	if query == "" {
 		err = errors.ServiceError("fns SQL: execute failed for no query string")
-		_ = svc.txRollback(ctx)
+		_ = svc.rollbackTransaction(ctx)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (svc *service) executeFn(ctx fns.Context, param Param) (result *ExecResult,
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
 				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
-			_ = svc.txRollback(ctx)
+			_ = svc.rollbackTransaction(ctx)
 			return
 		}
 		dbResult = dbResult0
@@ -43,7 +43,7 @@ func (svc *service) executeFn(ctx fns.Context, param Param) (result *ExecResult,
 			if svc.enableDebugLog && ctx.App().Log().DebugEnabled() {
 				ctx.App().Log().Debug().Message(fmt.Sprintf("%+v", err.WithMeta("query", query)))
 			}
-			_ = svc.txRollback(ctx)
+			_ = svc.rollbackTransaction(ctx)
 			return
 		}
 		dbResult = dbResult0

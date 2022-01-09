@@ -7,7 +7,6 @@ import (
 	"github.com/aacfactory/fns"
 	"reflect"
 	"sync"
-	"time"
 )
 
 type TableRow interface {
@@ -117,16 +116,13 @@ func (d *dao) affectedClean() {
 	return
 }
 
-func (d *dao) beginTx(ctx fns.Context) (err errors.CodeError) {
-	err = TxBegin(ctx, TxBeginParam{
-		Timeout:   2 * time.Second,
-		Isolation: 0,
-	})
+func (d *dao) beginTransaction(ctx fns.Context) (err errors.CodeError) {
+	err = BeginTransaction(ctx)
 	return
 }
 
-func (d *dao) commitTx(ctx fns.Context) (err errors.CodeError) {
-	err = TxCommit(ctx)
+func (d *dao) commitTransaction(ctx fns.Context) (err errors.CodeError) {
+	err = CommitTransaction(ctx)
 	return
 }
 
