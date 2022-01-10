@@ -13,13 +13,13 @@ const (
 )
 
 const (
-	Namespace = "sql"
+	namespace = "sql"
 
-	TxBeginFn    = "tx_begin"
-	TxCommitFn   = "tx_commit"
-	TxRollbackFn = "tx_rollback"
-	QueryFn      = "query"
-	ExecuteFn    = "execute"
+	txBeginFn    = "tx_begin"
+	txCommitFn   = "tx_commit"
+	txRollbackFn = "tx_rollback"
+	queryFn      = "query"
+	executeFn    = "execute"
 
 	daoCacheConfigLoadFn = "dao_cache_config"
 )
@@ -37,7 +37,7 @@ type service struct {
 }
 
 func (svc *service) Namespace() string {
-	return Namespace
+	return namespace
 }
 
 func (svc *service) Internal() bool {
@@ -82,7 +82,7 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 		return
 	}
 	switch fn {
-	case TxBeginFn:
+	case txBeginFn:
 		ctx = fns.WithFn(ctx, fn)
 		param := BeginTransactionParam{}
 		paramErr := argument.As(&param)
@@ -94,15 +94,15 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 		result = &TxAddress{
 			Address: ctx.App().PublicAddress(),
 		}
-	case TxCommitFn:
+	case txCommitFn:
 		ctx = fns.WithFn(ctx, fn)
 		err = svc.commitTransaction(ctx)
 		result = fns.Empty{}
-	case TxRollbackFn:
+	case txRollbackFn:
 		ctx = fns.WithFn(ctx, fn)
 		err = svc.rollbackTransaction(ctx)
 		result = fns.Empty{}
-	case QueryFn:
+	case queryFn:
 		ctx = fns.WithFn(ctx, fn)
 		param := Param{}
 		paramErr := argument.As(&param)
@@ -116,7 +116,7 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 			return
 		}
 		result = rows
-	case ExecuteFn:
+	case executeFn:
 		ctx = fns.WithFn(ctx, fn)
 		param := Param{}
 		paramErr := argument.As(&param)

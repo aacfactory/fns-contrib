@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/aacfactory/errors v1.6.2
-	github.com/aacfactory/fns v0.8.3
+	github.com/aacfactory/fns v0.8.6
 	go.etcd.io/etcd/client/v3 v3.5.0
 )
 

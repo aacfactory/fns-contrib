@@ -3,7 +3,7 @@ module github.com/aacfactory/fns-contrib/discovery/kubernetes
 go 1.17
 
 require (
-	github.com/aacfactory/fns v0.8.3
+	github.com/aacfactory/fns v0.8.6
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
 	k8s.io/client-go v0.22.1

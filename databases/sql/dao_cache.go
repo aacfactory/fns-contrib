@@ -32,7 +32,7 @@ var (
 
 func getDAOCache(ctx fns.Context) (cache DaoCache) {
 	daoCacheOnce.Do(func() {
-		proxy, proxyErr := ctx.App().ServiceProxy(ctx, Namespace)
+		proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
 		if proxyErr != nil {
 			if ctx.App().Log().ErrorEnabled() {
 				ctx.App().Log().Error().Message("fns SQL: use dao but can not get dao cache from sql service. use local dao cache insteadof")

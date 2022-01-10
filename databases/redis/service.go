@@ -10,30 +10,30 @@ import (
 const (
 	configPath = "redis"
 
-	Namespace = "redis"
+	namespace = "redis"
 
-	SetFn              = "set"
-	GetFn              = "get"
-	GetSetFn           = "get_set"
-	IncrFn             = "incr"
-	DecrFn             = "decr"
-	ContainsFn         = "contains"
-	RemoveFn           = "remove"
-	ExpireFn           = "expire"
-	PersistFn          = "persist"
-	TTLFn              = "ttl"
-	ZAddFn             = "z_add"
-	ZCardFn            = "z_card"
-	ZRangeFn           = "z_range"
-	ZRangeByScoreFn    = "z_range_by_score"
-	ZRemFn             = "z_rem"
-	ZRemByRankFn       = "z_rem_by_rank"
-	ZRemByScoreFn      = "z_rem_by_score"
-	ZRevRangeFn        = "z_rev_range"
-	ZRevRangeByScoreFn = "z_rev_range_by_score"
-	LockFn             = "lock"
-	UnlockFn           = "unlock"
-	OriginCmdFn        = "cmd"
+	setFn              = "set"
+	getFn              = "get"
+	getSetFn           = "get_set"
+	incrFn             = "incr"
+	decrFn             = "decr"
+	containsFn         = "contains"
+	removeFn           = "remove"
+	expireFn           = "expire"
+	persistFn          = "persist"
+	ttlFn              = "ttl"
+	zAddFn             = "z_add"
+	zCardFn            = "z_card"
+	zRangeFn           = "z_range"
+	zRangeByScoreFn    = "z_range_by_score"
+	zRemFn             = "z_rem"
+	zRemByRankFn       = "z_rem_by_rank"
+	zRemByScoreFn      = "z_rem_by_score"
+	zRevRangeFn        = "z_rev_range"
+	zRevRangeByScoreFn = "z_rev_range_by_score"
+	lockFn             = "lock"
+	unlockFn           = "unlock"
+	originCmdFn        = "cmd"
 )
 
 func Service() fns.Service {
@@ -45,7 +45,7 @@ type service struct {
 }
 
 func (svc *service) Namespace() string {
-	return Namespace
+	return namespace
 }
 
 func (svc *service) Internal() bool {
@@ -80,7 +80,7 @@ func (svc *service) Document() (doc *fns.ServiceDocument) {
 
 func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
 	switch fn {
-	case SetFn:
+	case setFn:
 		context = fns.WithFn(context, fn)
 		param := SetParam{}
 		argErr := argument.As(&param)
@@ -92,7 +92,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case GetFn:
+	case getFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -101,7 +101,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.get(context, key)
-	case GetSetFn:
+	case getSetFn:
 		context = fns.WithFn(context, fn)
 		param := SetParam{}
 		argErr := argument.As(&param)
@@ -110,7 +110,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.getAndSet(context, param)
-	case IncrFn:
+	case incrFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -122,7 +122,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case DecrFn:
+	case decrFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -134,7 +134,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case ContainsFn:
+	case containsFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -143,7 +143,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.contains(context, key)
-	case RemoveFn:
+	case removeFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -155,7 +155,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case ExpireFn:
+	case expireFn:
 		context = fns.WithFn(context, fn)
 		param := ExpireParam{}
 		argErr := argument.As(&param)
@@ -164,7 +164,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.expire(context, param)
-	case PersistFn:
+	case persistFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -173,7 +173,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.persist(context, key)
-	case TTLFn:
+	case ttlFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -182,7 +182,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.ttl(context, key)
-	case ZAddFn:
+	case zAddFn:
 		context = fns.WithFn(context, fn)
 		param := ZAddParam{}
 		argErr := argument.As(&param)
@@ -194,7 +194,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case ZCardFn:
+	case zCardFn:
 		context = fns.WithFn(context, fn)
 		key := ""
 		argErr := argument.As(&key)
@@ -203,7 +203,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zCard(context, key)
-	case ZRangeFn:
+	case zRangeFn:
 		context = fns.WithFn(context, fn)
 		param := ZRangeParam{}
 		argErr := argument.As(&param)
@@ -212,7 +212,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRange(context, param)
-	case ZRangeByScoreFn:
+	case zRangeByScoreFn:
 		context = fns.WithFn(context, fn)
 		param := ZRangeByScoreParam{}
 		argErr := argument.As(&param)
@@ -221,7 +221,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRangeByScore(context, param)
-	case ZRemFn:
+	case zRemFn:
 		context = fns.WithFn(context, fn)
 		param := ZRemParam{}
 		argErr := argument.As(&param)
@@ -230,7 +230,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRem(context, param)
-	case ZRemByRankFn:
+	case zRemByRankFn:
 		context = fns.WithFn(context, fn)
 		param := ZRemByRankParam{}
 		argErr := argument.As(&param)
@@ -239,7 +239,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRemByRank(context, param)
-	case ZRemByScoreFn:
+	case zRemByScoreFn:
 		context = fns.WithFn(context, fn)
 		param := ZRemByScoreParam{}
 		argErr := argument.As(&param)
@@ -248,7 +248,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRemByScore(context, param)
-	case ZRevRangeFn:
+	case zRevRangeFn:
 		context = fns.WithFn(context, fn)
 		param := ZRevRangeParam{}
 		argErr := argument.As(&param)
@@ -257,7 +257,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRevRange(context, param)
-	case ZRevRangeByScoreFn:
+	case zRevRangeByScoreFn:
 		context = fns.WithFn(context, fn)
 		param := ZRevRangeByScoreParam{}
 		argErr := argument.As(&param)
@@ -266,7 +266,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 			return
 		}
 		result, err = svc.zRevRangeByScore(context, param)
-	case LockFn:
+	case lockFn:
 		context = fns.WithFn(context, fn)
 		param := LockParam{}
 		argErr := argument.As(&param)
@@ -278,7 +278,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case UnlockFn:
+	case unlockFn:
 		context = fns.WithFn(context, fn)
 		param := ""
 		argErr := argument.As(&param)
@@ -290,7 +290,7 @@ func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument
 		if err == nil {
 			result = struct{}{}
 		}
-	case OriginCmdFn:
+	case originCmdFn:
 		context = fns.WithFn(context, fn)
 		param := OriginCommandArg{}
 		argErr := argument.As(&param)

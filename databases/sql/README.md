@@ -62,9 +62,9 @@ app.RegisterDialect("postgres")
 具体参考 [proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/proxy.go)
 ```go
 // 在上下文中开启事务
-sql.TxBegin(ctx)
+sql.BeginTransaction(ctx)
 // 提交上下文中的事务
-sql.TxCommit(ctx)
+sql.CommitTransaction(ctx)
 // 查询，如果 param 中设置在事务中查询，则使用事务查询
 sql.Query(ctx, param)
 // 执行，如果 param 中设置在事务中查询，则使用事务查询
@@ -138,7 +138,7 @@ type PostRow struct {
   Content  string            `col:"CONTENT"`
   Author   *UserRow          `col:"AUTHOR_ID,FK"` // FK，外键（当设置后，会自动读出，如果追加SYNC（FK:SYNC），会自动触发写操作）
   Likes    int               `col:"LIKES,VC" src:"SELECT COUNT(1) FROM \"FNS\".\"POST_LIKE\" WHERE \"POST_ID\" = \"P\".\"ID\" "` // VC，虚拟列
-  Comments []*PostCommentRow `col:"-,LK:SYNC" ref:"ID,POST_ID" sort:"CREATE_AT DESC"` // LK，一对多（当设置后，会自动读出，如果追加SYNC（LK:SYNC），会自动触发写操作）
+  Comments []*PostCommentRow `col:"COMMENTS,LK:SYNC" ref:"ID,POST_ID" sort:"CREATE_AT DESC"` // LK，一对多（当设置后，会自动读出，如果追加SYNC（LK:SYNC），会自动触发写操作）
 }
 
 func (r *PostRow) Table() (string, string, string) {
