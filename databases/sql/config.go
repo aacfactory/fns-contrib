@@ -15,6 +15,7 @@ type Config struct {
 	MaxIdles         int       `json:"maxIdles,omitempty"`
 	MaxOpens         int       `json:"maxOpens,omitempty"`
 	EnableDebugLog   bool      `json:"enableDebugLog"`
+	LettersCase      string    `json:"lettersCase,omitempty"`
 	DAO              DAOConfig `json:"dao,omitempty"`
 }
 

@@ -5,7 +5,7 @@ import (
 )
 
 func tableInfoGenMysqlInsertQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	query := "INSERT IGNORE INTO "
 	if ns != "" {
@@ -58,7 +58,7 @@ func tableInfoGenMysqlInsertQuery(info *tableInfo) {
 }
 
 func tableInfoGenMysqlUpdateQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	query := "UPDATE "
 	if ns != "" {
@@ -104,7 +104,7 @@ func tableInfoGenMysqlUpdateQuery(info *tableInfo) {
 }
 
 func tableInfoGenMysqlDeleteQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	query := ""
 	args := ""
@@ -160,7 +160,7 @@ func tableInfoGenMysqlDeleteQuery(info *tableInfo) {
 }
 
 func tableInfoGenMysqlSaveQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	query := "INSERT INTO "
 	if ns != "" {
@@ -231,7 +231,7 @@ func tableInfoGenMysqlSaveQuery(info *tableInfo) {
 }
 
 func tableInfoGenMysqlGetQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	query := "SELECT"
@@ -295,7 +295,7 @@ func tableInfoGenMysqlGetQuery(info *tableInfo) {
 }
 
 func tableInfoGenMysqlExistQuery(info *tableInfo) {
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	query := `SELECT 1 FROM `
@@ -322,7 +322,7 @@ func tableInfoGenMysqlVirtualQuery(info *tableInfo) {
 	if info.VirtualColumns == nil || len(info.VirtualColumns) == 0 {
 		return
 	}
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	query := "SELECT"
@@ -359,7 +359,7 @@ func tableInfoGenMysqlLinkQuery(info *tableInfo) {
 	if len(info.ForeignColumns) == 0 {
 		return
 	}
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	for _, fc := range info.ForeignColumns {
@@ -422,7 +422,7 @@ func tableInfoGenMysqlLinkSaveCleanQuery(info *tableInfo) {
 	if len(info.ForeignColumns) == 0 {
 		return
 	}
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	for _, fc := range info.ForeignColumns {

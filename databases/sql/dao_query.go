@@ -17,7 +17,7 @@ func (d *dao) Query(ctx fns.Context, param *QueryParam, rows interface{}) (has b
 	if param == nil {
 		query = info.SimpleQuery
 	} else {
-		ns := info.Namespace
+		ns := info.Schema
 		name := info.Name
 		alias := info.Alias
 		if dialect == "postgres" {

@@ -233,7 +233,7 @@ func (r *Row) Scan(target interface{}) (err error) {
 		}
 
 		for _, column := range r.Columns {
-			if column.Name == colName {
+			if strings.ToLower(column.Name) == strings.ToLower(colName) {
 				ref[field.Name] = &FieldColumn{
 					Kind:      colKind,
 					FieldType: field.Type,

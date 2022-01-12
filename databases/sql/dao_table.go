@@ -80,18 +80,18 @@ func getTableRowInfo(target interface{}) (info *tableInfo) {
 
 func newTableInfo(table TableRow) (info *tableInfo) {
 	rt := reflect.TypeOf(table).Elem()
-	namespace, name, alias := table.Table()
+	schema, name, alias := table.Table()
 	if name == "" {
 		panic(fmt.Sprintf("fns SQL: use DAO failed for no table name, %s/%s", rt.PkgPath(), rt.Name()))
 	}
 	if alias == "" {
 		panic(fmt.Sprintf("fns SQL: use DAO failed for no table name alias, %s/%s", rt.PkgPath(), rt.Name()))
 	}
-	namespace = strings.ToUpper(strings.TrimSpace(namespace))
+	schema = strings.ToUpper(strings.TrimSpace(schema))
 	name = strings.ToUpper(strings.TrimSpace(name))
 	alias = strings.ToUpper(strings.TrimSpace(alias))
 	info = &tableInfo{
-		Namespace:             namespace,
+		Schema:                schema,
 		Name:                  name,
 		Alias:                 alias,
 		Pks:                   make([]*columnInfo, 0, 1),
@@ -349,7 +349,7 @@ func newTableInfo(table TableRow) (info *tableInfo) {
 }
 
 type tableInfo struct {
-	Namespace             string
+	Schema                string
 	Name                  string
 	Alias                 string
 	Selects               string
@@ -372,7 +372,7 @@ type tableInfo struct {
 	SaveQuery             queryInfo
 	GetQuery              queryInfo
 	ExistQuery            queryInfo
-	VirtualQuery 		  *queryInfo
+	VirtualQuery          *queryInfo
 	LinkQueryMap          map[string]queryInfo // key=fk_name
 	LinkSaveCleanQueryMap map[string]queryInfo // key=fk_name
 }

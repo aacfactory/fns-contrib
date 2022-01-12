@@ -17,7 +17,7 @@ func tableInfoConvertToPostgresName(name string) string {
 }
 
 func tableInfoGenPostgresInsertQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	query := "INSERT INTO "
 	if ns != "" {
@@ -77,7 +77,7 @@ func tableInfoGenPostgresInsertQuery(info *tableInfo) {
 }
 
 func tableInfoGenPostgresUpdateQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	query := "UPDATE "
 	if ns != "" {
@@ -130,7 +130,7 @@ func tableInfoGenPostgresUpdateQuery(info *tableInfo) {
 }
 
 func tableInfoGenPostgresDeleteQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	query := ""
 	argIdx := 0
@@ -192,7 +192,7 @@ func tableInfoGenPostgresDeleteQuery(info *tableInfo) {
 }
 
 func tableInfoGenPostgresSaveQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	query := "INSERT INTO "
 	if ns != "" {
@@ -300,7 +300,7 @@ func tableInfoGenPostgresVirtualQuery(info *tableInfo) {
 	if info.VirtualColumns == nil || len(info.VirtualColumns) == 0 {
 		return
 	}
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	alias := tableInfoConvertToPostgresName(info.Alias)
 	query := "SELECT"
@@ -334,7 +334,7 @@ func tableInfoGenPostgresVirtualQuery(info *tableInfo) {
 }
 
 func tableInfoGenPostgresGetQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	alias := tableInfoConvertToPostgresName(info.Alias)
 	query := "SELECT"
@@ -398,7 +398,7 @@ func tableInfoGenPostgresGetQuery(info *tableInfo) {
 }
 
 func tableInfoGenPostgresExistQuery(info *tableInfo) {
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	alias := tableInfoConvertToPostgresName(info.Alias)
 	query := `SELECT 1 FROM `
@@ -425,7 +425,7 @@ func tableInfoGenPostgresLinkQuery(info *tableInfo) {
 	if len(info.ForeignColumns) == 0 {
 		return
 	}
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	alias := tableInfoConvertToPostgresName(info.Alias)
 	for _, fc := range info.ForeignColumns {
@@ -488,7 +488,7 @@ func tableInfoGenPostgresLinkSaveCleanQuery(info *tableInfo) {
 	if len(info.ForeignColumns) == 0 {
 		return
 	}
-	ns := tableInfoConvertToPostgresName(info.Namespace)
+	ns := tableInfoConvertToPostgresName(info.Schema)
 	name := tableInfoConvertToPostgresName(info.Name)
 	alias := tableInfoConvertToPostgresName(info.Alias)
 	for _, fc := range info.ForeignColumns {

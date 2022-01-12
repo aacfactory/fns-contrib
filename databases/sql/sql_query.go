@@ -16,6 +16,7 @@ func (svc *service) queryFn(ctx fns.Context, param Param) (rows *Rows, err error
 		_ = svc.rollbackTransaction(ctx)
 		return
 	}
+	query = svc.makeupQuery(query)
 
 	q := svc.getQueryAble(ctx)
 	var startTime time.Time

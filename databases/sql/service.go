@@ -5,6 +5,7 @@ import (
 	"github.com/aacfactory/configuares"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
+	"strings"
 	"sync/atomic"
 )
 
@@ -34,6 +35,7 @@ type service struct {
 	client         Client
 	gtm            *GlobalTransactionManagement
 	daoConfig      *DAOConfig
+	lettersCase    string
 }
 
 func (svc *service) Namespace() string {
@@ -69,6 +71,15 @@ func (svc *service) Build(root configuares.Config) (err error) {
 	svc.enableDebugLog = config.EnableDebugLog
 	svc.gtm = NewGlobalTransactionManagement()
 	svc.daoConfig = &config.DAO
+	lettersCase := strings.ToUpper(strings.TrimSpace(config.LettersCase))
+	switch lettersCase {
+	case "LOWER":
+		svc.lettersCase = "LOWER"
+	case "UPPER":
+		svc.lettersCase = "UPPER"
+	default:
+		svc.lettersCase = ""
+	}
 	return
 }
 
@@ -161,6 +172,17 @@ func (svc *service) getQueryAble(ctx fns.Context) (v QueryAble) {
 		v = tx
 	} else {
 		v = svc.client.Reader()
+	}
+	return
+}
+
+func (svc *service) makeupQuery(query string) (v string) {
+	switch svc.lettersCase {
+	case "LOWER":
+		v = strings.ToLower(query)
+	case "UPPER":
+		v = strings.ToUpper(query)
+	default:
 	}
 	return
 }

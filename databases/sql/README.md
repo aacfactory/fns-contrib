@@ -28,7 +28,8 @@ go get github.com/aacfactory/fns-contrib/databases/sql
       "username:password@tcp(ip:port)/databases" // 也可以是 sql.Open() 中的参数值
     ],
     "maxIdles": 0,
-    "maxOpens": 0
+    "maxOpens": 0,
+    "lettersCase": "" // LOWER OR UPPER, EMPTY IS DISCARD
   }
 }
 ```

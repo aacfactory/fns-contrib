@@ -349,13 +349,13 @@ func (cache *redisDaoCache) buildRowCacheKey(row TableRow) (key string) {
 	info := getTableRowInfo(row)
 	if info.Pks == nil || len(info.Pks) == 0 {
 		p := cache.mapRowToJson(row)
-		key = fmt.Sprintf("fns_dao:%s:%s:%x", info.Namespace, info.Name, md5.Sum(p))
+		key = fmt.Sprintf("fns_dao:%s:%s:%x", info.Schema, info.Name, md5.Sum(p))
 		return
 	}
 	rv := reflect.Indirect(reflect.ValueOf(row))
 	for _, pk := range info.Pks {
 		key = key + "-" + fmt.Sprintf("%v", rv.FieldByName(pk.StructFieldName).Interface())
 	}
-	key = "fns_dao:" + info.Namespace + ":" + info.Name + ":" + key[1:]
+	key = "fns_dao:" + info.Schema + ":" + info.Name + ":" + key[1:]
 	return
 }

@@ -15,7 +15,7 @@ func (d *dao) Count(ctx fns.Context, param *QueryParam, row TableRow) (num int, 
 		panic(fmt.Sprintf("fns SQL: use DAO failed for row can not be nil"))
 	}
 	info := getTableRowInfo(row)
-	ns := info.Namespace
+	ns := info.Schema
 	name := info.Name
 	alias := info.Alias
 	selects := "__C"

@@ -16,6 +16,7 @@ func (svc *service) executeFn(ctx fns.Context, param Param) (result *ExecResult,
 		_ = svc.rollbackTransaction(ctx)
 		return
 	}
+	query = svc.makeupQuery(query)
 
 	exec := svc.getExecutor(ctx)
 
