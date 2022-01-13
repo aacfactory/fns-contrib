@@ -30,12 +30,17 @@ func tableInfoGenPostgresInsertQuery(info *tableInfo) {
 	args := ""
 	query = query + " ("
 	pks := ""
-	for i, pk := range info.Pks {
-		if i == 0 {
+	pkIdx := 0
+	for _, pk := range info.Pks {
+		if pk.IsIncr {
+			continue
+		}
+		if pkIdx == 0 {
 			pks = pks + tableInfoConvertToPostgresName(pk.Name)
 		} else {
 			pks = pks + ", " + tableInfoConvertToPostgresName(pk.Name)
 		}
+		pkIdx++
 		argIdx++
 		args = args + ", " + fmt.Sprintf("$%d", argIdx)
 		params = append(params, pk.StructFieldName)

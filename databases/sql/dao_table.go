@@ -8,6 +8,7 @@ import (
 
 const (
 	columnTagPk       = "PK"
+	columnTagIncr     = "INCR"
 	columnTagCreateBY = "ACB"
 	columnTagCreateAT = "ACT"
 	columnTagModifyBY = "AMB"
@@ -124,7 +125,7 @@ func newTableInfo(table TableRow) (info *tableInfo) {
 		}
 		if !strings.Contains(tag, ",") {
 			// col
-			columnName := strings.ToUpper(strings.TrimSpace(tag))
+			columnName := strings.TrimSpace(tag)
 			column := &columnInfo{
 				Name:            columnName,
 				Type:            field.Type,
@@ -133,13 +134,13 @@ func newTableInfo(table TableRow) (info *tableInfo) {
 			info.Columns = append(info.Columns, column)
 			continue
 		}
-		columnName := tag[0:strings.Index(tag, ",")]
-		define := tag[strings.Index(tag, ",")+1:]
+		columnName := strings.TrimSpace(tag[0:strings.Index(tag, ",")])
+		define := strings.ToUpper(strings.TrimSpace(tag[strings.Index(tag, ",")+1:]))
 		defineOp := ""
 		defineOpIdx := strings.Index(define, ":")
 		if defineOpIdx > 0 {
-			defineOp = define[defineOpIdx+1:]
-			define = define[0:defineOpIdx]
+			defineOp = strings.TrimSpace(define[defineOpIdx+1:])
+			define = strings.TrimSpace(define[0:defineOpIdx])
 		}
 		if columnName != "" {
 			// JSON
@@ -159,6 +160,7 @@ func newTableInfo(table TableRow) (info *tableInfo) {
 					Name:            columnName,
 					Type:            field.Type,
 					StructFieldName: field.Name,
+					IsJson:          defineOp == "INCR",
 				}
 				info.Pks = append(info.Pks, pk)
 				continue
@@ -538,6 +540,7 @@ type columnInfo struct {
 	Type            reflect.Type
 	StructFieldName string
 	IsJson          bool
+	IsIncr          bool
 }
 
 type virtualColumnInfo struct {

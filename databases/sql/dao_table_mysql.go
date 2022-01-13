@@ -17,12 +17,17 @@ func tableInfoGenMysqlInsertQuery(info *tableInfo) {
 	args := ""
 	query = query + " ("
 	pks := ""
-	for i, pk := range info.Pks {
-		if i == 0 {
+	pkIdx := 0
+	for _, pk := range info.Pks {
+		if pk.IsIncr {
+			continue
+		}
+		if pkIdx == 0 {
 			pks = pks + pk.Name
 		} else {
 			pks = pks + ", " + pk.Name
 		}
+		pkIdx++
 		args = args + ", ?"
 		params = append(params, pk.StructFieldName)
 	}
