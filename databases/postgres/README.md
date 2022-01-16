@@ -1,0 +1,23 @@
+## Todo
+### Full Query
+http://www.postgres.cn/docs/14/functions-json.html  
+ROW -> JSON   
+SELECT ROW_TO_JSON("TKH"."TESTING_SCHEMA".*) FROM "TKH"."TESTING_SCHEMA" WHERE "CREATE_BY" = '2'
+
+ARRAY -> JSON  
+SELECT TO_JSON(ARRAY(  
+     	SELECT ROW_TO_JSON("TKH"."TESTING_SCHEMA".*) FROM "TKH"."TESTING_SCHEMA" WHERE "CREATE_BY" = '2'  
+))  
+
+EXAMPLE:  
+ (SELECT TO_JSON(ARRAY(SELECT TO_JSON("TKH"."TESTING_REPORT_GERMS".*) FROM "TKH"."TESTING_REPORT_GERMS" where "REPORT_ID" = "TKH"."TESTING_REPORT"."ID"))) AS "GERMS"
+
+### INSERT With Exist
+
+// 库存
+INSERT INTO test_tab(name,sex,address,lastEndTime,createTime)  
+SELECT 'a','b','c',1,1 FROM (SELECT 1) AS "TMP" WHERE NOT EXISTS (   
+	SELECT 1 FROM (  
+		SELECT COUNT("CODE") AS "COUNT_CODE" FROM "TKH"."TESTING_SCHEMA_GERMS" AS "G" WHERE "G"."CODE" = 'CT'    
+	) AS "SRC" WHERE  "SRC"."COUNT_CODE" <= (SELECT 预设库存 FROM 商品 WHERE id = 'CT')   
+)  
