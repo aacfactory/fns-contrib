@@ -1,11 +1,14 @@
 package postgres
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	// kind
 	pkCol            = "pk"
 	incrPkCol        = "incrPk"
+	normal           = "normal"
 	auditCreateByCol = "acb"
 	auditCreateAtCol = "act"
 	auditModifyBtCol = "amb"
@@ -13,21 +16,73 @@ const (
 	auditDeleteByCol = "adb"
 	auditDeleteAtCol = "adt"
 	auditVersionCol  = "aol"
-	virtualCol       = "vc"   // field_name,vc,"sql"
-	refCol           = "ref"  // field_name,ref,field asc,field desc,0:10
-	refsCol          = "refs" // field_name,refs,field asc,field desc,0:10
-	jsonCol          = "json" // field_name,json
+	virtualCol       = "vc"    // field_name,vc,"sql"
+	refCol           = "ref"   // self_field_name,ref
+	linkCol          = "link"  // target_field_name,link
+	linksCol         = "links" // target_field_name,links,field asc,field desc,0:10
+	jsonCol          = "json"  // field_name,json
 )
 
+func newColumn(host *table, kind string, name string, fieldName string) *column {
+	return &column{
+		Host:         host,
+		Kind:         kind,
+		Name:         name,
+		FieldName:    fieldName,
+		VirtualQuery: "",
+	}
+}
+
 type column struct {
-	Kind      string
-	Name      string
-	FieldName string
-	SourceSQL string
+	Host         *table
+	Kind         string
+	Name         string
+	FieldName    string
+	VirtualQuery string
+	Ref          *table
+	Link         *table
+	LinkOrders   []string
+	LinkRange    []string
 }
 
 func (c *column) sqlName() string {
 	return fmt.Sprintf("\"%s\"", c.Name)
+}
+
+func (c *column) generateSelect() (query string) {
+	switch c.Kind {
+	case virtualCol:
+		query = fmt.Sprintf("(%s) AS \"%s\"", c.VirtualQuery, c.Name)
+	case refCol:
+		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateRefSelect(), c.Name)
+	case linkCol:
+		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateLinkSelect(), c.Name)
+	case linksCol:
+		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateLinksSelect(), c.Name)
+	default:
+		query = fmt.Sprintf("\"%s\"", c.Name)
+	}
+	return
+}
+
+func (c *column) generateRefSelect() (query string) {
+	/*
+		SELECT row_to_json("TESTING_SCHEMA".*) FROM (
+		SELECT "ID", "CREATE_BY", "CREATE_AT" FROM "TKH"."TESTING_SCHEMA" WHERE "ID" = HOST.COL OFFSET 0 LIMIT 1
+		) AS "TESTING_SCHEMA"
+	*/
+
+	return
+}
+
+func (c *column) generateLinkSelect() (query string) {
+
+	return
+}
+
+func (c *column) generateLinksSelect() (query string) {
+
+	return
 }
 
 func (c *column) isPk() (ok bool) {
@@ -37,6 +92,11 @@ func (c *column) isPk() (ok bool) {
 
 func (c *column) isIncrPk() (ok bool) {
 	ok = c.Kind == incrPkCol
+	return
+}
+
+func (c *column) isNormal() (ok bool) {
+	ok = c.Kind == normal
 	return
 }
 
@@ -85,8 +145,13 @@ func (c *column) isRef() (ok bool) {
 	return
 }
 
-func (c *column) isRefs() (ok bool) {
-	ok = c.Kind == refsCol
+func (c *column) isLink() (ok bool) {
+	ok = c.Kind == linkCol
+	return
+}
+
+func (c *column) isLinks() (ok bool) {
+	ok = c.Kind == linksCol
 	return
 }
 

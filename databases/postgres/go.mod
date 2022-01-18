@@ -2,6 +2,10 @@ module github.com/aacfactory/fns-contrib/databases/postgres
 
 go 1.17
 
+replace (
+	github.com/aacfactory/fns-contrib/databases/sql v0.9.5 => ../sql
+)
+
 require (
 	github.com/aacfactory/configuares v1.3.0 // indirect
 	github.com/aacfactory/errors v1.6.3 // indirect
