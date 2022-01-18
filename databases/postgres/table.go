@@ -143,6 +143,7 @@ func createTable(x interface{}) (v *table) {
 				columns: softDeleteColumns,
 			}
 		}
+		v.querySelects = v.generateQuerySelects()
 		r = v
 		return
 	})
@@ -166,6 +167,7 @@ type table struct {
 	deleteQuery         *tableGenericQuery
 	softDeleteQuery     *tableGenericQuery
 	insertOrUpdateQuery *tableGenericQuery
+	querySelects        string
 }
 
 func (t *table) addColumn(field reflect.StructField) (err error) {
@@ -667,13 +669,16 @@ func (t *table) generateCountSQL(conditions *Conditions) (query string, args *sq
 	return
 }
 
-func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args *sql.Tuple) {
-	selects := ""
+func (t *table) generateQuerySelects() (selects string) {
 	for _, c := range t.Columns {
 		selects = selects + ", " + c.generateSelect()
 	}
 	selects = selects[1:]
-	query = `SELECT ` + selects + ` FROM ` + t.fullName()
+	return
+}
+
+func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args *sql.Tuple) {
+	query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
 	if conditions != nil {
 		conditionQuery, conditionArgs := conditions.QueryAndArguments()
 		query = query + " WHERE " + conditionQuery
