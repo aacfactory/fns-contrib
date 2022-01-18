@@ -114,6 +114,35 @@ func createTable(x interface{}) (v *table) {
 			panic(fmt.Sprintf("fns postgres: analyse %s failed, no columns", key))
 			return
 		}
+
+		insertQuery, insertColumns := v.generateInsertSQL()
+		if insertQuery != "" {
+			v.insertQuery = &tableGenericQuery{
+				query:   insertQuery,
+				columns: insertColumns,
+			}
+		}
+		updateQuery, updateColumns := v.generateUpdateSQL()
+		if updateQuery != "" {
+			v.updateQuery = &tableGenericQuery{
+				query:   updateQuery,
+				columns: updateColumns,
+			}
+		}
+		deleteQuery, deleteColumns := v.generateDeleteSQL()
+		if deleteQuery != "" {
+			v.deleteQuery = &tableGenericQuery{
+				query:   deleteQuery,
+				columns: deleteColumns,
+			}
+		}
+		softDeleteQuery, softDeleteColumns := v.generateSoftDeleteSQL()
+		if softDeleteQuery != "" {
+			v.softDeleteQuery = &tableGenericQuery{
+				query:   softDeleteQuery,
+				columns: softDeleteColumns,
+			}
+		}
 		r = v
 		return
 	})
@@ -123,10 +152,20 @@ func createTable(x interface{}) (v *table) {
 	return
 }
 
+type tableGenericQuery struct {
+	query   string
+	columns []*column
+}
+
 type table struct {
-	Schema  string
-	Name    string
-	Columns []*column
+	Schema              string
+	Name                string
+	Columns             []*column
+	insertQuery         *tableGenericQuery
+	updateQuery         *tableGenericQuery
+	deleteQuery         *tableGenericQuery
+	softDeleteQuery     *tableGenericQuery
+	insertOrUpdateQuery *tableGenericQuery
 }
 
 func (t *table) addColumn(field reflect.StructField) (err error) {
@@ -345,28 +384,266 @@ func (t *table) findPk() (v []*column) {
 	return
 }
 
-func (t *table) generateInsertSQL() (query string, columns []*column) {
+func (t *table) hasIncrPk() (v bool) {
+	for _, c := range t.Columns {
+		if c.isIncrPk() {
+			v = true
+			return
+		}
+	}
+	return
+}
 
+func (t *table) findAuditModify() (v []*column) {
+	v = make([]*column, 0, 1)
+	for _, c := range t.Columns {
+		if c.isAmb() || c.isAmt() {
+			v = append(v, c)
+		}
+	}
+	return
+}
+
+func (t *table) findAuditDelete() (v []*column) {
+	v = make([]*column, 0, 1)
+	for _, c := range t.Columns {
+		if c.isAdb() || c.isAdt() {
+			v = append(v, c)
+		}
+	}
+	return
+}
+
+func (t *table) findAuditVersion() (v *column) {
+	for _, c := range t.Columns {
+		if c.isAol() {
+			v = c
+			return
+		}
+	}
+	return
+}
+
+func (t *table) generateInsertSQL() (query string, columns []*column) {
+	columns = make([]*column, 0, 1)
+	idx := 0
+	pks := ``
+	query = `INSERT INTO ` + t.fullName() + ` `
+	cols := ``
+	values := ``
+	for _, c := range t.Columns {
+		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+			continue
+		}
+		if c.isPk() {
+			pks = pks + ", " + c.queryName()
+		}
+		cols = cols + `, ` + c.queryName()
+		if c.isAol() {
+			values = values + `, 1`
+			continue
+		}
+		idx++
+		values = values + `, ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, c)
+	}
+	cols = cols[2:]
+	values = values[2:]
+	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
+	if len(pks) > 0 {
+		pks = pks[2:]
+		query = query + ` ON CONFLICT (` + pks + `) DO NOTHING`
+	}
 	return
 }
 
 func (t *table) generateInsertWhenExistOrNotSQL(exist bool, sourceSQL string) (query string, columns []*column) {
-
+	columns = make([]*column, 0, 1)
+	idx := 0
+	query = `INSERT INTO ` + t.fullName() + ` `
+	cols := ``
+	values := ``
+	for _, c := range t.Columns {
+		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+			continue
+		}
+		cols = cols + `, ` + c.queryName()
+		if c.isAol() {
+			values = values + `, 1`
+			continue
+		}
+		idx++
+		values = values + `, ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, c)
+	}
+	cols = cols[2:]
+	values = values[2:]
+	query = query + `(` + cols + `)` + ` SELECT ` + values + ` FROM (SELECT 1) AS "__TMP" WHERE `
+	if exist {
+		query = query + `EXISTS`
+	} else {
+		query = query + `NOT EXISTS`
+	}
+	query = query + ` (SELECT 1 FROM (` + sourceSQL + `))`
 	return
 }
 
 func (t *table) generateUpdateSQL() (query string, columns []*column) {
+	columns = make([]*column, 0, 1)
+	idx := 0
+	pks := make([]*column, 0, 1)
 
+	var aol *column
+	query = `UPDATE ` + t.fullName() + ` SET `
+	set := ``
+	for _, c := range t.Columns {
+		if c.isPk() || c.isIncrPk() {
+			pks = append(pks, c)
+			continue
+		}
+		if c.isAcb() || c.isAct() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+			continue
+		}
+		if c.isAol() {
+			set = set + `, ` + aol.queryName() + ` = ` + aol.queryName() + `+1`
+			continue
+		}
+		idx++
+		set = set + `, ` + c.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, c)
+	}
+	set = set[2:]
+	query = query + set + ` WHERE `
+	cond := ``
+	for _, pk := range pks {
+		idx++
+		cond = cond + ` AND ` + pk.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, pk)
+	}
+	if aol != nil {
+		idx++
+		cond = cond + ` AND ` + aol.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, aol)
+	}
+	cond = cond[5:]
+	query = query + cond
 	return
 }
 
 func (t *table) generateDeleteSQL() (query string, columns []*column) {
 
+	columns = make([]*column, 0, 1)
+	idx := 0
+	pks := t.findPk()
+	aol := t.findAuditVersion()
+	query = `DELETE FROM ` + t.fullName() + ` WHERE `
+	cond := ``
+	for _, pk := range pks {
+		idx++
+		cond = cond + ` AND ` + pk.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, pk)
+	}
+	if aol != nil {
+		idx++
+		cond = cond + ` AND ` + aol.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, aol)
+	}
+	cond = cond[5:]
+	query = query + cond
+	return
+}
+
+func (t *table) generateSoftDeleteSQL() (query string, columns []*column) {
+	deleteColumns := t.findAuditDelete()
+	if len(deleteColumns) == 0 {
+		return
+	}
+	columns = make([]*column, 0, 1)
+	idx := 0
+	pks := t.findPk()
+	aol := t.findAuditVersion()
+	query = `UPDATE ` + t.fullName() + ` SET `
+	set := ``
+	for _, deleteColumn := range deleteColumns {
+		idx++
+		set = set + `, ` + deleteColumn.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, deleteColumn)
+	}
+	if aol != nil {
+		set = set + `, ` + aol.queryName() + ` = ` + aol.queryName() + `+1`
+	}
+	set = set[2:]
+	query = query + set + ` WHERE `
+	cond := ``
+	for _, pk := range pks {
+		idx++
+		cond = cond + ` AND ` + pk.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, pk)
+	}
+	if aol != nil {
+		idx++
+		cond = cond + ` AND ` + aol.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, aol)
+	}
+	cond = cond[5:]
+	query = query + cond
 	return
 }
 
 func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
-
+	if t.hasIncrPk() {
+		return
+	}
+	if len(t.findPk()) == 0 {
+		return
+	}
+	columns = make([]*column, 0, 1)
+	idx := 0
+	pks := ``
+	query = `INSERT INTO ` + t.fullName() + ` `
+	cols := ``
+	values := ``
+	for _, c := range t.Columns {
+		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+			continue
+		}
+		if c.isPk() {
+			pks = pks + ", " + c.queryName()
+		}
+		cols = cols + `, ` + c.queryName()
+		if c.isAol() {
+			values = values + `, 1`
+			continue
+		}
+		idx++
+		values = values + `, ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, c)
+	}
+	cols = cols[2:]
+	values = values[2:]
+	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
+	if len(pks) > 0 {
+		pks = pks[2:]
+		query = query + ` ON CONFLICT (` + pks + `) DO `
+	}
+	// update
+	var aol *column
+	query = `UPDATE SET `
+	set := ``
+	for _, c := range t.Columns {
+		if c.isPk() || c.isIncrPk() || c.isAcb() || c.isAct() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+			continue
+		}
+		if c.isAol() {
+			set = set + `, ` + aol.queryName() + ` = ` + aol.queryName() + `+1`
+			continue
+		}
+		idx++
+		set = set + `, ` + c.queryName() + ` = ` + fmt.Sprintf("$%d", idx)
+		columns = append(columns, c)
+	}
+	set = set[2:]
+	query = query + set
 	return
 }
 
