@@ -3,6 +3,7 @@ package postgres
 import (
 	"fmt"
 	"go/ast"
+	"golang.org/x/sync/singleflight"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,8 +19,9 @@ type Table interface {
 }
 
 var (
-	tables    = new(sync.Map)
-	tableType = reflect.TypeOf((*Table)(nil)).Elem()
+	tables     = new(sync.Map)
+	tableType  = reflect.TypeOf((*Table)(nil)).Elem()
+	tableGroup = new(singleflight.Group)
 )
 
 func isImplementTable(typ reflect.Type) bool {
@@ -57,47 +59,65 @@ func createOrLoadTable(x interface{}) (v *table) {
 		v = stored
 		return
 	}
-	target, typeOk := x.(Table)
-	if !typeOk {
-		panic(fmt.Sprintf("fns postgres: analyse %s failed, type of it is not Table", key))
-		return
-	}
-	schema, tableName := target.TableName()
-	schema = strings.TrimSpace(schema)
-	tableName = strings.TrimSpace(tableName)
-	if tableName == "" {
-		panic(fmt.Sprintf("fns postgres: analyse %s failed, table name is empty", key))
-		return
-	}
-	if schema == "" {
-		schema = "public"
-	}
+	v = createTable(x)
+	return
+}
 
-	fieldNum := rt.NumField()
-	if fieldNum == 0 {
-		panic(fmt.Sprintf("fns postgres: analyse %s failed, no field", key))
-		return
+func createTable(x interface{}) (v *table) {
+	rt := reflect.TypeOf(x)
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
 	}
-
-	v = &table{
-		Schema:  schema,
-		Name:    tableName,
-		Columns: make([]*column, 0, 1),
-	}
-	for i := 0; i < fieldNum; i++ {
-		err := v.addColumn(rt.Field(i))
-		if err != nil {
-			panic(fmt.Sprintf("fns postgres: analyse %s failed, %v", key, err))
+	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
+	r, _, _ := tableGroup.Do(key, func() (r interface{}, err error) {
+		target, typeOk := x.(Table)
+		if !typeOk {
+			panic(fmt.Sprintf("fns postgres: analyse %s failed, type of it is not Table", key))
 			return
 		}
-	}
+		schema, tableName := target.TableName()
+		schema = strings.TrimSpace(schema)
+		tableName = strings.TrimSpace(tableName)
+		if tableName == "" {
+			panic(fmt.Sprintf("fns postgres: analyse %s failed, table name is empty", key))
+			return
+		}
+		if schema == "" {
+			schema = "public"
+		}
 
-	if len(v.Columns) == 0 {
-		panic(fmt.Sprintf("fns postgres: analyse %s failed, no columns", key))
+		fieldNum := rt.NumField()
+		if fieldNum == 0 {
+			panic(fmt.Sprintf("fns postgres: analyse %s failed, no field", key))
+			return
+		}
+
+		v = &table{
+			Schema:  schema,
+			Name:    tableName,
+			Columns: make([]*column, 0, 1),
+		}
+
+		setTable(rt, v)
+
+		for i := 0; i < fieldNum; i++ {
+			err = v.addColumn(rt.Field(i))
+			if err != nil {
+				panic(fmt.Sprintf("fns postgres: analyse %s failed, %v", key, err))
+				return
+			}
+		}
+
+		if len(v.Columns) == 0 {
+			panic(fmt.Sprintf("fns postgres: analyse %s failed, no columns", key))
+			return
+		}
+		r = v
 		return
-	}
+	})
 
-	setTable(rt, v)
+	v = r.(*table)
+
 	return
 }
 
