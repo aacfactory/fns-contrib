@@ -1,5 +1,7 @@
 package postgres
 
+import "fmt"
+
 const (
 	// kind
 	pkCol            = "pk"
@@ -22,6 +24,10 @@ type column struct {
 	Name      string
 	FieldName string
 	SourceSQL string
+}
+
+func (c *column) sqlName() string {
+	return fmt.Sprintf("\"%s\"", c.Name)
 }
 
 func (c *column) isPk() (ok bool) {

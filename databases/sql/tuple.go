@@ -20,6 +20,14 @@ type Tuple struct {
 	values []string
 }
 
+func (t *Tuple) Merge(v *Tuple) *Tuple {
+	if v == nil || v.values == nil || len(v.values) == 0 {
+		return t
+	}
+	t.values = append(t.values, v.values...)
+	return t
+}
+
 func (t *Tuple) Append(values ...interface{}) *Tuple {
 	if t.values == nil {
 		t.values = make([]string, 0, 1)

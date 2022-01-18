@@ -1,5 +1,7 @@
 package postgres
 
+import "fmt"
+
 const (
 	tagName = "col"
 )
@@ -12,6 +14,15 @@ type table struct {
 	Schema  string
 	Name    string
 	Columns []*column
+}
+
+func (t *table) fullName() (v string) {
+	if t.Schema == "" || t.Schema == "public" {
+		v = fmt.Sprintf("public.\"%s\"", t.Name)
+		return
+	}
+	v = fmt.Sprintf("\"%s\".\"%s\"", t.Schema, t.Name)
+	return
 }
 
 func (t *table) generateInsertSQL() (query string, columns []*column) {
