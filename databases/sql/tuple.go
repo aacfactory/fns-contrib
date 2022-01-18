@@ -20,6 +20,10 @@ type Tuple struct {
 	values []string
 }
 
+func (t *Tuple) Size() (n int) {
+	return len(t.values)
+}
+
 func (t *Tuple) Merge(v *Tuple) *Tuple {
 	if v == nil || v.values == nil || len(v.values) == 0 {
 		return t
