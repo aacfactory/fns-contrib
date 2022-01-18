@@ -361,7 +361,7 @@ func (t *table) generateUpdateSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateDeleteSQL() (query string, columns []*column) {
-	
+
 	return
 }
 
