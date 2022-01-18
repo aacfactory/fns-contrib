@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 func NewRows(raws *db.Rows) (r *Rows, err error) {
@@ -20,39 +21,56 @@ func NewRows(raws *db.Rows) (r *Rows, err error) {
 
 	rows := make([]*Row, 0, 1)
 	for raws.Next() {
-		columns0 := make([]interface{}, 0, 1)
-		columns := make([]*Column, 0, 1)
+		columns := make([]interface{}, 0, 1)
 
 		for _, colType := range colTypes {
-			column := createColumnValueByColumnType(colType)
-			columns0 = append(columns0, column)
+			column := NewColumnScanner(colType)
 			columns = append(columns, column)
 		}
 
-		scanErr := raws.Scan(columns0...)
+		scanErr := raws.Scan(columns...)
 		if scanErr != nil {
 			err = scanErr
 			return
 		}
 
 		rows = append(rows, &Row{
-			Columns: columns,
+			columns: reflect.NewAt(reflect.SliceOf(reflect.TypeOf(&Column{})), unsafe.Pointer(reflect.ValueOf(&columns).Pointer())).Elem().Interface().([]*Column),
 		})
 
 	}
 
 	r = &Rows{
-		Values: rows,
+		values: rows,
 	}
 	return
 }
 
 type Rows struct {
-	Values []*Row `json:"values,omitempty"`
+	idx    int
+	values []*Row
+}
+
+func (r *Rows) MarshalJSON() (p []byte, err error) {
+	if r.Empty() {
+		p = []byte{'[', ']'}
+		return
+	}
+	p, err = json.Marshal(r.values)
+	return
+}
+
+func (r *Rows) UnmarshalJSON(p []byte) (err error) {
+	r.values = make([]*Row, 0, 1)
+	if p == nil || len(p) == 0 {
+		return
+	}
+	err = json.Unmarshal(p, &r.values)
+	return
 }
 
 func (r *Rows) Empty() (ok bool) {
-	ok = r.Values == nil || len(r.Values) == 0
+	ok = r.values == nil || len(r.values) == 0
 	return
 }
 
@@ -60,7 +78,19 @@ func (r *Rows) Size() int {
 	if r.Empty() {
 		return 0
 	}
-	return len(r.Values)
+	return len(r.values)
+}
+
+func (r *Rows) Next() (v *Row, has bool) {
+	if r.Empty() {
+		return
+	}
+	has = r.idx < r.Size()
+	if has {
+		v = r.values[r.idx]
+		r.idx++
+	}
+	return
 }
 
 func (r *Rows) Scan(v interface{}) (err error) {
@@ -97,7 +127,7 @@ func (r *Rows) Scan(v interface{}) (err error) {
 		}
 		rv := reflect.ValueOf(v).Elem()
 		rv0 := reflect.ValueOf(v).Elem()
-		for _, value := range r.Values {
+		for _, value := range r.values {
 			x := reflect.New(elemType)
 			err = value.Scan(x.Interface())
 			if err != nil {
@@ -115,7 +145,7 @@ func (r *Rows) Scan(v interface{}) (err error) {
 			err = fmt.Errorf("fns SQL Rows: scan failed for target elem is struct but has many rows")
 			return
 		}
-		err = r.Values[0].Scan(v)
+		err = r.values[0].Scan(v)
 	} else if typ.Elem().Kind() == reflect.Interface {
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		if reflect.TypeOf(rv.Interface()).Kind() != reflect.Slice {
@@ -141,7 +171,7 @@ func (r *Rows) Scan(v interface{}) (err error) {
 			return
 		}
 		rv0 := reflect.MakeSlice(rvt, 0, 1)
-		for _, value := range r.Values {
+		for _, value := range r.values {
 			x := reflect.New(elemType)
 			err = value.Scan(x.Interface())
 			if err != nil {
@@ -185,7 +215,49 @@ var (
 )
 
 type Row struct {
-	Columns []*Column `json:"columns,omitempty"`
+	columns []*Column
+}
+
+func (r *Row) MarshalJSON() (p []byte, err error) {
+	if r.Empty() {
+		p = []byte{'[', ']'}
+		return
+	}
+	p, err = json.Marshal(r.columns)
+	return
+}
+
+func (r *Row) UnmarshalJSON(p []byte) (err error) {
+	r.columns = make([]*Column, 0, 1)
+	if p == nil || len(p) == 0 {
+		return
+	}
+	err = json.Unmarshal(p, &r.columns)
+	return
+}
+
+func (r *Row) Empty() (ok bool) {
+	ok = r.columns == nil || len(r.columns) == 0
+	return
+}
+
+func (r *Row) Columns() (columns []*Column) {
+	columns = r.columns
+	return
+}
+
+func (r *Row) Column(name string, value interface{}) (has bool, err error) {
+	if r.Empty() {
+		return
+	}
+	for _, column := range r.columns {
+		if column.Name == name {
+			has = true
+			err = column.Decode(value)
+			return
+		}
+	}
+	return
 }
 
 func (r *Row) Scan(target interface{}) (err error) {
@@ -202,7 +274,7 @@ func (r *Row) Scan(target interface{}) (err error) {
 		err = fmt.Errorf("fns SQL Row: scan failed for target elem is not struct")
 		return
 	}
-	if r.Columns == nil || len(r.Columns) == 0 {
+	if r.columns == nil || len(r.columns) == 0 {
 		return
 	}
 
@@ -232,7 +304,7 @@ func (r *Row) Scan(target interface{}) (err error) {
 			continue
 		}
 
-		for _, column := range r.Columns {
+		for _, column := range r.columns {
 			if strings.ToLower(column.Name) == strings.ToLower(colName) {
 				ref[field.Name] = &FieldColumn{
 					Kind:      colKind,
