@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"fmt"
+	"github.com/aacfactory/fns-contrib/databases/sql"
 	"go/ast"
 	"golang.org/x/sync/singleflight"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -273,14 +275,24 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 				if ridx := strings.Index(setting, ":"); ridx > 0 {
 					// range
 					offset := strings.TrimSpace(setting[0:ridx])
+					offset0, offsetErr := strconv.Atoi(offset)
+					if offsetErr != nil {
+						err = fmt.Errorf("%s is links, offset is not int", fieldName)
+						return
+					}
 					limit := strings.TrimSpace(setting[ridx+1:])
-					col.LinkRange = []string{offset, limit}
+					limit0, limitErr := strconv.Atoi(limit)
+					if limitErr != nil {
+						err = fmt.Errorf("%s is links, limit is not int", fieldName)
+						return
+					}
+					col.LinkRange = NewRange(offset0, limit0)
 				} else {
 					// orders
-					col.LinkOrders = make([]string, 0, 1)
+					col.LinkOrders = make([]*Order, 0, 1)
 					orders := strings.Split(setting, " ")
 					if len(orders) == 1 {
-						col.LinkOrders = append(col.LinkOrders, setting, "ASC")
+						col.LinkOrders = append(col.LinkOrders, Asc(setting))
 					} else {
 						orderField := orders[0]
 						orderKind := ""
@@ -289,13 +301,13 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 							if orderKind0 == "" {
 								continue
 							}
-							orderKind = orderKind0
+							orderKind = strings.ToUpper(orderKind0)
 							break
 						}
-						if orderKind == "" {
-							col.LinkOrders = append(col.LinkOrders, orderField, "ASC")
+						if orderKind == "" || orderKind == "ASC" {
+							col.LinkOrders = append(col.LinkOrders, Asc(orderField))
 						} else {
-							col.LinkOrders = append(col.LinkOrders, orderField, strings.ToUpper(orderKind))
+							col.LinkOrders = append(col.LinkOrders, Desc(orderField))
 						}
 					}
 				}
@@ -318,6 +330,21 @@ func (t *table) fullName() (v string) {
 	return
 }
 
+func (t *table) TableName() (v string) {
+	v = `"` + t.Name + `"`
+	return
+}
+
+func (t *table) findPk() (v []*column) {
+	v = make([]*column, 0, 1)
+	for _, c := range t.Columns {
+		if c.isPk() || c.isIncrPk() {
+			v = append(v, c)
+		}
+	}
+	return
+}
+
 func (t *table) generateInsertSQL() (query string, columns []*column) {
 
 	return
@@ -334,7 +361,7 @@ func (t *table) generateUpdateSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateDeleteSQL() (query string, columns []*column) {
-
+	
 	return
 }
 
@@ -343,29 +370,52 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 	return
 }
 
-func (t *table) generateExistSQL(conditions *Conditions) (query string) {
-
-	return
-}
-
-func (t *table) generateCountSQL(conditions *Conditions) (query string) {
-
-	return
-}
-
-func (t *table) generateSelects() (query string) {
-	for _, c := range t.Columns {
-		if c.VirtualQuery == "" {
-			query = query + ", " + "\"" + c.Name + "\""
-		} else {
-			query = query + ", " + "(" + c.VirtualQuery + ")" + " AS " + "\"" + c.Name + "\""
-		}
+func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sql.Tuple) {
+	query = `SELECT 1 FROM ` + t.fullName()
+	if conditions != nil {
+		conditionQuery, conditionArgs := conditions.QueryAndArguments()
+		query = query + " WHERE " + conditionQuery
+		args = conditionArgs
 	}
-	query = query[1:]
 	return
 }
 
-func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string) {
+func (t *table) generateCountSQL(conditions *Conditions) (query string, args *sql.Tuple) {
+	query = `SELECT count(1) FROM ` + t.fullName()
+	if conditions != nil {
+		conditionQuery, conditionArgs := conditions.QueryAndArguments()
+		query = query + " WHERE " + conditionQuery
+		args = conditionArgs
+	}
+	return
+}
 
+func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args *sql.Tuple) {
+	selects := ""
+	for _, c := range t.Columns {
+		selects = selects + ", " + c.generateSelect()
+	}
+	selects = selects[1:]
+	query = `SELECT ` + selects + ` FROM ` + t.fullName()
+	if conditions != nil {
+		conditionQuery, conditionArgs := conditions.QueryAndArguments()
+		query = query + " WHERE " + conditionQuery
+		args = conditionArgs
+	}
+	if orders != nil && len(orders) > 0 {
+		orderQuery := ""
+		for _, order := range orders {
+			orderKind := "ASC"
+			if order.Desc {
+				orderKind = "DESC"
+			}
+			orderQuery = orderQuery + `, ` + `"` + order.Column + `" ` + orderKind
+		}
+		orderQuery = orderQuery[1:]
+		query = query + ` ORDER BY` + orderQuery
+	}
+	if rng != nil {
+		query = query + ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
+	}
 	return
 }

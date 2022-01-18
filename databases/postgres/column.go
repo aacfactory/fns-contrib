@@ -41,47 +41,89 @@ type column struct {
 	VirtualQuery string
 	Ref          *table
 	Link         *table
-	LinkOrders   []string
-	LinkRange    []string
+	LinkOrders   []*Order
+	LinkRange    *Range
 }
 
-func (c *column) sqlName() string {
+func (c *column) queryName() string {
 	return fmt.Sprintf("\"%s\"", c.Name)
 }
 
 func (c *column) generateSelect() (query string) {
 	switch c.Kind {
 	case virtualCol:
-		query = fmt.Sprintf("(%s) AS \"%s\"", c.VirtualQuery, c.Name)
+		query = fmt.Sprintf("(%s) AS %s", c.VirtualQuery, c.queryName())
 	case refCol:
-		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateRefSelect(), c.Name)
+		query = fmt.Sprintf("(%s) AS %s", c.generateRefSelect(), c.queryName())
 	case linkCol:
-		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateLinkSelect(), c.Name)
+		query = fmt.Sprintf("(%s) AS %s", c.generateLinkSelect(), c.queryName())
 	case linksCol:
-		query = fmt.Sprintf("(%s) AS \"%s\"", c.generateLinksSelect(), c.Name)
+		query = fmt.Sprintf("(%s) AS %s", c.generateLinksSelect(), c.queryName())
 	default:
-		query = fmt.Sprintf("\"%s\"", c.Name)
+		query = c.queryName()
 	}
 	return
 }
 
 func (c *column) generateRefSelect() (query string) {
 	/*
-		SELECT row_to_json("TESTING_SCHEMA".*) FROM (
-		SELECT "ID", "CREATE_BY", "CREATE_AT" FROM "TKH"."TESTING_SCHEMA" WHERE "ID" = HOST.COL OFFSET 0 LIMIT 1
-		) AS "TESTING_SCHEMA"
+		SELECT row_to_json("ref_table".*) FROM (
+		SELECT ... FROM "schema"."ref_table" WHERE "pk" = "host_full_table_name"."ref_column" OFFSET 0 LIMIT 1
+		) AS "ref_table"
 	*/
-
+	hostTableName := c.Host.fullName()
+	pks := c.Ref.findPk()
+	if len(pks) != 1 {
+		panic(fmt.Sprintf("fns Postgres: generate ref query failed for %s must has one pk", c.Ref.fullName()))
+		return
+	}
+	pk := pks[0].Name
+	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
+	refQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(pk, LitValue(hostTableName+"."+c.queryName()))), NewRange(0, 1), nil)
+	query = query + refQuery
+	query = query + `) AS ` + c.Ref.TableName() + " "
 	return
 }
 
 func (c *column) generateLinkSelect() (query string) {
-
+	/*
+		SELECT row_to_json("ref_table".*) FROM (
+		SELECT ... FROM "schema"."ref_table" WHERE "link" = "host_full_table_name"."pk" OFFSET 0 LIMIT 1
+		) AS "ref_table"
+	*/
+	hostTableName := c.Host.fullName()
+	pks := c.Host.findPk()
+	if len(pks) != 1 {
+		panic(fmt.Sprintf("fns Postgres: generate link query failed for %s must has one pk", c.Host.fullName()))
+		return
+	}
+	pk := pks[0]
+	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
+	linkQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.Name, LitValue(hostTableName+"."+pk.queryName()))), NewRange(0, 1), nil)
+	query = query + linkQuery
+	query = query + `) AS ` + c.Ref.TableName() + " "
 	return
 }
 
 func (c *column) generateLinksSelect() (query string) {
-
+	/*
+		SELECT to_json(ARRAY(
+			SELECT row_to_json("ref_table".*) FROM (
+			SELECT ... FROM "schema"."ref_table" WHERE "pk" = "host_full_table_name"."ref_column" ORDER BY ... OFFSET x LIMIT y
+			) AS "ref_table"
+		))
+	*/
+	hostTableName := c.Host.fullName()
+	pks := c.Host.findPk()
+	if len(pks) != 1 {
+		panic(fmt.Sprintf("fns Postgres: generate links query failed for %s must has one pk", c.Host.fullName()))
+		return
+	}
+	pk := pks[0]
+	query = `SELECT to_json(ARRAY(` + `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
+	linksQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.Name, LitValue(hostTableName+"."+pk.queryName()))), c.LinkRange, c.LinkOrders)
+	query = query + linksQuery
+	query = query + `) AS ` + c.Ref.TableName() + ")) "
 	return
 }
 
