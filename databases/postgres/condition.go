@@ -184,6 +184,14 @@ func LikeRight(column string, value string) *Condition {
 	}
 }
 
+func NotDeleted(deletedByColumnName string) *Condition {
+	return &Condition{
+		Column:    deletedByColumnName,
+		Operation: "=",
+		Values:    []interface{}{LitValue("''")},
+	}
+}
+
 type conditionUnit struct {
 	andOr string
 	value interface{}
@@ -212,7 +220,7 @@ func (c *Conditions) And(v *Condition) *Conditions {
 	return c
 }
 
-func (c *Conditions) Or(v *Conditions) *Conditions {
+func (c *Conditions) Or(v *Condition) *Conditions {
 	c.units = append(c.units, &conditionUnit{
 		andOr: "OR",
 		value: v,
@@ -251,6 +259,8 @@ func (c *Conditions) queryAndArguments(latestArgNum int) (query string, args *sq
 			sub, subArgs, subLatestArgNum := v.queryAndArguments(latestArgNum)
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
+			} else {
+				query = query + sub
 			}
 			args = args.Merge(subArgs)
 			latestArgNum = subLatestArgNum
@@ -259,6 +269,8 @@ func (c *Conditions) queryAndArguments(latestArgNum int) (query string, args *sq
 			sub, subArgs, subLatestArgNum := v.queryAndArguments(latestArgNum)
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
+			} else {
+				query = query + sub
 			}
 			args = args.Merge(subArgs)
 			latestArgNum = subLatestArgNum
