@@ -21,8 +21,8 @@ type Condition struct {
 	Values    []interface{}
 }
 
-func (c *Condition) queryAndArguments(latestArgNum int) (query string, args *sql.Tuple, newLatestArgNum int) {
-	args = sql.NewTuple()
+func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
+	latestArgNum := args.Size()
 	switch c.Operation {
 	case "=", "<>", ">", ">=", "<", "<=":
 		query = `"` + c.Column + `" ` + c.Operation + " "
@@ -80,7 +80,6 @@ func (c *Condition) queryAndArguments(latestArgNum int) (query string, args *sql
 
 		}
 	}
-	newLatestArgNum = latestArgNum
 	return
 }
 
@@ -245,38 +244,33 @@ func (c *Conditions) OrConditions(v *Conditions) *Conditions {
 }
 
 func (c *Conditions) QueryAndArguments() (query string, args *sql.Tuple) {
-	query, args, _ = c.queryAndArguments(0)
+	args = sql.NewTuple()
+	query = c.queryAndArguments(args)
 	query = query[1 : len(query)-1]
 	return
 }
 
-func (c *Conditions) queryAndArguments(latestArgNum int) (query string, args *sql.Tuple, newLatestArgNum int) {
-	args = sql.NewTuple()
+func (c *Conditions) queryAndArguments(args *sql.Tuple) (query string) {
 	for _, unit := range c.units {
 		switch unit.value.(type) {
 		case *Condition:
 			v := unit.value.(*Condition)
-			sub, subArgs, subLatestArgNum := v.queryAndArguments(latestArgNum)
+			sub := v.queryAndArguments(args)
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
 			} else {
 				query = query + sub
 			}
-			args = args.Merge(subArgs)
-			latestArgNum = subLatestArgNum
 		case *Conditions:
 			v := unit.value.(*Conditions)
-			sub, subArgs, subLatestArgNum := v.queryAndArguments(latestArgNum)
+			sub := v.queryAndArguments(args)
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
 			} else {
 				query = query + sub
 			}
-			args = args.Merge(subArgs)
-			latestArgNum = subLatestArgNum
 		}
 	}
 	query = "(" + query + ")"
-	newLatestArgNum = latestArgNum
 	return
 }
