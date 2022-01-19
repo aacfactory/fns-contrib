@@ -9,14 +9,12 @@ import (
 )
 
 type Config struct {
-	Driver           string    `json:"driver"`
-	MasterSlaverMode bool      `json:"masterSlaverMode,omitempty"`
-	DSN              []string  `json:"dsn,omitempty"`
-	MaxIdles         int       `json:"maxIdles,omitempty"`
-	MaxOpens         int       `json:"maxOpens,omitempty"`
-	EnableDebugLog   bool      `json:"enableDebugLog"`
-	LettersCase      string    `json:"lettersCase,omitempty"`
-	DAO              DAOConfig `json:"dao,omitempty"`
+	Driver           string   `json:"driver"`
+	MasterSlaverMode bool     `json:"masterSlaverMode,omitempty"`
+	DSN              []string `json:"dsn,omitempty"`
+	MaxIdles         int      `json:"maxIdles,omitempty"`
+	MaxOpens         int      `json:"maxOpens,omitempty"`
+	EnableDebugLog   bool     `json:"enableDebugLog"`
 }
 
 func (config *Config) CreateClient() (client Client, err error) {

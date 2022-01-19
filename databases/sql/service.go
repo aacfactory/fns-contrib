@@ -5,7 +5,6 @@ import (
 	"github.com/aacfactory/configuares"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
-	"strings"
 	"sync/atomic"
 )
 
@@ -34,8 +33,6 @@ type service struct {
 	enableDebugLog bool
 	client         Client
 	gtm            *GlobalTransactionManagement
-	daoConfig      *DAOConfig
-	lettersCase    string
 }
 
 func (svc *service) Namespace() string {
@@ -70,16 +67,6 @@ func (svc *service) Build(root configuares.Config) (err error) {
 	atomic.StoreInt64(svc.running, 1)
 	svc.enableDebugLog = config.EnableDebugLog
 	svc.gtm = NewGlobalTransactionManagement()
-	svc.daoConfig = &config.DAO
-	lettersCase := strings.ToUpper(strings.TrimSpace(config.LettersCase))
-	switch lettersCase {
-	case "LOWER":
-		svc.lettersCase = "LOWER"
-	case "UPPER":
-		svc.lettersCase = "UPPER"
-	default:
-		svc.lettersCase = ""
-	}
 	return
 }
 
@@ -141,8 +128,6 @@ func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (r
 			return
 		}
 		result = execResult
-	case daoCacheConfigLoadFn:
-		result = svc.daoConfig
 	default:
 		err = errors.NotFound(fmt.Sprintf("fns SQL Handle: %s fn was not found", fn))
 	}
@@ -172,17 +157,6 @@ func (svc *service) getQueryAble(ctx fns.Context) (v QueryAble) {
 		v = tx
 	} else {
 		v = svc.client.Reader()
-	}
-	return
-}
-
-func (svc *service) makeupQuery(query string) (v string) {
-	switch svc.lettersCase {
-	case "LOWER":
-		v = strings.ToLower(query)
-	case "UPPER":
-		v = strings.ToUpper(query)
-	default:
 	}
 	return
 }
