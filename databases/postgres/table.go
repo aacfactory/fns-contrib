@@ -150,6 +150,13 @@ func createTable(x interface{}) (v *table) {
 				columns: insertOrUpdateColumns,
 			}
 		}
+		insertWhenExistOrNotQuery, insertWhenExistOrNotColumns := v.generateInsertWhenExistOrNotSQL()
+		if insertWhenExistOrNotQuery != "" {
+			v.insertWhenExistOrNotQuery = &tableGenericQuery{
+				query:   insertWhenExistOrNotQuery,
+				columns: insertWhenExistOrNotColumns,
+			}
+		}
 		v.querySelects = v.generateQuerySelects()
 		r = v
 		return
@@ -166,15 +173,16 @@ type tableGenericQuery struct {
 }
 
 type table struct {
-	Schema              string
-	Name                string
-	Columns             []*column
-	insertQuery         *tableGenericQuery
-	updateQuery         *tableGenericQuery
-	deleteQuery         *tableGenericQuery
-	softDeleteQuery     *tableGenericQuery
-	insertOrUpdateQuery *tableGenericQuery
-	querySelects        string
+	Schema                    string
+	Name                      string
+	Columns                   []*column
+	insertQuery               *tableGenericQuery
+	insertOrUpdateQuery       *tableGenericQuery
+	insertWhenExistOrNotQuery *tableGenericQuery
+	updateQuery               *tableGenericQuery
+	deleteQuery               *tableGenericQuery
+	softDeleteQuery           *tableGenericQuery
+	querySelects              string
 }
 
 func (t *table) addColumn(field reflect.StructField) (err error) {
@@ -601,7 +609,7 @@ func (t *table) generateInsertSQL() (query string, columns []*column) {
 	return
 }
 
-func (t *table) generateInsertWhenExistOrNotSQL(exist bool, sourceSQL string) (query string, columns []*column) {
+func (t *table) generateInsertWhenExistOrNotSQL() (query string, columns []*column) {
 	columns = make([]*column, 0, 1)
 	idx := 0
 	query = `INSERT INTO ` + t.fullName() + ` `
@@ -623,12 +631,8 @@ func (t *table) generateInsertWhenExistOrNotSQL(exist bool, sourceSQL string) (q
 	cols = cols[2:]
 	values = values[2:]
 	query = query + `(` + cols + `)` + ` SELECT ` + values + ` FROM (SELECT 1) AS "__TMP" WHERE `
-	if exist {
-		query = query + `EXISTS`
-	} else {
-		query = query + `NOT EXISTS`
-	}
-	query = query + ` (SELECT 1 FROM (` + sourceSQL + `))`
+	query = query + `$$EXISTS$$`
+	query = query + ` (SELECT 1 FROM (` + "$$SOURCE_QUERY$$" + `))`
 	return
 }
 
