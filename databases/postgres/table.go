@@ -225,8 +225,8 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 	case jsonCol:
 		t.Columns = append(t.Columns, newColumn(t, jsonCol, conflict, columnName, fieldName))
 	case auditCreateByCol:
-		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
-			err = fmt.Errorf("%s is audit create by, type must be string", fieldName)
+		if !(field.Type.ConvertibleTo(reflect.TypeOf("")) || field.Type.ConvertibleTo(reflect.TypeOf(int64(0)))) {
+			err = fmt.Errorf("%s is audit create by, type must be int64 or string", fieldName)
 			return
 		}
 		t.Columns = append(t.Columns, newColumn(t, auditCreateByCol, conflict, columnName, fieldName))
@@ -237,6 +237,10 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 		}
 		t.Columns = append(t.Columns, newColumn(t, auditCreateAtCol, conflict, columnName, fieldName))
 	case auditModifyBtCol:
+		if !(field.Type.ConvertibleTo(reflect.TypeOf("")) || field.Type.ConvertibleTo(reflect.TypeOf(int64(0)))) {
+			err = fmt.Errorf("%s is audit modify by, type must be int64 or string", fieldName)
+			return
+		}
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit modify by, type must be string", fieldName)
 			return
@@ -249,6 +253,10 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 		}
 		t.Columns = append(t.Columns, newColumn(t, auditModifyAtCol, conflict, columnName, fieldName))
 	case auditDeleteByCol:
+		if !(field.Type.ConvertibleTo(reflect.TypeOf("")) || field.Type.ConvertibleTo(reflect.TypeOf(int64(0)))) {
+			err = fmt.Errorf("%s is audit delete by, type must be int64 or string", fieldName)
+			return
+		}
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit delete by, type must be string", fieldName)
 			return
