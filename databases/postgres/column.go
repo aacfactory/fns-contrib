@@ -8,7 +8,8 @@ const (
 	// kind
 	pkCol            = "pk"
 	incrPkCol        = "incrPk"
-	normal           = "normal"
+	normalCol        = "normal"
+	conflictCol      = "conflict"
 	auditCreateByCol = "acb"
 	auditCreateAtCol = "act"
 	auditModifyBtCol = "amb"
@@ -23,10 +24,11 @@ const (
 	jsonCol          = "json"  // field_name,json
 )
 
-func newColumn(host *table, kind string, name string, fieldName string) *column {
+func newColumn(host *table, kind string, conflict bool, name string, fieldName string) *column {
 	return &column{
 		Host:         host,
 		Kind:         kind,
+		Conflict:     conflict,
 		Name:         name,
 		FieldName:    fieldName,
 		VirtualQuery: "",
@@ -36,6 +38,7 @@ func newColumn(host *table, kind string, name string, fieldName string) *column 
 type column struct {
 	Host             *table
 	Kind             string
+	Conflict         bool
 	Name             string
 	FieldName        string
 	VirtualQuery     string
@@ -124,7 +127,7 @@ func (c *column) isIncrPk() (ok bool) {
 }
 
 func (c *column) isNormal() (ok bool) {
-	ok = c.Kind == normal
+	ok = c.Kind == normalCol
 	return
 }
 

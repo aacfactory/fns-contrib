@@ -143,6 +143,13 @@ func createTable(x interface{}) (v *table) {
 				columns: softDeleteColumns,
 			}
 		}
+		insertOrUpdateQuery, insertOrUpdateColumns := v.generateInsertOrUpdateSQL()
+		if insertOrUpdateQuery != "" {
+			v.insertOrUpdateQuery = &tableGenericQuery{
+				query:   insertOrUpdateQuery,
+				columns: insertOrUpdateColumns,
+			}
+		}
 		v.querySelects = v.generateQuerySelects()
 		r = v
 		return
@@ -192,72 +199,80 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 	columnName := strings.TrimSpace(tagItems[0])
 	if len(tagItems) == 1 {
 		// normal
-		t.Columns = append(t.Columns, newColumn(t, normal, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, normalCol, false, columnName, fieldName))
 		return
 	}
-	kind := strings.TrimSpace(tagItems[1])
+	kind := strings.ToLower(strings.TrimSpace(tagItems[1]))
+	conflict := strings.Contains(kind, conflictCol)
+	if conflict {
+		if plusIdx := strings.Index(kind, "+"); plusIdx > 0 {
+			kind = kind[0:plusIdx]
+		} else {
+			kind = normalCol
+		}
+	}
 	switch kind {
 	case pkCol:
-		t.Columns = append(t.Columns, newColumn(t, pkCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, pkCol, conflict, columnName, fieldName))
 	case incrPkCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf(0)) {
 			err = fmt.Errorf("%s is incr pk, type must be int64", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, incrPkCol, columnName, fieldName))
-	case normal:
-		t.Columns = append(t.Columns, newColumn(t, normal, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, incrPkCol, conflict, columnName, fieldName))
+	case normalCol:
+		t.Columns = append(t.Columns, newColumn(t, normalCol, conflict, columnName, fieldName))
 	case jsonCol:
-		t.Columns = append(t.Columns, newColumn(t, jsonCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, jsonCol, conflict, columnName, fieldName))
 	case auditCreateByCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit create by, type must be string", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditCreateByCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditCreateByCol, conflict, columnName, fieldName))
 	case auditCreateAtCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf(time.Time{})) {
 			err = fmt.Errorf("%s is audit create at, type must be time.Time", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditCreateAtCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditCreateAtCol, conflict, columnName, fieldName))
 	case auditModifyBtCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit modify by, type must be string", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditModifyBtCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditModifyBtCol, conflict, columnName, fieldName))
 	case auditModifyAtCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf(time.Time{})) {
 			err = fmt.Errorf("%s is audit modify at, type must be time.Time", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditModifyAtCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditModifyAtCol, conflict, columnName, fieldName))
 	case auditDeleteByCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit delete by, type must be string", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditDeleteByCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditDeleteByCol, conflict, columnName, fieldName))
 	case auditDeleteAtCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf(time.Time{})) {
 			err = fmt.Errorf("%s is audit delete at, type must be time.Time", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditDeleteAtCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditDeleteAtCol, conflict, columnName, fieldName))
 	case auditVersionCol:
 		if !field.Type.ConvertibleTo(reflect.TypeOf("")) {
 			err = fmt.Errorf("%s is audit version, type must be int64", fieldName)
 			return
 		}
-		t.Columns = append(t.Columns, newColumn(t, auditVersionCol, columnName, fieldName))
+		t.Columns = append(t.Columns, newColumn(t, auditVersionCol, conflict, columnName, fieldName))
 	case virtualCol:
 		if len(tagItems) < 3 {
 			err = fmt.Errorf("%s is vc, source sql must be setted", fieldName)
 			return
 		}
 		sourceSQL := strings.TrimSpace(tagItems[2])
-		col := newColumn(t, virtualCol, columnName, fieldName)
+		col := newColumn(t, virtualCol, conflict, columnName, fieldName)
 		col.VirtualQuery = sourceSQL
 		t.Columns = append(t.Columns, col)
 	case refCol:
@@ -288,7 +303,7 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is ref, %s ref column of ref refenerce was not found", fieldName, targetRefColumnName)
 			return
 		}
-		col := newColumn(t, refCol, hostRefColumnName, fieldName)
+		col := newColumn(t, refCol, conflict, hostRefColumnName, fieldName)
 		col.Ref = refTable
 		col.RefName = columnName
 		col.RefTargetColumn = targetRefColumn
@@ -326,7 +341,7 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is link, %s link column of link refenerce was not found", fieldName, targetLinkColumnName)
 			return
 		}
-		col := newColumn(t, linkCol, columnName, fieldName)
+		col := newColumn(t, linkCol, conflict, columnName, fieldName)
 		col.Link = linkTable
 		col.LinkHostColumn = hostLinkColumn
 		col.LinkTargetColumn = targetLinkColumn
@@ -369,7 +384,7 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is link, target %s column of link refenerce was not found", fieldName, targetLinkColumnName)
 			return
 		}
-		col := newColumn(t, linksCol, columnName, fieldName)
+		col := newColumn(t, linksCol, conflict, columnName, fieldName)
 		col.Link = linkTable
 		col.LinkHostColumn = hostLinkColumn
 		col.LinkTargetColumn = targetLinkColumn
@@ -471,11 +486,27 @@ func (t *table) hasIncrPk() (v bool) {
 	return
 }
 
+func (t *table) findAuditCreate() (v []*column) {
+	v = make([]*column, 0, 1)
+	for _, c := range t.Columns {
+		if c.isAcb() || c.isAct() {
+			v = append(v, c)
+			if len(v) == 2 {
+				return
+			}
+		}
+	}
+	return
+}
+
 func (t *table) findAuditModify() (v []*column) {
 	v = make([]*column, 0, 1)
 	for _, c := range t.Columns {
 		if c.isAmb() || c.isAmt() {
 			v = append(v, c)
+			if len(v) == 2 {
+				return
+			}
 		}
 	}
 	return
@@ -486,6 +517,9 @@ func (t *table) findAuditDelete() (v []*column) {
 	for _, c := range t.Columns {
 		if c.isAdb() || c.isAdt() {
 			v = append(v, c)
+			if len(v) == 2 {
+				return
+			}
 		}
 	}
 	return
@@ -501,19 +535,26 @@ func (t *table) findAuditVersion() (v *column) {
 	return
 }
 
+func (t *table) findConflicts() (v []*column) {
+	v = make([]*column, 0, 1)
+	for _, c := range t.Columns {
+		if c.Conflict {
+			v = append(v, c)
+		}
+	}
+	return
+}
+
 func (t *table) generateInsertSQL() (query string, columns []*column) {
 	columns = make([]*column, 0, 1)
 	idx := 0
-	pks := ``
+
 	query = `INSERT INTO ` + t.fullName() + ` `
 	cols := ``
 	values := ``
 	for _, c := range t.Columns {
 		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
 			continue
-		}
-		if c.isPk() {
-			pks = pks + ", " + c.queryName()
 		}
 		cols = cols + `, ` + c.queryName()
 		if c.isAol() {
@@ -527,9 +568,27 @@ func (t *table) generateInsertSQL() (query string, columns []*column) {
 	cols = cols[2:]
 	values = values[2:]
 	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
+	//conflicts
+	conflicts := ""
+	pks := t.findPk()
 	if len(pks) > 0 {
-		pks = pks[2:]
-		query = query + ` ON CONFLICT (` + pks + `) DO NOTHING`
+		for _, pk := range pks {
+			if pk.isIncrPk() {
+				continue
+			}
+			conflicts = conflicts + ", " + pk.queryName()
+		}
+	}
+
+	conflictColumns := t.findConflicts()
+	if len(conflictColumns) > 0 {
+		for _, conflictColumn := range conflictColumns {
+			conflicts = conflicts + ", " + conflictColumn.queryName()
+		}
+	}
+	if conflicts != "" {
+		conflicts = conflicts[2:]
+		query = query + ` ON CONFLICT (` + conflicts + `) DO NOTHING`
 	}
 	return
 }
@@ -609,7 +668,6 @@ func (t *table) generateUpdateSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateDeleteSQL() (query string, columns []*column) {
-
 	columns = make([]*column, 0, 1)
 	idx := 0
 	pks := t.findPk()
@@ -669,24 +727,35 @@ func (t *table) generateSoftDeleteSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
-	if t.hasIncrPk() {
+	//conflicts
+	conflicts := ""
+	pks := t.findPk()
+	if len(pks) > 0 {
+		for _, pk := range pks {
+			if pk.isIncrPk() {
+				continue
+			}
+			conflicts = conflicts + ", " + pk.queryName()
+		}
+	}
+	conflictColumns := t.findConflicts()
+	if len(conflictColumns) > 0 {
+		for _, conflictColumn := range conflictColumns {
+			conflicts = conflicts + ", " + conflictColumn.queryName()
+		}
+	}
+	if conflicts == "" {
 		return
 	}
-	if len(t.findPk()) == 0 {
-		return
-	}
+	conflicts = conflicts[2:]
 	columns = make([]*column, 0, 1)
 	idx := 0
-	pks := ``
 	query = `INSERT INTO ` + t.fullName() + ` `
 	cols := ``
 	values := ``
 	for _, c := range t.Columns {
 		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
 			continue
-		}
-		if c.isPk() {
-			pks = pks + ", " + c.queryName()
 		}
 		cols = cols + `, ` + c.queryName()
 		if c.isAol() {
@@ -700,13 +769,10 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 	cols = cols[2:]
 	values = values[2:]
 	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
-	if len(pks) > 0 {
-		pks = pks[2:]
-		query = query + ` ON CONFLICT (` + pks + `) DO `
-	}
+	query = query + ` ON CONFLICT (` + conflicts + `) DO `
 	// update
 	var aol *column
-	query = `UPDATE SET `
+	query = query + `UPDATE SET `
 	set := ``
 	for _, c := range t.Columns {
 		if c.isPk() || c.isIncrPk() || c.isAcb() || c.isAct() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {

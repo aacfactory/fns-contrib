@@ -16,9 +16,9 @@ func TestTable(t *testing.T) {
 	fmt.Println("--")
 	fmt.Println(fooTable.updateQuery.query)
 	fmt.Println(len(fooTable.updateQuery.columns))
+	fmt.Println(fooTable.insertOrUpdateQuery)
 	if fooTable.insertOrUpdateQuery != nil {
 		fmt.Println("--")
-
 		fmt.Println(fooTable.insertOrUpdateQuery.query)
 		fmt.Println(len(fooTable.insertOrUpdateQuery.columns))
 	}
@@ -51,7 +51,7 @@ type Foo struct {
 	DeleteBY string    `col:"DELETE_BY,adb"`
 	DeleteAT time.Time `col:"DELETE_AT,adt"`
 	Version  int64     `col:"VERSION,aol"`
-	Name     string    `col:"NAME"`
+	Name     string    `col:"NAME,+conflict"`
 	Integer  int       `col:"INTEGER"`
 	Double   float64   `col:"DOUBLE"`
 	Bool     bool      `col:"BOOL"`
