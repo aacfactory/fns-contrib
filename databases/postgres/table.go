@@ -815,7 +815,7 @@ func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sq
 }
 
 func (t *table) generateCountSQL(conditions *Conditions) (query string, args *sql.Tuple) {
-	query = `SELECT count(1) FROM ` + t.fullName()
+	query = `SELECT count(1) AS "_COUNT_" FROM ` + t.fullName()
 	if conditions != nil {
 		conditionQuery, conditionArgs := conditions.QueryAndArguments()
 		query = query + " WHERE " + conditionQuery
