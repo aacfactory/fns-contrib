@@ -7,6 +7,7 @@ import (
 	"github.com/aacfactory/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,7 +22,8 @@ type Tuple struct {
 }
 
 func (t *Tuple) Size() (n int) {
-	return len(t.values)
+	n = len(t.values)
+	return
 }
 
 func (t *Tuple) Merge(v *Tuple) *Tuple {
@@ -195,5 +197,15 @@ func (t *Tuple) UnmarshalJSON(p []byte) (err error) {
 		return
 	}
 	t.values = values
+	return
+}
+
+func (t Tuple) String() (s string) {
+	for i, value := range t.values {
+		s = s + ", " + fmt.Sprintf("%d:%s", i+1, value[strings.Index(value, ":")+1:])
+	}
+	if s != "" {
+		s = s[2:]
+	}
 	return
 }
