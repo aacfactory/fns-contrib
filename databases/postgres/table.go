@@ -261,6 +261,17 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 		col.VirtualQuery = sourceSQL
 		t.Columns = append(t.Columns, col)
 	case refCol:
+		if len(tagItems) != 3 {
+			err = fmt.Errorf("%s is ref, ref refenerce must be setted", fieldName)
+			return
+		}
+		refs := strings.Split(tagItems[2], "+")
+		if len(refs) != 2 {
+			err = fmt.Errorf("%s is ref, ref refenerce must be host 'host table column + ref target column'", fieldName)
+			return
+		}
+		hostRefColumnName := strings.TrimSpace(refs[0])
+		targetRefColumnName := strings.TrimSpace(refs[1])
 		fieldType := field.Type
 		if fieldType.Kind() != reflect.Ptr {
 			err = fmt.Errorf("%s is ref, field type must point struct", fieldName)
@@ -271,11 +282,34 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is ref, field type must point struct", fieldName)
 			return
 		}
-		refTable := createOrLoadTable(reflect.New(refType))
-		col := newColumn(t, refCol, columnName, fieldName)
+		refTable := createOrLoadTable(reflect.New(refType).Interface())
+		targetRefColumn, hasTargetLinkColumn := refTable.findColumn(targetRefColumnName)
+		if !hasTargetLinkColumn {
+			err = fmt.Errorf("%s is ref, %s ref column of ref refenerce was not found", fieldName, targetRefColumnName)
+			return
+		}
+		col := newColumn(t, refCol, hostRefColumnName, fieldName)
 		col.Ref = refTable
+		col.RefName = columnName
+		col.RefTargetColumn = targetRefColumn
 		t.Columns = append(t.Columns, col)
 	case linkCol:
+		if len(tagItems) != 3 {
+			err = fmt.Errorf("%s is link, link refenerce must be setted", fieldName)
+			return
+		}
+		linkRef := strings.Split(tagItems[2], "+")
+		if len(linkRef) != 2 {
+			err = fmt.Errorf("%s is link, link refenerce must be host 'host table column + link target column'", fieldName)
+			return
+		}
+		hostLinkColumnName := strings.TrimSpace(linkRef[0])
+		hostLinkColumn, hasHostLinkColumn := t.findColumn(hostLinkColumnName)
+		if !hasHostLinkColumn {
+			err = fmt.Errorf("%s is link, host link column of link refenerce must be setted and on top of %s ", fieldName, fieldName)
+			return
+		}
+		targetLinkColumnName := strings.TrimSpace(linkRef[1])
 		fieldType := field.Type
 		if fieldType.Kind() != reflect.Ptr {
 			err = fmt.Errorf("%s is link, field type must point struct", fieldName)
@@ -286,9 +320,16 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is link, field type must point struct", fieldName)
 			return
 		}
-		linkTable := createOrLoadTable(reflect.New(linkType))
+		linkTable := createOrLoadTable(reflect.New(linkType).Interface())
+		targetLinkColumn, hasTargetLinkColumn := linkTable.findColumn(targetLinkColumnName)
+		if !hasTargetLinkColumn {
+			err = fmt.Errorf("%s is link, %s link column of link refenerce was not found", fieldName, targetLinkColumnName)
+			return
+		}
 		col := newColumn(t, linkCol, columnName, fieldName)
 		col.Link = linkTable
+		col.LinkHostColumn = hostLinkColumn
+		col.LinkTargetColumn = targetLinkColumn
 		t.Columns = append(t.Columns, col)
 	case linksCol:
 		fieldType := field.Type
@@ -296,6 +337,22 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is links, field type must slice point struct", fieldName)
 			return
 		}
+		if len(tagItems) < 3 {
+			err = fmt.Errorf("%s is link, link refenerce must be setted", fieldName)
+			return
+		}
+		linkRef := strings.Split(tagItems[2], "+")
+		if len(linkRef) != 2 {
+			err = fmt.Errorf("%s is links, links refenerce must be host 'host table column + link target column'", fieldName)
+			return
+		}
+		hostLinkColumnName := strings.TrimSpace(linkRef[0])
+		hostLinkColumn, hasHostLinkColumn := t.findColumn(hostLinkColumnName)
+		if !hasHostLinkColumn {
+			err = fmt.Errorf("%s is links, host link column of links refenerce must be setted and on top of %s ", fieldName, fieldName)
+			return
+		}
+		targetLinkColumnName := strings.TrimSpace(linkRef[1])
 		itemType := fieldType.Elem()
 		if itemType.Kind() != reflect.Ptr {
 			err = fmt.Errorf("%s is links, field type must slice point struct", fieldName)
@@ -306,10 +363,17 @@ func (t *table) addColumn(field reflect.StructField) (err error) {
 			err = fmt.Errorf("%s is links, field type must slice point struct", fieldName)
 			return
 		}
-		linkTable := createOrLoadTable(reflect.New(linkType))
+		linkTable := createOrLoadTable(reflect.New(linkType).Interface())
+		targetLinkColumn, hasTargetLinkColumn := linkTable.findColumn(targetLinkColumnName)
+		if !hasTargetLinkColumn {
+			err = fmt.Errorf("%s is link, target %s column of link refenerce was not found", fieldName, targetLinkColumnName)
+			return
+		}
 		col := newColumn(t, linksCol, columnName, fieldName)
 		col.Link = linkTable
-		if len(tagItems) > 2 {
+		col.LinkHostColumn = hostLinkColumn
+		col.LinkTargetColumn = targetLinkColumn
+		if len(tagItems) > 3 {
 			settings := tagItems[2:]
 			for _, setting := range settings {
 				setting = strings.TrimSpace(setting)
@@ -373,6 +437,17 @@ func (t *table) fullName() (v string) {
 
 func (t *table) TableName() (v string) {
 	v = `"` + t.Name + `"`
+	return
+}
+
+func (t *table) findColumn(name string) (c *column, has bool) {
+	for _, col := range t.Columns {
+		if col.Name == name {
+			c = col
+			has = true
+			return
+		}
+	}
 	return
 }
 
@@ -507,6 +582,7 @@ func (t *table) generateUpdateSQL() (query string, columns []*column) {
 			continue
 		}
 		if c.isAol() {
+			aol = c
 			set = set + `, ` + aol.queryName() + ` = ` + aol.queryName() + `+1`
 			continue
 		}
@@ -637,6 +713,7 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 			continue
 		}
 		if c.isAol() {
+			aol = c
 			set = set + `, ` + aol.queryName() + ` = ` + aol.queryName() + `+1`
 			continue
 		}
@@ -673,7 +750,7 @@ func (t *table) generateQuerySelects() (selects string) {
 	for _, c := range t.Columns {
 		selects = selects + ", " + c.generateSelect()
 	}
-	selects = selects[1:]
+	selects = selects[2:]
 	return
 }
 

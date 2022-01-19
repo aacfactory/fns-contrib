@@ -18,8 +18,8 @@ const (
 	auditVersionCol  = "aol"
 	virtualCol       = "vc"    // field_name,vc,"sql"
 	refCol           = "ref"   // self_field_name,ref
-	linkCol          = "link"  // target_field_name,link
-	linksCol         = "links" // target_field_name,links,field asc,field desc,0:10
+	linkCol          = "link"  // linkName:target_field_name,link
+	linksCol         = "links" // linkName:target_field_name,links,field asc,field desc,0:10
 	jsonCol          = "json"  // field_name,json
 )
 
@@ -34,15 +34,19 @@ func newColumn(host *table, kind string, name string, fieldName string) *column 
 }
 
 type column struct {
-	Host         *table
-	Kind         string
-	Name         string
-	FieldName    string
-	VirtualQuery string
-	Ref          *table
-	Link         *table
-	LinkOrders   []*Order
-	LinkRange    *Range
+	Host             *table
+	Kind             string
+	Name             string
+	FieldName        string
+	VirtualQuery     string
+	RefName          string
+	RefTargetColumn  *column
+	Ref              *table
+	LinkHostColumn   *column
+	LinkTargetColumn *column
+	Link             *table
+	LinkOrders       []*Order
+	LinkRange        *Range
 }
 
 func (c *column) queryName() string {
@@ -54,7 +58,7 @@ func (c *column) generateSelect() (query string) {
 	case virtualCol:
 		query = fmt.Sprintf("(%s) AS %s", c.VirtualQuery, c.queryName())
 	case refCol:
-		query = fmt.Sprintf("(%s) AS %s", c.generateRefSelect(), c.queryName())
+		query = fmt.Sprintf("(%s) AS %s", c.generateRefSelect(), `"`+c.RefName+`"`)
 	case linkCol:
 		query = fmt.Sprintf("(%s) AS %s", c.generateLinkSelect(), c.queryName())
 	case linksCol:
@@ -72,16 +76,10 @@ func (c *column) generateRefSelect() (query string) {
 		) AS "ref_table"
 	*/
 	hostTableName := c.Host.fullName()
-	pks := c.Ref.findPk()
-	if len(pks) != 1 {
-		panic(fmt.Sprintf("fns Postgres: generate ref query failed for %s must has one pk", c.Ref.fullName()))
-		return
-	}
-	pk := pks[0].Name
-	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
-	refQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(pk, LitValue(hostTableName+"."+c.queryName()))), NewRange(0, 1), nil)
+	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM (`
+	refQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.RefTargetColumn.Name, LitValue(hostTableName+"."+c.queryName()))), NewRange(0, 1), nil)
 	query = query + refQuery
-	query = query + `) AS ` + c.Ref.TableName() + " "
+	query = query + `) AS ` + c.Ref.TableName()
 	return
 }
 
@@ -92,16 +90,10 @@ func (c *column) generateLinkSelect() (query string) {
 		) AS "ref_table"
 	*/
 	hostTableName := c.Host.fullName()
-	pks := c.Host.findPk()
-	if len(pks) != 1 {
-		panic(fmt.Sprintf("fns Postgres: generate link query failed for %s must has one pk", c.Host.fullName()))
-		return
-	}
-	pk := pks[0]
-	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
-	linkQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.Name, LitValue(hostTableName+"."+pk.queryName()))), NewRange(0, 1), nil)
+	query = `SELECT row_to_json(` + c.Link.TableName() + `.*) FROM (`
+	linkQuery, _ := c.Link.generateQuerySQL(NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), NewRange(0, 1), nil)
 	query = query + linkQuery
-	query = query + `) AS ` + c.Ref.TableName() + " "
+	query = query + `) AS ` + c.Link.TableName()
 	return
 }
 
@@ -114,16 +106,10 @@ func (c *column) generateLinksSelect() (query string) {
 		))
 	*/
 	hostTableName := c.Host.fullName()
-	pks := c.Host.findPk()
-	if len(pks) != 1 {
-		panic(fmt.Sprintf("fns Postgres: generate links query failed for %s must has one pk", c.Host.fullName()))
-		return
-	}
-	pk := pks[0]
-	query = `SELECT to_json(ARRAY(` + `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM ( `
-	linksQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.Name, LitValue(hostTableName+"."+pk.queryName()))), c.LinkRange, c.LinkOrders)
+	query = `SELECT to_json(ARRAY(` + `SELECT row_to_json(` + c.Link.TableName() + `.*) FROM (`
+	linksQuery, _ := c.Link.generateQuerySQL(NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), c.LinkRange, c.LinkOrders)
 	query = query + linksQuery
-	query = query + `) AS ` + c.Ref.TableName() + ")) "
+	query = query + `) AS ` + c.Link.TableName() + "))"
 	return
 }
 

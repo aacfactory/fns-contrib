@@ -1,25 +1,93 @@
-package postgres_test
+package postgres
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/postgres"
-	"reflect"
 	"testing"
 	"time"
 )
 
-type Date time.Time
+func TestTable(t *testing.T) {
+	foo := &Foo{}
+	fooTable := createOrLoadTable(foo)
+	fmt.Println(fooTable.TableName())
+	fmt.Println("--")
+	fmt.Println(fooTable.insertQuery.query)
+	fmt.Println(len(fooTable.insertQuery.columns))
+	fmt.Println("--")
+	fmt.Println(fooTable.updateQuery.query)
+	fmt.Println(len(fooTable.updateQuery.columns))
+	if fooTable.insertOrUpdateQuery != nil {
+		fmt.Println("--")
+
+		fmt.Println(fooTable.insertOrUpdateQuery.query)
+		fmt.Println(len(fooTable.insertOrUpdateQuery.columns))
+	}
+	fmt.Println("--")
+	fmt.Println(fooTable.deleteQuery.query)
+	fmt.Println(len(fooTable.deleteQuery.columns))
+	if fooTable.softDeleteQuery != nil {
+		fmt.Println("--")
+		fmt.Println(fooTable.softDeleteQuery.query)
+		fmt.Println(len(fooTable.softDeleteQuery.columns))
+	}
+	fmt.Println("--")
+	fmt.Println(fooTable.querySelects)
+	fmt.Println("--")
+
+	fmt.Println(fooTable.generateExistSQL(NewConditions(Eq("ID", 1))))
+	fmt.Println(fooTable.generateCountSQL(NewConditions(Eq("ID", 1))))
+}
+
+type Sample struct {
+	Name string
+}
 
 type Foo struct {
+	Id       string    `col:"ID,pk"`
+	CreateBY string    `col:"CREATE_BY,acb"`
+	CreateAT time.Time `col:"CREATE_AT,act"`
+	ModifyBY string    `col:"MODIFY_BY,amb"`
+	ModifyAT time.Time `col:"MODIFY_AT,amt"`
+	DeleteBY string    `col:"DELETE_BY,adb"`
+	DeleteAT time.Time `col:"DELETE_AT,adt"`
+	Version  int64     `col:"VERSION,aol"`
+	Name     string    `col:"NAME"`
+	Integer  int       `col:"INTEGER"`
+	Double   float64   `col:"DOUBLE"`
+	Bool     bool      `col:"BOOL"`
+	Time     time.Time `col:"TIME"`
+	JsonRaw  *Sample   `col:"JSON_RAW,json"`
+	BazList  []*Baz    `col:"BAZ_LIST,links,ID+FOO_ID,ID DESC,0:10"`
+	BarNum   int       `col:"BAR_NUM,vc,SELECT COUNT(1) FROM \"METAVOOO\".\"BAR\" WHERE \"FOO_ID\" = \"METAVOOO\".\"FOO\".\"ID\""`
 }
 
-func (f Foo) TableName() (schema string, table string) {
-	return
+func (f Foo) TableName() (string, string) {
+	return "METAVOOO", "FOO"
 }
 
-func TestConvert(t *testing.T) {
-	x := reflect.TypeOf(time.Time{})
-	y := reflect.TypeOf(Date{})
-	fmt.Println(y.AssignableTo(x), y.ConvertibleTo(x))
-	fmt.Println(reflect.TypeOf(Foo{}).Implements(reflect.TypeOf((*postgres.Table)(nil)).Elem()))
+type Bar struct {
+	Id       int64     `col:"ID,incrPk"`
+	CreateBY string    `col:"CREATE_BY,acb"`
+	CreateAT time.Time `col:"CREATE_AT,act"`
+	ModifyBY string    `col:"MODIFY_BY,amb"`
+	ModifyAT time.Time `col:"MODIFY_AT,amt"`
+	DeleteBY string    `col:"DELETE_BY,adb"`
+	DeleteAT time.Time `col:"DELETE_AT,adt"`
+	Version  int64     `col:"VERSION,aol"`
+	Name     string    `col:"NAME"`
+	Foo      *Foo      `col:"FOO,ref,FOO_ID+ID"`
+}
+
+func (f Bar) TableName() (string, string) {
+	return "METAVOOO", "BAR"
+}
+
+type Baz struct {
+	Id    string `col:"ID,pk"`
+	Name  string `col:"NAME"`
+	FooId string `col:"FOO_ID"`
+}
+
+func (f Baz) TableName() (string, string) {
+	return "METAVOOO", "BAZ"
 }
