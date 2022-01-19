@@ -805,7 +805,14 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sql.Tuple) {
-	query = `SELECT 1 AS "_EXIST_" FROM ` + t.fullName()
+	cc := ""
+	pks := t.findPk()
+	if len(pks) > 0 {
+		cc = pks[0].queryName()
+	} else {
+		cc = "1"
+	}
+	query = `SELECT ` + cc + ` AS "_EXIST_" FROM ` + t.fullName()
 	if conditions != nil {
 		conditionQuery, conditionArgs := conditions.QueryAndArguments()
 		query = query + " WHERE " + conditionQuery
@@ -815,7 +822,14 @@ func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sq
 }
 
 func (t *table) generateCountSQL(conditions *Conditions) (query string, args *sql.Tuple) {
-	query = `SELECT count(1) AS "_COUNT_" FROM ` + t.fullName()
+	cc := ""
+	pks := t.findPk()
+	if len(pks) > 0 {
+		cc = pks[0].queryName()
+	} else {
+		cc = "1"
+	}
+	query = `SELECT count(` + cc + `) AS "_COUNT_" FROM ` + t.fullName()
 	if conditions != nil {
 		conditionQuery, conditionArgs := conditions.QueryAndArguments()
 		query = query + " WHERE " + conditionQuery
@@ -833,26 +847,63 @@ func (t *table) generateQuerySelects() (selects string) {
 }
 
 func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args *sql.Tuple) {
-	query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
-	if conditions != nil {
-		conditionQuery, conditionArgs := conditions.QueryAndArguments()
-		query = query + " WHERE " + conditionQuery
-		args = conditionArgs
-	}
-	if orders != nil && len(orders) > 0 {
+	pks := t.findPk()
+	if len(pks) > 0 {
+		pk := pks[0].queryName()
+		alias := fmt.Sprintf("\"_%s_\"", t.Name)
 		orderQuery := ""
-		for _, order := range orders {
-			orderKind := "ASC"
-			if order.Desc {
-				orderKind = "DESC"
-			}
-			orderQuery = orderQuery + `, ` + `"` + order.Column + `" ` + orderKind
+		rngQuery := ""
+		innerQuery := `SELECT ` + pk + ` FROM ` + t.fullName()
+		if conditions != nil {
+			conditionQuery, conditionArgs := conditions.QueryAndArguments()
+			innerQuery = innerQuery + " WHERE " + conditionQuery
+			args = conditionArgs
 		}
-		orderQuery = orderQuery[1:]
-		query = query + ` ORDER BY` + orderQuery
-	}
-	if rng != nil {
-		query = query + ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
+		if orders != nil && len(orders) > 0 {
+			for _, order := range orders {
+				orderKind := "ASC"
+				if order.Desc {
+					orderKind = "DESC"
+				}
+				orderQuery = orderQuery + `, ` + `"` + order.Column + `" ` + orderKind
+			}
+			orderQuery = orderQuery[1:]
+			innerQuery = innerQuery + ` ORDER BY` + orderQuery
+		}
+		if rng != nil {
+			rngQuery = ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
+			innerQuery = innerQuery + rngQuery
+		}
+		query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
+		query = query + ` INNER JOIN (` + innerQuery + `) AS ` + alias + ` ON ` + t.fullName() + `.` + pk + ` = ` + alias + `.` + pk
+		if orderQuery != "" {
+			query = query + ` ORDER BY` + orderQuery
+		}
+		if rngQuery != "" {
+			query = query + rngQuery
+		}
+	} else {
+		query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
+		if conditions != nil {
+			conditionQuery, conditionArgs := conditions.QueryAndArguments()
+			query = query + " WHERE " + conditionQuery
+			args = conditionArgs
+		}
+		if orders != nil && len(orders) > 0 {
+			orderQuery := ""
+			for _, order := range orders {
+				orderKind := "ASC"
+				if order.Desc {
+					orderKind = "DESC"
+				}
+				orderQuery = orderQuery + `, ` + `"` + order.Column + `" ` + orderKind
+			}
+			orderQuery = orderQuery[1:]
+			query = query + ` ORDER BY` + orderQuery
+		}
+		if rng != nil {
+			query = query + ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
+		}
 	}
 	return
 }

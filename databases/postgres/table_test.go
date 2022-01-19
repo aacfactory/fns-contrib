@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -37,6 +36,9 @@ func TestTable(t *testing.T) {
 
 	fmt.Println(fooTable.generateExistSQL(NewConditions(Eq("ID", 1))))
 	fmt.Println(fooTable.generateCountSQL(NewConditions(Eq("ID", 1))))
+
+	q, _ := fooTable.generateQuerySQL(NewConditions(Eq("ID", LitValue("'1'"))), NewRange(0, 10), NewOrders().Asc("ID").values)
+	fmt.Println(q)
 }
 
 type Sample struct {
@@ -91,40 +93,4 @@ type Baz struct {
 
 func (f Baz) TableName() (string, string) {
 	return "METAVOOO", "BAZ"
-}
-
-func TestNT(t *testing.T) {
-	x := &Baz{}
-	newAT(x)
-	fmt.Println(x)
-
-	xx := make([]*Baz, 0, 1)
-	rt := reflect.ValueOf(&xx).Elem().Type().Elem()
-	fmt.Println(rt)
-
-	rv := reflect.New(reflect.TypeOf(&xx).Elem().Elem().Elem())
-	fmt.Println(rv, rv.Interface().(Table))
-}
-
-func newAT(x interface{}) {
-	xx := reflect.New(reflect.SliceOf(reflect.TypeOf(&Baz{})))
-	xxx := xx.Interface()
-	fmt.Println(xx.CanAddr(), xx.Elem().Type().Kind())
-	add(xxx)
-	reflect.ValueOf(x).Elem().Set(xx.Elem().Index(0).Elem())
-	fmt.Println(xx.Elem().Len())
-}
-
-func add(v interface{}) {
-	rv := reflect.ValueOf(v).Elem()
-	fmt.Println(rv.Type())
-	rv = reflect.Append(rv, reflect.ValueOf(&Baz{
-		Id:    "1",
-		Name:  "1",
-		FooId: "1",
-	}))
-	fmt.Println(rv, rv)
-
-	reflect.ValueOf(v).Elem().Set(rv)
-	fmt.Println(v)
 }

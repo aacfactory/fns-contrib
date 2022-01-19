@@ -67,7 +67,7 @@ func (c *column) generateSelect() (query string) {
 	case linksCol:
 		query = fmt.Sprintf("(%s) AS %s", c.generateLinksSelect(), c.queryName())
 	default:
-		query = c.queryName()
+		query = c.Host.fullName() + "." + c.queryName()
 	}
 	return
 }
