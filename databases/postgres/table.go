@@ -805,7 +805,7 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 }
 
 func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sql.Tuple) {
-	query = `SELECT 1 FROM ` + t.fullName()
+	query = `SELECT 1 AS "_EXIST_" FROM ` + t.fullName()
 	if conditions != nil {
 		conditionQuery, conditionArgs := conditions.QueryAndArguments()
 		query = query + " WHERE " + conditionQuery

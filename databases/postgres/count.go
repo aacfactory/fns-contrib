@@ -19,7 +19,7 @@ func Count(ctx fns.Context, cond *Conditions, table Table) (v int, err errors.Co
 		Args:  args,
 	})
 	if queryErr != nil {
-		err = queryErr
+		err = errors.ServiceError("fns Postgres: count failed").WithCause(queryErr).WithMeta("_fns_postgres", "Count")
 		return
 	}
 	result, has := results.Next()

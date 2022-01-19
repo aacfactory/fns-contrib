@@ -68,7 +68,7 @@ func QueryDirect(ctx fns.Context, query string, args *sql.Tuple, rows interface{
 		Args:  args,
 	})
 	if queryErr != nil {
-		err = queryErr
+		err = errors.ServiceError("fns Postgres: query direct failed").WithCause(queryErr).WithMeta("_fns_postgres", "QueryDirect")
 		return
 	}
 	fetched = !results.Empty()
@@ -78,7 +78,7 @@ func QueryDirect(ctx fns.Context, query string, args *sql.Tuple, rows interface{
 	rv := reflect.ValueOf(rows)
 	scanErr := scanQueryResults(results, rv)
 	if scanErr != nil {
-		err = scanErr
+		err = errors.ServiceError("fns Postgres: query direct failed").WithCause(scanErr).WithMeta("_fns_postgres", "QueryDirect")
 		return
 	}
 	return
