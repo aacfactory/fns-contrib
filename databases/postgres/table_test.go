@@ -101,6 +101,9 @@ func TestNT(t *testing.T) {
 	xx := make([]*Baz, 0, 1)
 	rt := reflect.ValueOf(&xx).Elem().Type().Elem()
 	fmt.Println(rt)
+
+	rv := reflect.New(reflect.TypeOf(&xx).Elem().Elem().Elem())
+	fmt.Println(rv, rv.Interface().(Table))
 }
 
 func newAT(x interface{}) {
