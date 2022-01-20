@@ -7,7 +7,6 @@ require (
 	github.com/aacfactory/errors v1.6.3
 	github.com/aacfactory/fns v0.9.8
 	github.com/aacfactory/json v1.5.0
-	github.com/tidwall/gjson v1.12.1
 )
 
 require (
@@ -28,6 +27,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/rs/zerolog v1.26.1 // indirect
+	github.com/tidwall/gjson v1.12.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
