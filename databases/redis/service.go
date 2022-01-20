@@ -8,8 +8,6 @@ import (
 )
 
 const (
-	configPath = "redis"
-
 	namespace = "redis"
 
 	setFn              = "set"
@@ -54,13 +52,9 @@ func (svc *service) Internal() bool {
 
 func (svc *service) Build(root configuares.Config) (err error) {
 	config := Config{}
-	has, readErr := root.Get(configPath, &config)
+	readErr := root.As(&config)
 	if readErr != nil {
 		err = fmt.Errorf("fns Redis Build: read redis config failed, %v", readErr)
-		return
-	}
-	if !has {
-		err = fmt.Errorf("fns Redis Build: no redis path in root config")
 		return
 	}
 

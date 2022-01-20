@@ -9,10 +9,6 @@ import (
 )
 
 const (
-	configPath = "sql"
-)
-
-const (
 	namespace = "sql"
 
 	txBeginFn    = "tx_begin"
@@ -43,13 +39,9 @@ func (svc *service) Internal() bool {
 
 func (svc *service) Build(root configuares.Config) (err error) {
 	config := Config{}
-	has, readErr := root.Get(configPath, &config)
+	readErr := root.As(&config)
 	if readErr != nil {
 		err = fmt.Errorf("fns SQL Build: read config failed, %v", readErr)
-		return
-	}
-	if !has {
-		err = fmt.Errorf("fns SQL Build: no sql path in root config")
 		return
 	}
 

@@ -4,14 +4,14 @@ go 1.17
 
 require (
 	github.com/aacfactory/errors v1.6.3
-	github.com/aacfactory/fns v0.9.8
+	github.com/aacfactory/fns v0.9.9
 	github.com/aacfactory/fns-contrib/databases/sql v0.9.8
 	github.com/aacfactory/json v1.5.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
 require (
-	github.com/aacfactory/configuares v1.3.0 // indirect
+	github.com/aacfactory/configuares v1.3.1 // indirect
 	github.com/aacfactory/logs v1.2.0 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
