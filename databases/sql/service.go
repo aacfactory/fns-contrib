@@ -20,8 +20,6 @@ const (
 	txRollbackFn = "tx_rollback"
 	queryFn      = "query"
 	executeFn    = "execute"
-
-	daoCacheConfigLoadFn = "dao_cache_config"
 )
 
 func Service() fns.Service {

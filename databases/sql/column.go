@@ -19,10 +19,6 @@ const (
 	UnknownType = ColumnType("unknown")
 )
 
-const (
-	columnStructTag = "col"
-)
-
 type ColumnType string
 
 type Column struct {
