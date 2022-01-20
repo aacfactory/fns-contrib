@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/aacfactory/fns"
 	"reflect"
-	"strconv"
 	"time"
 )
 
@@ -38,8 +37,8 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			createByString := createBY.(string)
 			if createByString == "" {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					createByString = user.Id()
+				if !user.Exists() && user.Id().String() != "" {
+					createByString = user.Id().String()
 					rv.FieldByName(createByColumn.FieldName).SetString(createByString)
 					hasCreateByValue = true
 				}
@@ -50,14 +49,8 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			createByInt := reflect.ValueOf(createBY).Int()
 			if createByInt <= 0 {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					createByString := user.Id()
-					createByInt0, toIntErr := strconv.Atoi(createByString)
-					if toIntErr != nil {
-						err = fmt.Errorf("create by type is int but type of user id in context is not int")
-						return
-					}
-					createByInt = int64(createByInt0)
+				if !user.Exists() && user.Id().Int() != 0 {
+					createByInt = int64(user.Id().Int())
 					rv.FieldByName(createByColumn.FieldName).SetInt(createByInt)
 					hasCreateByValue = true
 				}
@@ -110,8 +103,8 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			modifyByString := modifyBY.(string)
 			if modifyByString == "" {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					modifyByString = user.Id()
+				if !user.Exists() && user.Id().String() != "" {
+					modifyByString = user.Id().String()
 					rv.FieldByName(modifyByColumn.FieldName).SetString(modifyByString)
 					hasModifyByValue = true
 				}
@@ -122,14 +115,8 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			modifyByInt := reflect.ValueOf(modifyBY).Int()
 			if modifyByInt <= 0 {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					modifyByString := user.Id()
-					modifyByInt0, toIntErr := strconv.Atoi(modifyByString)
-					if toIntErr != nil {
-						err = fmt.Errorf("modify by type is int but type of user id in context is not int")
-						return
-					}
-					modifyByInt = int64(modifyByInt0)
+				if !user.Exists() && user.Id().Int() != 0 {
+					modifyByInt = int64(user.Id().Int())
 					rv.FieldByName(modifyByColumn.FieldName).SetInt(modifyByInt)
 					hasModifyByValue = true
 				}
@@ -182,8 +169,8 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			deleteByString := deleteBY.(string)
 			if deleteByString == "" {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					deleteByString = user.Id()
+				if !user.Exists() && user.Id().String() != "" {
+					deleteByString = user.Id().String()
 					rv.FieldByName(deleteByColumn.FieldName).SetString(deleteByString)
 					hasDeleteByValue = true
 				}
@@ -194,14 +181,8 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 			deleteByInt := reflect.ValueOf(deleteBY).Int()
 			if deleteByInt <= 0 {
 				user := ctx.User()
-				if !user.Exists() && user.Id() != "" {
-					deleteByString := user.Id()
-					deleteByInt0, toIntErr := strconv.Atoi(deleteByString)
-					if toIntErr != nil {
-						err = fmt.Errorf("delete by type is int but type of user id in context is not int")
-						return
-					}
-					deleteByInt = int64(deleteByInt0)
+				if !user.Exists() && user.Id().Int() != 0 {
+					deleteByInt = int64(user.Id().Int())
 					rv.FieldByName(deleteByColumn.FieldName).SetInt(deleteByInt)
 					hasDeleteByValue = true
 				}

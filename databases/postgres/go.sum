@@ -2,8 +2,9 @@ github.com/aacfactory/configuares v1.3.0 h1:2TTAg3Qr2nD402N1MqP9llO6V88Y+obBa97P
 github.com/aacfactory/configuares v1.3.0/go.mod h1:OkFBIPb6RPE4ewLmsgHgDCTgWNeIQzl2obc1wgWm/xU=
 github.com/aacfactory/errors v1.6.3 h1:IlNhh2a8PGgxBFbiify+km/0nL2bq6/d3N74M+8ohKk=
 github.com/aacfactory/errors v1.6.3/go.mod h1:Ms6xshByQL5q/R36d8lElebfNpHSdMTaS0UpQs8ihp0=
-github.com/aacfactory/fns v0.9.4 h1:oqtcT8qZY380LDoZprtsNXjjsicYxUUEVOyhNvyNuzU=
 github.com/aacfactory/fns v0.9.4/go.mod h1:njsrSi7srG26w4DlQtgcm1Y2MSBsriIyOXnAC+0BzEI=
+github.com/aacfactory/fns v0.9.8 h1:u1HeKNTsSgNWo+PsAm4/rY8ruSANo+vLcWT9xp0sdGo=
+github.com/aacfactory/fns v0.9.8/go.mod h1:njsrSi7srG26w4DlQtgcm1Y2MSBsriIyOXnAC+0BzEI=
 github.com/aacfactory/fns-contrib/databases/sql v0.9.6 h1:jnwMk7eHvBP5cT6xRLXnTUp2FpyLEmoPZEa1w1r/2Pc=
 github.com/aacfactory/fns-contrib/databases/sql v0.9.6/go.mod h1:QuO83YEC0hegxehIoaDYh00VwcGz7pv+rfij5/DNk50=
 github.com/aacfactory/json v1.5.0 h1:xGFFVyxGKyH29Ybkc75oyu1rZTYbdJvHs7y4bW8yBvM=

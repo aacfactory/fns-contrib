@@ -110,14 +110,9 @@ func Retriever(raw configuares.Raw) (authorizations fns.Authorizations, err erro
 	if issuer == "" {
 		issuer = "FNS"
 	}
-	audience := ""
+	audience := make([]string, 0, 1)
 	if config.Audience != nil {
-		for _, v := range config.Audience {
-			audience = ", " + v
-		}
-		if len(audience) > 2 {
-			audience = audience[2:]
-		}
+		audience = config.Audience
 	}
 
 	expirations := strings.TrimSpace(config.Expirations)

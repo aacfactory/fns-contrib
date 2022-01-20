@@ -10,18 +10,46 @@ import (
 
 func NewUserClaims() *UserClaims {
 	return &UserClaims{
-		StandardClaims: gwt.StandardClaims{},
-		Attr:           json.NewObject(),
+		sub:        "",
+		attributes: json.NewObject(),
 	}
 }
 
 type UserClaims struct {
-	gwt.StandardClaims
+	sub        string
+	attributes *json.Object
+}
+
+func (u *UserClaims) SetIntUserId(v int) {
+	_ = u.attributes.Put("id", v)
+}
+
+func (u *UserClaims) SetUserId(v string) {
+	_ = u.attributes.Put("id", v)
+}
+
+func (u *UserClaims) SetSub(v string) {
+	u.sub = v
+}
+
+func (u *UserClaims) Attributes() *json.Object {
+	return u.attributes
+}
+
+func newRegisteredClaims() *jwtClaims {
+	return &jwtClaims{
+		RegisteredClaims: gwt.RegisteredClaims{},
+		Attr:             json.NewObject(),
+	}
+}
+
+type jwtClaims struct {
+	gwt.RegisteredClaims
 	Attr *json.Object `json:"attr,omitempty"`
 }
 
-func (c *UserClaims) Valid() (err error) {
-	err = c.StandardClaims.Valid()
+func (c *jwtClaims) Valid() (err error) {
+	err = c.Valid()
 	if err != nil {
 		return
 	}
@@ -34,50 +62,41 @@ func (c *UserClaims) Valid() (err error) {
 	return
 }
 
-func (c *UserClaims) SetAudience(value string) {
+func (c *jwtClaims) SetAudience(value []string) {
 	c.Audience = value
 }
 
-func (c *UserClaims) SetExpiresAt(value time.Time) {
-	c.ExpiresAt = value.Unix()
+func (c *jwtClaims) SetExpiresAt(value time.Time) {
+	c.ExpiresAt = gwt.NewNumericDate(value)
 }
 
-func (c *UserClaims) SetId(value string) {
-	c.Id = value
+func (c *jwtClaims) SetId(value string) {
+	c.ID = value
 }
 
-func (c *UserClaims) SetIssuer(value string) {
+func (c *jwtClaims) SetIssuer(value string) {
 	c.Issuer = value
 }
 
-func (c *UserClaims) SetIssuerAt(value time.Time) {
-	c.IssuedAt = value.Unix()
+func (c *jwtClaims) SetIssuerAt(value time.Time) {
+	c.IssuedAt = gwt.NewNumericDate(value)
 }
 
-func (c *UserClaims) SetNotBefore(value time.Time) {
-	c.NotBefore = value.Unix()
+func (c *jwtClaims) SetNotBefore(value time.Time) {
+	c.NotBefore = gwt.NewNumericDate(value)
 }
 
-func (c *UserClaims) SetSub(sub string) {
+func (c *jwtClaims) SetSub(sub string) {
 	c.Subject = sub
 }
 
-func (c *UserClaims) SetUser(value fns.User) {
-	if value.Attributes() == nil {
-		return
-	}
-	err := c.Attr.UnmarshalJSON(value.Attributes().Raw())
-	if err != nil {
-		panic(fmt.Sprintf("fns UserClaims SetUser: copy value failed, %v", err))
-	}
-}
-
-func (c *UserClaims) MapToUserPrincipals(user fns.User) {
+func (c *jwtClaims) mapToUser(user fns.User) {
 	_ = user.Principals().Put("iss", c.Issuer)
 	_ = user.Principals().Put("iat", c.IssuedAt)
 	_ = user.Principals().Put("sub", c.Subject)
 	_ = user.Principals().Put("aud", c.Audience)
 	_ = user.Principals().Put("nbf", c.NotBefore)
 	_ = user.Principals().Put("exp", c.ExpiresAt)
-	_ = user.Principals().Put("jti", c.Id)
+	_ = user.Principals().Put("jti", c.ID)
+	_ = c.Attr.WriteTo(user.Attributes())
 }
