@@ -34,8 +34,10 @@ func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	query := tab.insertQuery.query
 	columns := tab.insertQuery.columns
 	args := sql.NewTuple()
-	for _, c := range columns {
-		args.Append(rv.FieldByName(c.FieldName).Interface())
+	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	if argsErr != nil {
+		err = errors.ServiceError("fns Postgres: insert failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Insert")
+		return
 	}
 	result, execErr := sql.Execute(ctx, sql.Param{
 		Query: query,
@@ -100,8 +102,10 @@ func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	query := querySetting.query
 	columns := querySetting.columns
 	args := sql.NewTuple()
-	for _, c := range columns {
-		args.Append(rv.FieldByName(c.FieldName).Interface())
+	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	if argsErr != nil {
+		err = errors.ServiceError("fns Postgres: insert or update failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+		return
 	}
 	result, execErr := sql.Execute(ctx, sql.Param{
 		Query: query,
@@ -177,8 +181,10 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 	query := tab.insertWhenExistOrNotQuery.query
 	columns := tab.insertWhenExistOrNotQuery.columns
 	args := sql.NewTuple()
-	for _, c := range columns {
-		args.Append(rv.FieldByName(c.FieldName).Interface())
+	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	if argsErr != nil {
+		err = fmt.Errorf("try to fill args failed, %v", argsErr)
+		return
 	}
 	sourceQuery := source.Build(args)
 	if exist {

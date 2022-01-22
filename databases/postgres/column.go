@@ -2,6 +2,9 @@ package postgres
 
 import (
 	"fmt"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/json"
+	"reflect"
 )
 
 const (
@@ -188,5 +191,37 @@ func (c *column) isLinks() (ok bool) {
 
 func (c *column) isJson() (ok bool) {
 	ok = c.Kind == jsonCol
+	return
+}
+
+func mapColumnsToSqlArgs(columns []*column, rv reflect.Value, args *sql.Tuple) (err error) {
+	rv = reflect.Indirect(rv)
+	for _, col := range columns {
+		fv := rv.FieldByName(col.FieldName)
+		if col.isRef() {
+			if fv.IsNil() {
+				args.Append(nil)
+				continue
+			}
+			fv = reflect.Indirect(fv)
+			refValue := fv.FieldByName(col.RefTargetColumn.Name)
+			args.Append(refValue.Interface())
+			continue
+		}
+		if col.isJson() {
+			if fv.IsNil() {
+				args.Append(nil)
+				continue
+			}
+			p, encodeErr := json.Marshal(fv.Interface())
+			if encodeErr != nil {
+				err = fmt.Errorf("encode %s column value failed, %v", col.Name, encodeErr)
+				return
+			}
+			args.Append(p)
+			continue
+		}
+		args.Append(fv.Interface())
+	}
 	return
 }

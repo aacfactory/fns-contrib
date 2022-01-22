@@ -32,8 +32,10 @@ func Modify(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	query := tab.updateQuery.query
 	columns := tab.updateQuery.columns
 	args := sql.NewTuple()
-	for _, c := range columns {
-		args.Append(rv.FieldByName(c.FieldName).Interface())
+	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	if argsErr != nil {
+		err = errors.ServiceError("fns Postgres: modify failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Modify")
+		return
 	}
 	result, execErr := sql.Execute(ctx, sql.Param{
 		Query: query,

@@ -26,9 +26,9 @@ func Delete(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	var genericQuery *tableGenericQuery
 	if tab.softDeleteQuery != nil {
 		genericQuery = tab.softDeleteQuery
-		tryFillModifyErr := tryFillAuditDelete(ctx, rv, tab)
-		if tryFillModifyErr != nil {
-			err = errors.ServiceError("fns Postgres: delete failed, try to fill modify audit failed").WithCause(tryFillModifyErr).WithMeta("_fns_postgres", "Delete")
+		tryFillDeleteErr := tryFillAuditDelete(ctx, rv, tab)
+		if tryFillDeleteErr != nil {
+			err = errors.ServiceError("fns Postgres: delete failed, try to fill modify audit failed").WithCause(tryFillDeleteErr).WithMeta("_fns_postgres", "Delete")
 			return
 		}
 	} else {
@@ -37,8 +37,10 @@ func Delete(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	query := genericQuery.query
 	columns := genericQuery.columns
 	args := sql.NewTuple()
-	for _, c := range columns {
-		args.Append(rv.FieldByName(c.FieldName).Interface())
+	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	if argsErr != nil {
+		err = errors.ServiceError("fns Postgres: delete failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Delete")
+		return
 	}
 	result, execErr := sql.Execute(ctx, sql.Param{
 		Query: query,
