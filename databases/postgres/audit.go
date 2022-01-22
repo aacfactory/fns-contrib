@@ -20,7 +20,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	for _, create := range creates {
 		if create.isAcb() {
 			createByColumn = create
-			createByField := rv.FieldByName(createByColumn.FieldName)
+			createByField := rv.Elem().FieldByName(createByColumn.FieldName)
 			if createByField.Type().Kind() == reflect.String {
 				createByStringTypeKind = true
 			}
@@ -28,7 +28,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		}
 		if create.isAct() {
 			createAtColumn = create
-			createAT = rv.FieldByName(createAtColumn.FieldName).Convert(reflect.TypeOf(createAT)).Interface().(time.Time)
+			createAT = rv.Elem().FieldByName(createAtColumn.FieldName).Convert(reflect.TypeOf(createAT)).Interface().(time.Time)
 		}
 	}
 	if createByColumn != nil {
@@ -39,7 +39,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().String() != "" {
 					createByString = user.Id().String()
-					rv.FieldByName(createByColumn.FieldName).SetString(createByString)
+					rv.Elem().FieldByName(createByColumn.FieldName).SetString(createByString)
 					hasCreateByValue = true
 				}
 			} else {
@@ -51,7 +51,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().Int() != 0 {
 					createByInt = int64(user.Id().Int())
-					rv.FieldByName(createByColumn.FieldName).SetInt(createByInt)
+					rv.Elem().FieldByName(createByColumn.FieldName).SetInt(createByInt)
 					hasCreateByValue = true
 				}
 			} else {
@@ -66,7 +66,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	if createAtColumn != nil {
 		if createAT.IsZero() {
 			createAT = time.Now()
-			createAtField := rv.FieldByName(createAtColumn.FieldName)
+			createAtField := rv.Elem().FieldByName(createAtColumn.FieldName)
 			createAtField.Set(reflect.ValueOf(createAT).Convert(createAtField.Type()))
 		}
 	}
@@ -86,7 +86,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	for _, modify := range modifies {
 		if modify.isAmb() {
 			modifyByColumn = modify
-			modifyByField := rv.FieldByName(modifyByColumn.FieldName)
+			modifyByField := rv.Elem().FieldByName(modifyByColumn.FieldName)
 			if modifyByField.Type().Kind() == reflect.String {
 				modifyByStringTypeKind = true
 			}
@@ -94,7 +94,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		}
 		if modify.isAmt() {
 			modifyAtColumn = modify
-			modifyAT = rv.FieldByName(modifyAtColumn.FieldName).Convert(reflect.TypeOf(modifyAT)).Interface().(time.Time)
+			modifyAT = rv.Elem().FieldByName(modifyAtColumn.FieldName).Convert(reflect.TypeOf(modifyAT)).Interface().(time.Time)
 		}
 	}
 	if modifyByColumn != nil {
@@ -105,7 +105,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().String() != "" {
 					modifyByString = user.Id().String()
-					rv.FieldByName(modifyByColumn.FieldName).SetString(modifyByString)
+					rv.Elem().FieldByName(modifyByColumn.FieldName).SetString(modifyByString)
 					hasModifyByValue = true
 				}
 			} else {
@@ -117,7 +117,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().Int() != 0 {
 					modifyByInt = int64(user.Id().Int())
-					rv.FieldByName(modifyByColumn.FieldName).SetInt(modifyByInt)
+					rv.Elem().FieldByName(modifyByColumn.FieldName).SetInt(modifyByInt)
 					hasModifyByValue = true
 				}
 			} else {
@@ -132,7 +132,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	if modifyAtColumn != nil {
 		if modifyAT.IsZero() {
 			modifyAT = time.Now()
-			modifyAtField := rv.FieldByName(modifyAtColumn.FieldName)
+			modifyAtField := rv.Elem().FieldByName(modifyAtColumn.FieldName)
 			modifyAtField.Set(reflect.ValueOf(modifyAT).Convert(modifyAtField.Type()))
 		}
 	}
@@ -152,7 +152,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	for _, delete0 := range deletes {
 		if delete0.isAdb() {
 			deleteByColumn = delete0
-			deleteByField := rv.FieldByName(deleteByColumn.FieldName)
+			deleteByField := rv.Elem().FieldByName(deleteByColumn.FieldName)
 			if deleteByField.Type().Kind() == reflect.String {
 				deleteByStringTypeKind = true
 			}
@@ -160,7 +160,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		}
 		if delete0.isAdt() {
 			deleteAtColumn = delete0
-			deleteAT = rv.FieldByName(deleteAtColumn.FieldName).Convert(reflect.TypeOf(deleteAT)).Interface().(time.Time)
+			deleteAT = rv.Elem().FieldByName(deleteAtColumn.FieldName).Convert(reflect.TypeOf(deleteAT)).Interface().(time.Time)
 		}
 	}
 	if deleteByColumn != nil {
@@ -171,7 +171,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().String() != "" {
 					deleteByString = user.Id().String()
-					rv.FieldByName(deleteByColumn.FieldName).SetString(deleteByString)
+					rv.Elem().FieldByName(deleteByColumn.FieldName).SetString(deleteByString)
 					hasDeleteByValue = true
 				}
 			} else {
@@ -183,7 +183,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 				user := ctx.User()
 				if !user.Exists() && user.Id().Int() != 0 {
 					deleteByInt = int64(user.Id().Int())
-					rv.FieldByName(deleteByColumn.FieldName).SetInt(deleteByInt)
+					rv.Elem().FieldByName(deleteByColumn.FieldName).SetInt(deleteByInt)
 					hasDeleteByValue = true
 				}
 			} else {
@@ -198,7 +198,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	if deleteAtColumn != nil {
 		if deleteAT.IsZero() {
 			deleteAT = time.Now()
-			deleteAtField := rv.FieldByName(deleteAtColumn.FieldName)
+			deleteAtField := rv.Elem().FieldByName(deleteAtColumn.FieldName)
 			deleteAtField.Set(reflect.ValueOf(deleteAT).Convert(deleteAtField.Type()))
 		}
 	}
@@ -208,7 +208,7 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 func tryFillAuditVersion(rv reflect.Value, tab *table) {
 	versionColumn := tab.findAuditVersion()
 	if versionColumn != nil {
-		field := rv.FieldByName(versionColumn.FieldName)
+		field := rv.Elem().FieldByName(versionColumn.FieldName)
 		field.SetInt(field.Int() + 1)
 	}
 	return
@@ -217,7 +217,7 @@ func tryFillAuditVersion(rv reflect.Value, tab *table) {
 func tryFillAuditVersionExact(rv reflect.Value, tab *table, v int64) {
 	versionColumn := tab.findAuditVersion()
 	if versionColumn != nil {
-		field := rv.FieldByName(versionColumn.FieldName)
+		field := rv.Elem().FieldByName(versionColumn.FieldName)
 		field.SetInt(v)
 	}
 	return

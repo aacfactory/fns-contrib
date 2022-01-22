@@ -31,6 +31,7 @@ func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		return
 	}
 	// exec
+	useQuery := tab.insertQuery.useQuery
 	query := tab.insertQuery.query
 	columns := tab.insertQuery.columns
 	args := sql.NewTuple()
@@ -39,30 +40,56 @@ func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		err = errors.ServiceError("fns Postgres: insert failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Insert")
 		return
 	}
-	result, execErr := sql.Execute(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
-	if execErr != nil {
-		err = errors.ServiceError("fns Postgres: insert failed").WithCause(execErr).WithMeta("_fns_postgres", "Insert")
-		return
-	}
-	if result.Affected == 0 {
-		return
-	}
-	// version
-	tryFillAuditVersionExact(rv, tab, int64(1))
-	// incrPk
-	lastInsertId := result.LastInsertId
-	if lastInsertId > 0 {
-		pks := tab.findPk()
-		for _, pk := range pks {
-			if pk.isIncrPk() {
-				rv.FieldByName(pk.FieldName).SetInt(lastInsertId)
-				break
+	if useQuery {
+		rows, queryErr := sql.Query(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if queryErr != nil {
+			err = errors.ServiceError("fns Postgres: insert failed").WithCause(queryErr).WithMeta("_fns_postgres", "Insert")
+			return
+		}
+		if rows.Empty() {
+			return
+		}
+		row0, _ := rows.Next()
+		lastInsertId := int64(0)
+		hasColumn, columnErr := row0.Column("LAST_INSERT_ID", &lastInsertId)
+		if columnErr != nil {
+			err = errors.ServiceError("fns Postgres: insert failed").WithCause(columnErr).WithMeta("_fns_postgres", "Insert")
+			return
+		}
+		if !hasColumn {
+			err = errors.ServiceError("fns Postgres: insert failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("_fns_postgres", "Insert")
+			return
+		}
+		// incrPk
+		if lastInsertId > 0 {
+			pks := tab.findPk()
+			for _, pk := range pks {
+				if pk.isIncrPk() {
+					rv.Elem().FieldByName(pk.FieldName).SetInt(lastInsertId)
+					break
+				}
 			}
 		}
+	} else {
+		result, execErr := sql.Execute(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if execErr != nil {
+			err = errors.ServiceError("fns Postgres: insert failed").WithCause(execErr).WithMeta("_fns_postgres", "Insert")
+			return
+		}
+		if result.Affected == 0 {
+			return
+		}
 	}
+
+	// version
+	tryFillAuditVersionExact(rv, tab, int64(1))
+
 	return
 }
 
@@ -99,6 +126,7 @@ func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		return
 	}
 	// exec
+	useQuery := querySetting.useQuery
 	query := querySetting.query
 	columns := querySetting.columns
 	args := sql.NewTuple()
@@ -107,30 +135,55 @@ func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		err = errors.ServiceError("fns Postgres: insert or update failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "InsertOrUpdate")
 		return
 	}
-	result, execErr := sql.Execute(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
-	if execErr != nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(execErr).WithMeta("_fns_postgres", "InsertOrUpdate")
-		return
-	}
-	if result.Affected == 0 {
-		return
-	}
-	// version
-	tryFillAuditVersion(rv, tab)
-	// incrPk
-	lastInsertId := result.LastInsertId
-	if lastInsertId > 0 {
-		pks := tab.findPk()
-		for _, pk := range pks {
-			if pk.isIncrPk() {
-				rv.FieldByName(pk.FieldName).SetInt(lastInsertId)
-				break
+	if useQuery {
+		rows, queryErr := sql.Query(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if queryErr != nil {
+			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(queryErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			return
+		}
+		if rows.Empty() {
+			return
+		}
+		row0, _ := rows.Next()
+		lastInsertId := int64(0)
+		hasColumn, columnErr := row0.Column("LAST_INSERT_ID", &lastInsertId)
+		if columnErr != nil {
+			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(columnErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			return
+		}
+		if !hasColumn {
+			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("_fns_postgres", "InsertOrUpdate")
+			return
+		}
+		// incrPk
+		if lastInsertId > 0 {
+			pks := tab.findPk()
+			for _, pk := range pks {
+				if pk.isIncrPk() {
+					rv.Elem().FieldByName(pk.FieldName).SetInt(lastInsertId)
+					break
+				}
 			}
 		}
+	} else {
+		result, execErr := sql.Execute(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if execErr != nil {
+			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(execErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			return
+		}
+		if result.Affected == 0 {
+			return
+		}
 	}
+
+	// version
+	tryFillAuditVersion(rv, tab)
 	return
 }
 
@@ -178,6 +231,7 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 		return
 	}
 	// exec
+	useQuery := tab.insertWhenExistOrNotQuery.useQuery
 	query := tab.insertWhenExistOrNotQuery.query
 	columns := tab.insertWhenExistOrNotQuery.columns
 	args := sql.NewTuple()
@@ -193,29 +247,55 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 		query = strings.Replace(query, "$$EXISTS$$", "NOT EXISTS", 1)
 	}
 	query = strings.Replace(query, "$$SOURCE_QUERY$$", sourceQuery, 1)
-	result, execErr := sql.Execute(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
-	if execErr != nil {
-		err = execErr
-		return
-	}
-	if result.Affected == 0 {
-		return
-	}
-	// version
-	tryFillAuditVersionExact(rv, tab, int64(1))
-	// incrPk
-	lastInsertId := result.LastInsertId
-	if lastInsertId > 0 {
-		pks := tab.findPk()
-		for _, pk := range pks {
-			if pk.isIncrPk() {
-				rv.FieldByName(pk.FieldName).SetInt(lastInsertId)
-				break
+	if useQuery {
+		rows, queryErr := sql.Query(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if queryErr != nil {
+			err = queryErr
+			return
+		}
+		if rows.Empty() {
+			return
+		}
+		row0, _ := rows.Next()
+		lastInsertId := int64(0)
+		hasColumn, columnErr := row0.Column("LAST_INSERT_ID", &lastInsertId)
+		if columnErr != nil {
+			err = fmt.Errorf("scan LAST_INSERT_ID failed, %v", columnErr)
+			return
+		}
+		if !hasColumn {
+			err = fmt.Errorf("scan LAST_INSERT_ID failed, not found in results")
+			return
+		}
+		// incrPk
+		if lastInsertId > 0 {
+			pks := tab.findPk()
+			for _, pk := range pks {
+				if pk.isIncrPk() {
+					rv.Elem().FieldByName(pk.FieldName).SetInt(lastInsertId)
+					break
+				}
 			}
 		}
+	} else {
+		result, execErr := sql.Execute(ctx, sql.Param{
+			Query: query,
+			Args:  args,
+		})
+		if execErr != nil {
+			err = execErr
+			return
+		}
+		if result.Affected == 0 {
+			return
+		}
 	}
+
+	// version
+	tryFillAuditVersionExact(rv, tab, int64(1))
+
 	return
 }

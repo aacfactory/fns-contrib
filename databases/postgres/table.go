@@ -115,11 +115,12 @@ func createTable(x interface{}) (v *table) {
 			return
 		}
 
-		insertQuery, insertColumns := v.generateInsertSQL()
+		insertUseQuery, insertQuery, insertColumns := v.generateInsertSQL()
 		if insertQuery != "" {
 			v.insertQuery = &tableGenericQuery{
-				query:   insertQuery,
-				columns: insertColumns,
+				useQuery: insertUseQuery,
+				query:    insertQuery,
+				columns:  insertColumns,
 			}
 		}
 		updateQuery, updateColumns := v.generateUpdateSQL()
@@ -143,18 +144,20 @@ func createTable(x interface{}) (v *table) {
 				columns: softDeleteColumns,
 			}
 		}
-		insertOrUpdateQuery, insertOrUpdateColumns := v.generateInsertOrUpdateSQL()
+		insertOrUpdateUseQuery, insertOrUpdateQuery, insertOrUpdateColumns := v.generateInsertOrUpdateSQL()
 		if insertOrUpdateQuery != "" {
 			v.insertOrUpdateQuery = &tableGenericQuery{
-				query:   insertOrUpdateQuery,
-				columns: insertOrUpdateColumns,
+				useQuery: insertOrUpdateUseQuery,
+				query:    insertOrUpdateQuery,
+				columns:  insertOrUpdateColumns,
 			}
 		}
-		insertWhenExistOrNotQuery, insertWhenExistOrNotColumns := v.generateInsertWhenExistOrNotSQL()
+		insertWhenExistOrNotUseQuery, insertWhenExistOrNotQuery, insertWhenExistOrNotColumns := v.generateInsertWhenExistOrNotSQL()
 		if insertWhenExistOrNotQuery != "" {
 			v.insertWhenExistOrNotQuery = &tableGenericQuery{
-				query:   insertWhenExistOrNotQuery,
-				columns: insertWhenExistOrNotColumns,
+				useQuery: insertWhenExistOrNotUseQuery,
+				query:    insertWhenExistOrNotQuery,
+				columns:  insertWhenExistOrNotColumns,
 			}
 		}
 		v.querySelects = v.generateQuerySelects()
@@ -168,8 +171,9 @@ func createTable(x interface{}) (v *table) {
 }
 
 type tableGenericQuery struct {
-	query   string
-	columns []*column
+	useQuery bool
+	query    string
+	columns  []*column
 }
 
 type table struct {
@@ -561,15 +565,20 @@ func (t *table) findConflicts() (v []*column) {
 	return
 }
 
-func (t *table) generateInsertSQL() (query string, columns []*column) {
+func (t *table) generateInsertSQL() (useQuery bool, query string, columns []*column) {
 	columns = make([]*column, 0, 1)
 	idx := 0
-
+	incrPkName := ""
 	query = `INSERT INTO ` + t.fullName() + ` `
 	cols := ``
 	values := ``
 	for _, c := range t.Columns {
-		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+		if c.isIncrPk() {
+			incrPkName = c.queryName()
+			useQuery = true
+			continue
+		}
+		if c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
 			continue
 		}
 		cols = cols + `, ` + c.queryName()
@@ -606,17 +615,26 @@ func (t *table) generateInsertSQL() (query string, columns []*column) {
 		conflicts = conflicts[2:]
 		query = query + ` ON CONFLICT (` + conflicts + `) DO NOTHING`
 	}
+	if useQuery {
+		query = query + ` RETURNING ` + incrPkName + ` AS "LAST_INSERT_ID"`
+	}
 	return
 }
 
-func (t *table) generateInsertWhenExistOrNotSQL() (query string, columns []*column) {
+func (t *table) generateInsertWhenExistOrNotSQL() (useQuery bool, query string, columns []*column) {
 	columns = make([]*column, 0, 1)
 	idx := 0
+	incrPkName := ""
 	query = `INSERT INTO ` + t.fullName() + ` `
 	cols := ``
 	values := ``
 	for _, c := range t.Columns {
-		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+		if c.isIncrPk() {
+			incrPkName = c.queryName()
+			useQuery = true
+			continue
+		}
+		if c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
 			continue
 		}
 		cols = cols + `, ` + c.queryName()
@@ -630,9 +648,12 @@ func (t *table) generateInsertWhenExistOrNotSQL() (query string, columns []*colu
 	}
 	cols = cols[2:]
 	values = values[2:]
-	query = query + `(` + cols + `)` + ` SELECT ` + values + ` FROM (SELECT 1) AS "__TMP" WHERE `
+	query = query + `(` + cols + `)` + ` SELECT ` + values + ` FROM (SELECT 1) AS "__TMP__" WHERE `
 	query = query + `$$EXISTS$$`
-	query = query + ` (SELECT 1 FROM (` + "$$SOURCE_QUERY$$" + `))`
+	query = query + ` (SELECT 1 FROM (` + "$$SOURCE_QUERY$$" + `) AS "__SRC__")`
+	if useQuery {
+		query = query + ` RETURNING ` + incrPkName + ` AS "LAST_INSERT_ID"`
+	}
 	return
 }
 
@@ -738,7 +759,7 @@ func (t *table) generateSoftDeleteSQL() (query string, columns []*column) {
 	return
 }
 
-func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
+func (t *table) generateInsertOrUpdateSQL() (useQuery bool, query string, columns []*column) {
 	//conflicts
 	conflicts := ""
 	pks := t.findPk()
@@ -761,12 +782,17 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 	}
 	conflicts = conflicts[2:]
 	columns = make([]*column, 0, 1)
+	incrPkName := ""
 	idx := 0
 	query = `INSERT INTO ` + t.fullName() + ` `
 	cols := ``
 	values := ``
 	for _, c := range t.Columns {
-		if c.isIncrPk() || c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
+		if c.isIncrPk() {
+			incrPkName = c.queryName()
+			useQuery = true
+		}
+		if c.isAmb() || c.isAmt() || c.isAdb() || c.isAdt() || c.isVc() || c.isLink() || c.isLinks() {
 			continue
 		}
 		cols = cols + `, ` + c.queryName()
@@ -801,6 +827,9 @@ func (t *table) generateInsertOrUpdateSQL() (query string, columns []*column) {
 	}
 	set = set[2:]
 	query = query + set
+	if useQuery {
+		query = query + ` RETURNING ` + incrPkName + ` AS "LAST_INSERT_ID" `
+	}
 	return
 }
 

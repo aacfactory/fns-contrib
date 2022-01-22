@@ -199,12 +199,14 @@ func mapColumnsToSqlArgs(columns []*column, rv reflect.Value, args *sql.Tuple) (
 	for _, col := range columns {
 		fv := rv.FieldByName(col.FieldName)
 		if col.isRef() {
+			fmt.Println("ref", col.Name, col.RefName, col.RefTargetColumn.Name, fv)
 			if fv.IsNil() {
 				args.Append(nil)
 				continue
 			}
-			fv = reflect.Indirect(fv)
-			refValue := fv.FieldByName(col.RefTargetColumn.Name)
+			rfv := reflect.Indirect(fv)
+
+			refValue := rfv.FieldByName(col.RefTargetColumn.FieldName)
 			args.Append(refValue.Interface())
 			continue
 		}
