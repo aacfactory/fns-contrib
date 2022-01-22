@@ -57,6 +57,7 @@ func QueryOne(ctx fns.Context, cond *Conditions, row interface{}) (fetched bool,
 	if !fetched0 {
 		return
 	}
+	fetched = fetched0
 	rv.Elem().Set(rowsRV.Elem().Index(0).Elem())
 	return
 }
