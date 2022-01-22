@@ -49,7 +49,7 @@ type jwtClaims struct {
 }
 
 func (c *jwtClaims) Valid() (err error) {
-	err = c.Valid()
+	err = c.RegisteredClaims.Valid()
 	if err != nil {
 		return
 	}
