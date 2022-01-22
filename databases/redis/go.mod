@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/aacfactory/configuares v1.3.1
 	github.com/aacfactory/errors v1.6.3
-	github.com/aacfactory/fns v0.9.9
+	github.com/aacfactory/fns v0.9.12
 	github.com/aacfactory/json v1.5.0
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/valyala/bytebufferpool v1.0.0

@@ -37,7 +37,7 @@ func (svc *service) Internal() bool {
 	return true
 }
 
-func (svc *service) Build(root configuares.Config) (err error) {
+func (svc *service) Build(_ fns.Context, root configuares.Config) (err error) {
 	config := Config{}
 	readErr := root.As(&config)
 	if readErr != nil {
