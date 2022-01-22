@@ -102,10 +102,15 @@ func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows 
 		err = fmt.Errorf("rows element type is not ptr")
 		return
 	}
-	rowTmp := reflect.New(rv.Elem().Type().Elem()).Interface()
+
+	rowTmp := reflect.New(rv.Elem().Type().Elem().Elem()).Interface()
 	tab := createOrLoadTable(rowTmp)
 
-	query, args := tab.generateQuerySQL(cond, rng, orders.values)
+	var orderValues []*Order = nil
+	if orders != nil {
+		orderValues = orders.values
+	}
+	query, args := tab.generateQuerySQL(cond, rng, orderValues)
 	// query
 	results, queryErr := sql.Query(ctx, sql.Param{
 		Query: query,

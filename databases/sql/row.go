@@ -3,37 +3,33 @@ package sql
 import (
 	db "database/sql"
 	"github.com/aacfactory/json"
-	"reflect"
-	"unsafe"
 )
 
 func NewRows(raws *db.Rows) (r *Rows, err error) {
-
 	colTypes, colTypesErr := raws.ColumnTypes()
 	if colTypesErr != nil {
 		err = colTypesErr
 		return
 	}
-
 	rows := make([]*Row, 0, 1)
 	for raws.Next() {
-		columns := make([]interface{}, 0, 1)
-
+		columns := make([]*Column, 0, 1)
+		columnScanners := make([]interface{}, 0, 1)
 		for _, colType := range colTypes {
 			column := NewColumnScanner(colType)
-			columns = append(columns, column)
+			columnScanners = append(columnScanners, column)
+			columns = append(columns, column.Column)
 		}
 
-		scanErr := raws.Scan(columns...)
+		scanErr := raws.Scan(columnScanners...)
 		if scanErr != nil {
 			err = scanErr
 			return
 		}
 
 		rows = append(rows, &Row{
-			columns: reflect.NewAt(reflect.SliceOf(reflect.TypeOf(&Column{})), unsafe.Pointer(reflect.ValueOf(&columns).Pointer())).Elem().Interface().([]*Column),
+			columns,
 		})
-
 	}
 
 	r = &Rows{
@@ -47,7 +43,7 @@ type Rows struct {
 	values []*Row
 }
 
-func (r *Rows) MarshalJSON() (p []byte, err error) {
+func (r Rows) MarshalJSON() (p []byte, err error) {
 	if r.Empty() {
 		p = []byte{'[', ']'}
 		return
@@ -58,7 +54,7 @@ func (r *Rows) MarshalJSON() (p []byte, err error) {
 
 func (r *Rows) UnmarshalJSON(p []byte) (err error) {
 	r.values = make([]*Row, 0, 1)
-	if p == nil || len(p) == 0 {
+	if p == nil || len(p) == 0 || len(p) == 2 {
 		return
 	}
 	err = json.Unmarshal(p, &r.values)
@@ -93,7 +89,7 @@ type Row struct {
 	columns []*Column
 }
 
-func (r *Row) MarshalJSON() (p []byte, err error) {
+func (r Row) MarshalJSON() (p []byte, err error) {
 	if r.Empty() {
 		p = []byte{'[', ']'}
 		return

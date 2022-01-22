@@ -22,10 +22,10 @@ const (
 type ColumnType string
 
 type Column struct {
-	Type  ColumnType      `json:"type,omitempty"`
-	Name  string          `json:"name,omitempty"`
-	Value json.RawMessage `json:"value,omitempty"`
-	Nil   bool            `json:"nil,omitempty"`
+	Type  ColumnType      `json:"type"`
+	Name  string          `json:"name"`
+	Value json.RawMessage `json:"value"`
+	Nil   bool            `json:"nil"`
 }
 
 func (c *Column) Decode(v interface{}) (err error) {
@@ -37,7 +37,7 @@ func (c *Column) Decode(v interface{}) (err error) {
 }
 
 type ColumnScanner struct {
-	Column
+	*Column
 	value db.Scanner
 }
 
@@ -137,7 +137,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	if isNumber {
 		if scale > 0 {
 			scanner = &ColumnScanner{
-				Column: Column{
+				Column: &Column{
 					Type:  FloatType,
 					Name:  colName,
 					Value: nil,
@@ -147,7 +147,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 			}
 		} else {
 			scanner = &ColumnScanner{
-				Column: Column{
+				Column: &Column{
 					Type:  IntType,
 					Name:  colName,
 					Value: nil,
@@ -164,7 +164,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// string
 	if strings.Contains(typeName, "VARCHAR") || strings.Contains(typeName, "CHAR") || strings.Contains(typeName, "TEXT") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  StringType,
 				Name:  colName,
 				Value: nil,
@@ -177,7 +177,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// int serial
 	if strings.Contains(typeName, "INT") || strings.Contains(typeName, "SERIAL") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  IntType,
 				Name:  colName,
 				Value: nil,
@@ -190,7 +190,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// float
 	if strings.Contains(typeName, "FLOAT") || strings.Contains(typeName, "DOUBLE") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  FloatType,
 				Name:  colName,
 				Value: nil,
@@ -203,7 +203,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// bool
 	if strings.Contains(typeName, "BOOL") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  BoolType,
 				Name:  colName,
 				Value: nil,
@@ -216,7 +216,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// time
 	if strings.Contains(typeName, "TIMESTAMP") || strings.Contains(typeName, "DATE") || strings.Contains(typeName, "TIME") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  TimeType,
 				Name:  colName,
 				Value: nil,
@@ -229,7 +229,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// json
 	if strings.Contains(typeName, "JSON") || strings.Contains(typeName, "JSONB") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  JsonType,
 				Name:  colName,
 				Value: nil,
@@ -242,7 +242,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// bytes
 	if strings.Contains(typeName, "BLOB") {
 		scanner = &ColumnScanner{
-			Column: Column{
+			Column: &Column{
 				Type:  BytesType,
 				Name:  colName,
 				Value: nil,
@@ -253,7 +253,7 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 		return
 	}
 	scanner = &ColumnScanner{
-		Column: Column{
+		Column: &Column{
 			Type:  UnknownType,
 			Name:  colName,
 			Value: nil,

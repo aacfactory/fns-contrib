@@ -10,7 +10,7 @@ import (
 const (
 	// kind
 	pkCol            = "pk"
-	incrPkCol        = "incrPk"
+	incrPkCol        = "incrpk"
 	normalCol        = "normal"
 	conflictCol      = "conflict"
 	auditCreateByCol = "acb"
