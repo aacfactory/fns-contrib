@@ -1,17 +1,16 @@
-module github.com/aacfactory/fns-contrib/databases/redis
+module github.com/aacfactory/fns-contrib/barrier/redis
 
 go 1.17
 
 require (
-	github.com/aacfactory/configuares v1.3.1
 	github.com/aacfactory/errors v1.6.3
 	github.com/aacfactory/fns v0.10.2
+	github.com/aacfactory/fns-contrib/databases/redis v0.9.20
 	github.com/aacfactory/json v1.5.0
-	github.com/go-redis/redis/v8 v8.11.4
-	github.com/valyala/bytebufferpool v1.0.0
 )
 
 require (
+	github.com/aacfactory/configuares v1.3.1 // indirect
 	github.com/aacfactory/logs v1.2.0 // indirect
 	github.com/aacfactory/workers v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
@@ -21,6 +20,7 @@ require (
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
+	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/goccy/go-yaml v1.9.4 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
@@ -35,6 +35,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.32.0 // indirect
 	go.uber.org/automaxprocs v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20211215165025-cf75a172585e // indirect
