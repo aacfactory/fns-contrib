@@ -77,7 +77,7 @@ func QueryDirect(ctx fns.Context, query string, args *sql.Tuple, rows interface{
 		return
 	}
 	rv := reflect.ValueOf(rows)
-	scanErr := scanQueryResults(results, rv)
+	scanErr := scanQueryResults(ctx, results, rv)
 	if scanErr != nil {
 		err = errors.ServiceError("fns Postgres: query direct failed").WithCause(scanErr).WithMeta("_fns_postgres", "QueryDirect")
 		return
@@ -126,7 +126,7 @@ func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows 
 		return
 	}
 
-	scanErr := scanQueryResults(results, rv)
+	scanErr := scanQueryResults(ctx, results, rv)
 	if scanErr != nil {
 		err = scanErr
 		return
@@ -134,7 +134,7 @@ func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows 
 	return
 }
 
-func scanQueryResults(results *sql.Rows, rows reflect.Value) (err error) {
+func scanQueryResults(ctx fns.Context, results *sql.Rows, rows reflect.Value) (err error) {
 	rv := rows.Elem()
 	for {
 		result, has := results.Next()
@@ -142,7 +142,7 @@ func scanQueryResults(results *sql.Rows, rows reflect.Value) (err error) {
 			break
 		}
 		row := reflect.New(rv.Type().Elem().Elem())
-		err = scanQueryResult(result, row)
+		err = scanQueryResult(ctx, result, row)
 		if err != nil {
 			return
 		}
@@ -165,7 +165,7 @@ var (
 	sqlSTDJsonType     = reflect.TypeOf(stdJson.RawMessage{})
 )
 
-func scanQueryResult(result *sql.Row, row reflect.Value) (err error) {
+func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err error) {
 	rv := row.Elem()
 	rt := rv.Type()
 	fieldNum := rt.NumField()
@@ -315,6 +315,11 @@ func scanQueryResult(result *sql.Row, row reflect.Value) (err error) {
 				rv.FieldByName(field.Name).SetBytes(c.Value)
 			}
 		}
+	}
+	// load hook
+	hookErr := executeLoadMakeupHook(ctx, row)
+	if hookErr != nil {
+		err = hookErr
 	}
 	return
 }
