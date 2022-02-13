@@ -38,7 +38,6 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 	execKey := &serviceBarrierExecuteKey{
 		Key: fmt.Sprintf("fns_barrier_r_%s", key),
 	}
-
 	execKeyBytes, _ := json.Marshal(execKey)
 	getResult, gsErr := rds.GetSet(ctx, rds.SetParam{
 		Key:        execCacheKey,
@@ -86,6 +85,7 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 			v, err, shared = b.Do(ctx, key, fn)
 			return
 		}
+		return
 	}
 	// clean
 	_ = rds.Remove(ctx, execKey.Key)
