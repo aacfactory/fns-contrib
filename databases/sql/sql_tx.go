@@ -2,35 +2,29 @@ package sql
 
 import (
 	db "database/sql"
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
-	"time"
 )
 
 func DefaultTransactionOption() (v BeginTransactionParam) {
 	v = BeginTransactionParam{
-		Timeout:   2 * time.Second,
 		Isolation: 0,
+		ReadOnly:  false,
 	}
 	return
 }
 
-func TransactionOption(timeout string, isolation db.IsolationLevel) (v BeginTransactionParam) {
-	d, parseErr := time.ParseDuration(timeout)
-	if parseErr != nil {
-		panic(fmt.Sprintf("parse sql tx timeout(%s) failed, %v", timeout, parseErr))
-	}
+func TransactionOption(isolation db.IsolationLevel, readOnly bool) (v BeginTransactionParam) {
 	v = BeginTransactionParam{
-		Timeout:   d,
 		Isolation: isolation,
+		ReadOnly:  readOnly,
 	}
 	return
 }
 
 type BeginTransactionParam struct {
-	Timeout   time.Duration     `json:"timeout,omitempty"`
 	Isolation db.IsolationLevel `json:"isolation,omitempty"`
+	ReadOnly  bool              `json:"readOnly"`
 }
 
 func (svc *service) getTransaction(ctx fns.Context) (tx *db.Tx, has bool) {
@@ -39,7 +33,7 @@ func (svc *service) getTransaction(ctx fns.Context) (tx *db.Tx, has bool) {
 }
 
 func (svc *service) beginTransaction(ctx fns.Context, param BeginTransactionParam) (err errors.CodeError) {
-	txErr := svc.gtm.Begin(ctx, svc.client.Writer(), param.Isolation, param.Timeout)
+	txErr := svc.gtm.Begin(ctx, svc.client.Writer(), param.Isolation, param.ReadOnly)
 	if txErr != nil {
 		err = errors.ServiceError("fns SQL: begin tx failed").WithCause(txErr)
 		return

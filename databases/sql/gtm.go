@@ -5,83 +5,53 @@ import (
 	"fmt"
 	"github.com/aacfactory/fns"
 	"sync"
-	"time"
 )
 
 type GlobalTransaction struct {
-	id        string
-	tx        *db.Tx
-	times     int
-	doneCh    chan struct{}
-	timeout   time.Duration
-	timeoutCh chan string
-}
-
-func (gt *GlobalTransaction) checking() {
-	go func(gt *GlobalTransaction) {
-		select {
-		case <-gt.doneCh:
-			break
-		case <-time.After(gt.timeout):
-			_ = gt.tx.Rollback()
-			gt.timeoutCh <- gt.id
-			break
-		}
-	}(gt)
+	id    string
+	tx    *db.Tx
+	times int
 }
 
 func NewGlobalTransactionManagement() *GlobalTransactionManagement {
 	return &GlobalTransactionManagement{
-		txMap:     sync.Map{},
-		timeoutCh: make(chan string, 512),
-		closeCh:   make(chan struct{}),
+		txMap: &sync.Map{},
 	}
 }
 
 type GlobalTransactionManagement struct {
-	txMap     sync.Map
-	timeoutCh chan string
-	closeCh   chan struct{}
+	txMap *sync.Map
 }
 
-func (gtm *GlobalTransactionManagement) Begin(ctx fns.Context, db0 *db.DB, isolation db.IsolationLevel, timeout time.Duration) (err error) {
-	if timeout < 1*time.Second {
-		if ctx.App().ClusterMode() {
-			timeout = 3 * time.Second
-		} else {
-			timeout = 1 * time.Second
-		}
-	}
-	if isolation < 0 || isolation > 7 {
-		isolation = 0
-	}
+func (gtm *GlobalTransactionManagement) Begin(ctx fns.Context, db0 *db.DB, isolation db.IsolationLevel, readOnly bool) (err error) {
 	id := ctx.RequestId()
 	var gt *GlobalTransaction
 	value, has := gtm.txMap.Load(id)
 	if !has {
+		if isolation < 0 || isolation > 7 {
+			isolation = 0
+		}
 		tx, txErr := db0.BeginTx(ctx, &db.TxOptions{
 			Isolation: isolation,
-			ReadOnly:  false,
+			ReadOnly:  readOnly,
 		})
 		if txErr != nil {
 			err = fmt.Errorf("fns GlobalTransactionManagement: begin failed, %v", txErr)
 			return
 		}
-
 		gt = &GlobalTransaction{
-			id:        id,
-			tx:        tx,
-			times:     0,
-			doneCh:    make(chan struct{}, 1),
-			timeout:   timeout,
-			timeoutCh: gtm.timeoutCh,
+			id:    id,
+			tx:    tx,
+			times: 1,
 		}
-		gt.checking()
+		gtm.txMap.Store(id, gt)
 	} else {
 		gt = value.(*GlobalTransaction)
+		gt.times = gt.times + 1
 	}
-	gt.times = gt.times + 1
-	gtm.txMap.Store(id, gt)
+	if ctx.App().Log().DebugEnabled() {
+		ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message(fmt.Sprintf("transaction begin %d times", gt.times))
+	}
 	return
 }
 
@@ -101,18 +71,30 @@ func (gtm *GlobalTransactionManagement) Commit(ctx fns.Context) (err error) {
 	id := ctx.RequestId()
 	value, ok := gtm.txMap.Load(id)
 	if !ok {
-		err = fmt.Errorf("fns SQL: no tx")
+		err = fmt.Errorf("fns SQL: commit failed for no transaction in context")
 		return
 	}
 	gt := value.(*GlobalTransaction)
+	if ctx.App().Log().DebugEnabled() {
+		ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message(fmt.Sprintf("transaction has begon %d times", gt.times))
+	}
 	gt.times = gt.times - 1
-	if gt.times < 1 {
+	if gt.times == 0 {
+		if ctx.App().Log().DebugEnabled() {
+			ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("begin to commit transaction")
+		}
 		err = gt.tx.Commit()
-		_ = gt.tx.Rollback()
-		close(gt.doneCh)
 		gtm.txMap.Delete(id)
-	} else {
-		gtm.txMap.Store(id, gt)
+		if ctx.App().Log().DebugEnabled() {
+			_, has := gtm.txMap.Load(id)
+			if has {
+				ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("transaction has be removed failed")
+			} else {
+				ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("transaction has be removed succeed")
+			}
+		}
+		//} else {
+		//	gtm.txMap.Store(id, gt)
 	}
 	return
 }
@@ -124,32 +106,31 @@ func (gtm *GlobalTransactionManagement) Rollback(ctx fns.Context) {
 		return
 	}
 	gt := value.(*GlobalTransaction)
-	_ = gt.tx.Rollback()
-	close(gt.doneCh)
+	if ctx.App().Log().DebugEnabled() {
+		ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("begin to rollback transaction")
+	}
+	err := gt.tx.Rollback()
+	if err != nil {
+		if ctx.App().Log().WarnEnabled() {
+			ctx.App().Log().Warn().With("sql", "gtc").With("requestId", id).Cause(err).Message("rollback transaction failed")
+		}
+	}
 	gtm.txMap.Delete(id)
+	if ctx.App().Log().DebugEnabled() {
+		_, has := gtm.txMap.Load(id)
+		if has {
+			ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("transaction has be removed failed")
+		} else {
+			ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("transaction has be removed succeed")
+		}
+	}
 	return
 }
 
-func (gtm *GlobalTransactionManagement) handleTimeoutTx() {
-	go func(gtm *GlobalTransactionManagement) {
-		for {
-			id, ok := <-gtm.timeoutCh
-			if !ok {
-				close(gtm.closeCh)
-				break
-			}
-			gtm.txMap.Delete(id)
-		}
-	}(gtm)
-}
-
 func (gtm *GlobalTransactionManagement) Close() {
-	close(gtm.timeoutCh)
-	<-gtm.closeCh
 	gtm.txMap.Range(func(_, value interface{}) bool {
 		gt := value.(*GlobalTransaction)
 		_ = gt.tx.Rollback()
-		close(gt.doneCh)
 		return true
 	})
 }
