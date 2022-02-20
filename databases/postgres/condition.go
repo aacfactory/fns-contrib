@@ -57,7 +57,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 		}
 	case "LIKE":
 		query = `"` + c.Column + `" ` + c.Operation + " " + c.Values[0].(*lit).value
-	case "IN":
+	case "IN", "NOT IN":
 		query = `"` + c.Column + `" ` + c.Operation + " "
 		litValue, litOk := c.Values[0].(*lit)
 		if litOk {
