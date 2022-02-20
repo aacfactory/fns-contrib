@@ -159,6 +159,26 @@ func IN(column string, value interface{}) *Condition {
 	}
 }
 
+func NotIn(column string, value interface{}) *Condition {
+	if litValue, litOk := value.(*lit); litOk {
+		return &Condition{
+			Column:    strings.TrimSpace(column),
+			Operation: "NOT IN",
+			Values:    []interface{}{litValue},
+		}
+	}
+	values := make([]interface{}, 0, 1)
+	rv := reflect.ValueOf(value)
+	for i := 0; i < rv.Len(); i++ {
+		values = append(values, rv.Index(i).Interface())
+	}
+	return &Condition{
+		Column:    strings.TrimSpace(column),
+		Operation: "NOT IN",
+		Values:    values,
+	}
+}
+
 func Like(column string, value string) *Condition {
 	return &Condition{
 		Column:    strings.TrimSpace(column),
