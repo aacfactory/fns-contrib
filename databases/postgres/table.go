@@ -908,9 +908,9 @@ func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*O
 		if orderQuery != "" {
 			query = query + ` ORDER BY` + orderQuery
 		}
-		if rngQuery != "" {
-			query = query + rngQuery
-		}
+		//if rngQuery != "" {
+		//	query = query + rngQuery
+		//}
 	} else {
 		query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
 		if conditions != nil {
