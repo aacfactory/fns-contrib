@@ -93,8 +93,6 @@ func (gtm *GlobalTransactionManagement) Commit(ctx fns.Context) (err error) {
 				ctx.App().Log().Debug().With("sql", "gtc").With("requestId", id).Message("transaction has be removed succeed")
 			}
 		}
-		//} else {
-		//	gtm.txMap.Store(id, gt)
 	}
 	return
 }

@@ -87,7 +87,7 @@ func RollbackTransaction(ctx fns.Context) (err errors.CodeError) {
 		err = argErr
 		return
 	}
-	r := proxy.Request(ctx, txCommitFn, arg)
+	r := proxy.Request(ctx, txRollbackFn, arg)
 
 	result := fns.Empty{}
 	err = r.Get(ctx, &result)
