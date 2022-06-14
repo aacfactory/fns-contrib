@@ -1,6 +1,6 @@
 module github.com/aacfactory/fns-contrib/databases/sql
 
-go 1.17
+go 1.18
 
 replace (
 	github.com/aacfactory/fns v0.11.2 => ../../../fns
