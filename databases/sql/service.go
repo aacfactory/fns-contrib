@@ -3,7 +3,7 @@ package sql
 import (
 	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/database"
+	"github.com/aacfactory/fns-contrib/databases/sql/internal"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
 )
@@ -23,18 +23,18 @@ func Service() service.Service {
 
 type _service_ struct {
 	log logs.Logger
-	db  database.Database
+	db  internal.Database
 }
 
 func (svc *_service_) Build(options service.Options) (err error) {
 	svc.log = options.Log
-	config := database.Config{}
+	config := internal.Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning("sql: build service failed").WithCause(configErr)
 		return
 	}
-	svc.db, err = database.New(database.Options{
+	svc.db, err = internal.New(internal.Options{
 		Log:    options.Log,
 		Config: config,
 	})
