@@ -5,7 +5,7 @@ import (
 	"github.com/aacfactory/json"
 )
 
-func NewRows(raws *db.Rows) (r *Rows, err error) {
+func newRows(raws *db.Rows) (r *Rows, err error) {
 	colTypes, colTypesErr := raws.ColumnTypes()
 	if colTypesErr != nil {
 		err = colTypesErr

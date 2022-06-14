@@ -2,6 +2,10 @@ module github.com/aacfactory/fns-contrib/databases/sql
 
 go 1.17
 
+replace (
+	github.com/aacfactory/fns v0.11.2 => ../../../fns
+)
+
 require (
 	github.com/aacfactory/configuares v1.3.1
 	github.com/aacfactory/errors v1.6.3

@@ -1,141 +1,186 @@
 package sql
 
 import (
-	"fmt"
+	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
+	"github.com/aacfactory/fns/service"
 )
 
-func BeginTransaction(ctx fns.Context) (err errors.CodeError) {
-	err = BeginTransactionWithOption(ctx, DefaultTransactionOption())
-	return
-}
+const (
+	requestHeaderTransactionHostId = "X-Transaction-Rid"
+)
 
-func BeginTransactionWithOption(ctx fns.Context, param BeginTransactionParam) (err errors.CodeError) {
-	proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
-	if proxyErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", namespace)).WithCause(proxyErr)
+func BeginTransaction(ctx context.Context) (err errors.CodeError) {
+	request, hasRequest := service.GetRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: can not get request in context")
 		return
 	}
-
-	arg, argErr := fns.NewArgument(param)
-	if argErr != nil {
-		err = argErr
-		return
+	var endpoint service.Endpoint
+	hasEndpoint := false
+	rid := request.Header().Get(requestHeaderTransactionHostId)
+	if rid == "" {
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
+	} else {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
 	}
-	r := proxy.Request(ctx, txBeginFn, arg)
-
-	result := TxAddress{}
-	err = r.Get(ctx, &result)
-	if err != nil {
-		return
-	}
-	if ctx.App().ClusterMode() {
-		ctx.Meta().SetExactProxyServiceAddress(namespace, result.Address)
-	}
-	return
-}
-
-func CommitTransaction(ctx fns.Context) (err errors.CodeError) {
-	if ctx.App().ClusterMode() {
-		_, has := ctx.Meta().GetExactProxyServiceAddress(namespace)
-		if !has {
-			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context does not bind tx"))
-			return
+	if !hasEndpoint {
+		err = errors.NotFound("sql: sql endpoint was not found")
+		if rid != "" {
+			err = err.WithMeta("endpointId", rid)
+			request.Header().Raw().Del(requestHeaderTransactionHostId)
 		}
-	}
-
-	proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
-	if proxyErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", namespace)).WithCause(proxyErr)
 		return
 	}
-
-	arg, argErr := fns.NewArgument(fns.Empty{})
-	if argErr != nil {
-		err = argErr
+	fr := endpoint.Request(ctx, beginTransactionFn, service.NewArgument(nil))
+	r := transactionRegistration{}
+	_, getResultErr := fr.Get(ctx, &r)
+	if getResultErr != nil {
+		err = getResultErr
 		return
 	}
-	r := proxy.Request(ctx, txCommitFn, arg)
-
-	result := fns.Empty{}
-	err = r.Get(ctx, &result)
-
-	if ctx.App().ClusterMode() {
-		ctx.Meta().DelExactProxyServiceAddress(namespace)
+	if r.Id == "" {
+		err = errors.ServiceError("sql: begin transaction failed")
+		request.Header().Raw().Del(requestHeaderTransactionHostId)
+		return
+	}
+	if rid == "" {
+		request.Header().Raw().Set(requestHeaderTransactionHostId, r.Id)
 	}
 	return
 }
 
-func RollbackTransaction(ctx fns.Context) (err errors.CodeError) {
-	if ctx.App().ClusterMode() {
-		_, has := ctx.Meta().GetExactProxyServiceAddress(namespace)
-		if !has {
-			err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: current context does not bind tx"))
-			return
+func CommitTransaction(ctx context.Context) (err errors.CodeError) {
+	request, hasRequest := service.GetRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: can not get request in context")
+		return
+	}
+	rid := request.Header().Get(requestHeaderTransactionHostId)
+	if rid == "" {
+		err = errors.ServiceError("sql: there is no transaction in context")
+		return
+	}
+	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, name, rid)
+	if !hasEndpoint {
+		request.Header().Raw().Del(requestHeaderTransactionHostId)
+		err = errors.NotFound("sql: sql endpoint was not found").WithMeta("endpointId", rid)
+		return
+	}
+	fr := endpoint.Request(ctx, commitTransactionFn, service.NewArgument(nil))
+	status := transactionStatus{}
+	_, getResultErr := fr.Get(ctx, &status)
+	if getResultErr != nil {
+		err = getResultErr
+		return
+	}
+	if status.Finished {
+		request.Header().Raw().Del(requestHeaderTransactionHostId)
+	}
+	return
+}
+
+func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
+	request, hasRequest := service.GetRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: can not get request in context")
+		return
+	}
+	rid := request.Header().Get(requestHeaderTransactionHostId)
+	if rid == "" {
+		err = errors.ServiceError("sql: there is no transaction in context")
+		return
+	}
+	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, name, rid)
+	if !hasEndpoint {
+		request.Header().Raw().Del(requestHeaderTransactionHostId)
+		err = errors.NotFound("sql: sql endpoint was not found").WithMeta("endpointId", rid)
+		return
+	}
+	fr := endpoint.Request(ctx, rollbackTransactionFn, service.NewArgument(nil))
+	_, getResultErr := fr.Get(ctx, &service.Empty{})
+	if getResultErr != nil {
+		err = getResultErr
+		return
+	}
+	request.Header().Raw().Del(requestHeaderTransactionHostId)
+	return
+}
+
+func Query(ctx context.Context, query string, args *Tuple) (rows *Rows, err errors.CodeError) {
+	if query == "" {
+		err = errors.BadRequest("sql: invalid query argument")
+		return
+	}
+	request, hasRequest := service.GetRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: can not get request in context")
+		return
+	}
+	var endpoint service.Endpoint
+	hasEndpoint := false
+	rid := request.Header().Get(requestHeaderTransactionHostId)
+	if rid == "" {
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
+	} else {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
+	}
+	if !hasEndpoint {
+		err = errors.NotFound("sql: sql endpoint was not found")
+		if rid != "" {
+			err = err.WithMeta("endpointId", rid)
+			request.Header().Raw().Del(requestHeaderTransactionHostId)
 		}
-	}
-
-	proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
-	if proxyErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", namespace)).WithCause(proxyErr)
 		return
 	}
-
-	arg, argErr := fns.NewArgument(fns.Empty{})
-	if argErr != nil {
-		err = argErr
-		return
-	}
-	r := proxy.Request(ctx, txRollbackFn, arg)
-
-	result := fns.Empty{}
-	err = r.Get(ctx, &result)
-
-	if ctx.App().ClusterMode() {
-		ctx.Meta().DelExactProxyServiceAddress(namespace)
-	}
-	return
-}
-
-func Query(ctx fns.Context, param Param) (rows *Rows, err errors.CodeError) {
-
-	proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
-	if proxyErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", namespace)).WithCause(proxyErr)
-		return
-	}
-
-	arg, argErr := fns.NewArgument(param)
-	if argErr != nil {
-		err = argErr
-		return
-	}
-	r := proxy.Request(ctx, queryFn, arg)
-
+	fr := endpoint.Request(ctx, queryFn, service.NewArgument(&queryArgument{
+		Query: query,
+		Args:  args,
+	}))
 	rows = &Rows{}
-	err = r.Get(ctx, rows)
-
+	_, getResultErr := fr.Get(ctx, rows)
+	if getResultErr != nil {
+		err = getResultErr
+		return
+	}
 	return
 }
 
-func Execute(ctx fns.Context, param Param) (result *ExecResult, err errors.CodeError) {
-
-	proxy, proxyErr := ctx.App().ServiceProxy(ctx, namespace)
-	if proxyErr != nil {
-		err = errors.New(555, "***WARNING***", fmt.Sprintf("fns SQL Proxy: get %s proxy failed", namespace)).WithCause(proxyErr)
+func Execute(ctx context.Context, query string, args *Tuple) (result *ExecuteResult, err errors.CodeError) {
+	if query == "" {
+		err = errors.BadRequest("sql: invalid execute argument")
 		return
 	}
-
-	arg, argErr := fns.NewArgument(param)
-	if argErr != nil {
-		err = argErr
+	request, hasRequest := service.GetRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: can not get request in context")
 		return
 	}
-	r := proxy.Request(ctx, executeFn, arg)
-
-	result = &ExecResult{}
-	err = r.Get(ctx, result)
-
+	var endpoint service.Endpoint
+	hasEndpoint := false
+	rid := request.Header().Get(requestHeaderTransactionHostId)
+	if rid == "" {
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
+	} else {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
+	}
+	if !hasEndpoint {
+		err = errors.NotFound("sql: sql endpoint was not found")
+		if rid != "" {
+			err = err.WithMeta("endpointId", rid)
+			request.Header().Raw().Del(requestHeaderTransactionHostId)
+		}
+		return
+	}
+	fr := endpoint.Request(ctx, executeFn, service.NewArgument(&executeArgument{
+		Query: query,
+		Args:  args,
+	}))
+	result = &ExecuteResult{}
+	_, getResultErr := fr.Get(ctx, result)
+	if getResultErr != nil {
+		err = getResultErr
+		return
+	}
 	return
 }

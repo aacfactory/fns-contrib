@@ -1,172 +1,155 @@
 package sql
 
 import (
-	"fmt"
-	"github.com/aacfactory/configuares"
+	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
-	"sync/atomic"
+	"github.com/aacfactory/fns-contrib/databases/sql/database"
+	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/logs"
 )
 
 const (
-	namespace = "sql"
-
-	txBeginFn    = "tx_begin"
-	txCommitFn   = "tx_commit"
-	txRollbackFn = "tx_rollback"
-	queryFn      = "query"
-	executeFn    = "execute"
+	name                  = "sql"
+	beginTransactionFn    = "begin_transaction"
+	commitTransactionFn   = "commit_transaction"
+	rollbackTransactionFn = "rollback_transaction"
+	queryFn               = "query"
+	executeFn             = "execute"
 )
 
-func Service() fns.Service {
-	return &service{}
+func Service() service.Service {
+	return &_service_{}
 }
 
-type service struct {
-	running        *int64
-	enableDebugLog bool
-	client         Client
-	gtm            *GlobalTransactionManagement
+type _service_ struct {
+	log logs.Logger
+	db  database.Database
 }
 
-func (svc *service) Namespace() string {
-	return namespace
+func (svc *_service_) Build(options service.Options) (err error) {
+	svc.log = options.Log
+	config := database.Config{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.Warning("sql: build service failed").WithCause(configErr)
+		return
+	}
+	svc.db, err = database.New(database.Options{
+		Log:    options.Log,
+		Config: config,
+	})
+	if err != nil {
+		err = errors.Warning("sql: build service failed").WithCause(err)
+		return
+	}
+	return
 }
 
-func (svc *service) Internal() bool {
+func (svc *_service_) Name() string {
+	return name
+}
+
+func (svc *_service_) Internal() bool {
 	return true
 }
 
-func (svc *service) Build(_ fns.Context, root configuares.Config) (err error) {
-	config := Config{}
-	readErr := root.As(&config)
-	if readErr != nil {
-		err = fmt.Errorf("fns SQL Build: read config failed, %v", readErr)
-		return
-	}
-
-	client, createErr := config.CreateClient()
-	if createErr != nil {
-		err = createErr
-		return
-	}
-
-	svc.client = client
-	running := int64(0)
-	svc.running = &running
-	atomic.StoreInt64(svc.running, 1)
-	svc.enableDebugLog = config.EnableDebugLog
-	svc.gtm = NewGlobalTransactionManagement()
+func (svc *_service_) Components() (components map[string]service.Component) {
 	return
 }
 
-func (svc *service) Document() (doc *fns.ServiceDocument) {
-	return
-}
-
-func (svc *service) Handle(ctx fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
-	if atomic.LoadInt64(svc.running) == 0 {
-		err = errors.New(555, "***WARNING***", "fns SQL Handle: service is not ready or closing")
-		return
-	}
+func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
 	switch fn {
-	case txBeginFn:
-		ctx = fns.WithFn(ctx, fn)
-		param := BeginTransactionParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.BadRequest("fns SQL: parse tx begin param failed").WithCause(paramErr)
+	case beginTransactionFn:
+		appId := service.GetAppId(ctx)
+		handleErr := svc.db.BeginTransaction(ctx)
+		if handleErr != nil {
+			err = handleErr.WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		err = svc.beginTransaction(ctx, param)
-		result = &TxAddress{
-			Address: ctx.App().PublicAddress(),
+		v = &transactionRegistration{
+			Id: appId,
 		}
-	case txCommitFn:
-		ctx = fns.WithFn(ctx, fn)
-		err = svc.commitTransaction(ctx)
-		result = fns.Empty{}
-	case txRollbackFn:
-		ctx = fns.WithFn(ctx, fn)
-		err = svc.rollbackTransaction(ctx)
-		result = fns.Empty{}
+		break
+	case commitTransactionFn:
+		finished, handleErr := svc.db.CommitTransaction(ctx)
+		if handleErr != nil {
+			err = handleErr.WithMeta("service", name).WithMeta("fn", fn)
+			return
+		}
+		v = &transactionStatus{
+			Finished: finished,
+		}
+		break
+	case rollbackTransactionFn:
+		handleErr := svc.db.RollbackTransaction(ctx)
+		if handleErr != nil {
+			err = handleErr.WithMeta("service", name).WithMeta("fn", fn)
+			return
+		}
+		v = &service.Empty{}
+		break
 	case queryFn:
-		ctx = fns.WithFn(ctx, fn)
-		param := Param{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.BadRequest("fns SQL: parse query fn param failed").WithCause(paramErr)
+		qa := queryArgument{}
+		argumentErr := argument.As(&qa)
+		if argumentErr != nil {
+			err = errors.BadRequest("sql: invalid query argument").WithCause(argumentErr).WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		rows, queryErr := svc.queryFn(ctx, param)
+		var queryArgs []interface{}
+		if qa.Args != nil && qa.Args.Size() > 0 {
+			queryArgs = qa.Args.mapToSQLArgs()
+		}
+		rows, queryErr := svc.db.Query(ctx, qa.Query, queryArgs)
 		if queryErr != nil {
-			err = queryErr
+			err = errors.ServiceError("sql: query argument").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
 			return
 		}
-		result = rows
+		result, resultErr := newRows(rows)
+		if resultErr != nil {
+			err = errors.ServiceError("sql: query argument").WithCause(resultErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
+			return
+		}
+		v = result
+		break
 	case executeFn:
-		ctx = fns.WithFn(ctx, fn)
-		param := Param{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.BadRequest("fns SQL: parse execute fn param failed").WithCause(paramErr)
+		ea := executeArgument{}
+		argumentErr := argument.As(&ea)
+		if argumentErr != nil {
+			err = errors.BadRequest("sql: invalid execute argument").WithCause(argumentErr).WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		execResult, execErr := svc.executeFn(ctx, param)
-		if execErr != nil {
-			err = execErr
+		var executeArgs []interface{}
+		if ea.Args != nil && ea.Args.Size() > 0 {
+			executeArgs = ea.Args.mapToSQLArgs()
+		}
+		result, queryErr := svc.db.Execute(ctx, ea.Query, executeArgs)
+		if queryErr != nil {
+			err = errors.ServiceError("sql: execute argument").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", ea.Query)
 			return
 		}
-		result = execResult
+		affected, _ := result.RowsAffected()
+		lastInsertId, _ := result.LastInsertId()
+		v = &ExecuteResult{
+			Affected:     affected,
+			LastInsertId: lastInsertId,
+		}
+		break
 	default:
-		err = errors.NotFound(fmt.Sprintf("fns SQL Handle: %s fn was not found", fn))
+		err = errors.NotFound("sql: fn was not found").WithMeta("service", name).WithMeta("fn", fn)
+		break
 	}
 	return
 }
 
-func (svc *service) Shutdown() (err error) {
-	atomic.StoreInt64(svc.running, 0)
-	svc.gtm.Close()
-	err = svc.client.Close()
-	return
-}
-
-func (svc *service) getExecutor(ctx fns.Context) (v Executor) {
-	tx, hasTx := svc.getTransaction(ctx)
-	if hasTx {
-		v = tx
-	} else {
-		v = svc.client.Writer()
+func (svc *_service_) Close() {
+	svc.db.Close()
+	if svc.log.DebugEnabled() {
+		svc.log.Debug().Caller().Message("service: close")
 	}
 	return
 }
 
-func (svc *service) getQueryAble(ctx fns.Context) (v QueryAble) {
-	tx, hasTx := svc.getTransaction(ctx)
-	if hasTx {
-		v = tx
-	} else {
-		v = svc.client.Reader()
-	}
+func (svc *_service_) Document() (doc service.Document) {
+
 	return
-}
-
-// +-------------------------------------------------------------------------------------------------------------------+
-
-type Param struct {
-	Query string `json:"query,omitempty"`
-	Args  *Tuple `json:"args,omitempty"`
-}
-
-// +-------------------------------------------------------------------------------------------------------------------+
-
-type ExecResult struct {
-	Affected     int64 `json:"affected,omitempty"`
-	LastInsertId int64 `json:"lastInsertId,omitempty"`
-}
-
-// +-------------------------------------------------------------------------------------------------------------------+
-
-type TxAddress struct {
-	Address string `json:"address,omitempty"`
 }
