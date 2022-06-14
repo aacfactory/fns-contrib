@@ -1,21 +1,14 @@
 package redis
 
 import (
+	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	rds "github.com/aacfactory/fns-contrib/databases/redis"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"time"
 )
-
-func init() {
-	fns.RegisterServiceBarrierRetriever(ServiceBarrierRetriever)
-}
-
-func ServiceBarrierRetriever() (b fns.ServiceBarrier) {
-	return &serviceBarrier{}
-}
 
 type serviceBarrierExecuteKey struct {
 	Key string `json:"key"`
@@ -26,17 +19,21 @@ type serviceBarrierExecuteResult struct {
 	Succeed bool            `json:"succeed"`
 }
 
-type serviceBarrier struct {
+func Barrier() service.Barrier {
+	return &barrier{}
 }
 
-func (b *serviceBarrier) makeKey(key string) string {
+type barrier struct {
+}
+
+func (b *barrier) makeKey(key string) string {
 	return fmt.Sprintf("fns_barrier_%s", key)
 }
 
-func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{}, err error)) (v interface{}, err error, shared bool) {
+func (b *barrier) Do(ctx context.Context, key string, fn func() (result interface{}, err errors.CodeError)) (result interface{}, err errors.CodeError, shared bool) {
 	execCacheKey := b.makeKey(key)
 	execKey := &serviceBarrierExecuteKey{
-		Key: fmt.Sprintf("fns_barrier_r_%s", key),
+		Key: fmt.Sprintf("fns_barrier_exec_%s", key),
 	}
 	execKeyBytes, _ := json.Marshal(execKey)
 	getResult, gsErr := rds.GetSet(ctx, rds.SetParam{
@@ -69,7 +66,7 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 			}
 			shared = true
 			if execResult.Succeed {
-				v = execResult.Value
+				result = execResult.Value
 			} else {
 				fnErr := errors.Warning("").(errors.CodeError)
 				decodeResultFailedErr := json.Unmarshal(execResult.Value, fnErr)
@@ -81,8 +78,8 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 			}
 			break
 		}
-		if v == nil && err == nil {
-			v, err, shared = b.Do(ctx, key, fn)
+		if result == nil && err == nil {
+			result, err, shared = b.Do(ctx, key, fn)
 			return
 		}
 		return
@@ -90,14 +87,14 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 	// clean
 	_ = rds.Remove(ctx, execKey.Key)
 	// execute
-	v, err = fn()
+	result, err = fn()
 	execResult := &serviceBarrierExecuteResult{}
 	if err != nil {
 		execResult.Succeed = false
 		execResult.Value, _ = json.Marshal(err)
 	} else {
 		execResult.Succeed = true
-		execResult.Value, _ = json.Marshal(v)
+		execResult.Value, _ = json.Marshal(result)
 	}
 	execResultBytes, _ := json.Marshal(execResult)
 	setErr := rds.Set(ctx, rds.SetParam{
@@ -106,14 +103,20 @@ func (b *serviceBarrier) Do(ctx fns.Context, key string, fn func() (v interface{
 		Expiration: 10 * time.Second,
 	})
 	if setErr != nil {
-		ctx.App().Log().Warn().Cause(setErr).Message("fns barrier: service barrier set result failed")
+		log := service.GetLog(ctx)
+		if log.WarnEnabled() {
+			log.Warn().Cause(setErr).Message("barrier: service barrier set result failed")
+		}
 	}
 	return
 }
 
-func (b *serviceBarrier) Forget(ctx fns.Context, key string) {
+func (b *barrier) Forget(ctx context.Context, key string) {
 	rmErr := rds.Remove(ctx, b.makeKey(key))
 	if rmErr != nil {
-		ctx.App().Log().Warn().Cause(rmErr).Message("fns barrier: service barrier remove result failed")
+		log := service.GetLog(ctx)
+		if log.WarnEnabled() {
+			log.Warn().Cause(rmErr).Message("barrier: service barrier remove result failed")
+		}
 	}
 }
