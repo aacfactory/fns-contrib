@@ -9,7 +9,6 @@ import (
 )
 
 func TestConditions(t *testing.T) {
-
 	conds := postgres.NewConditions(postgres.Eq("id", "FOO"))
 	conds.And(postgres.GT("age", 10))
 	conds.And(postgres.GTE("age", 11))

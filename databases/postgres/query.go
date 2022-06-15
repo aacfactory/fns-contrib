@@ -1,11 +1,11 @@
 package postgres
 
 import (
+	"context"
 	db "database/sql"
 	stdJson "encoding/json"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -13,45 +13,45 @@ import (
 	"time"
 )
 
-func Query(ctx fns.Context, cond *Conditions, rows interface{}) (fetched bool, err errors.CodeError) {
+func Query(ctx context.Context, cond *Conditions, rows interface{}) (fetched bool, err errors.CodeError) {
 	fetched0, queryErr := query0(ctx, cond, nil, nil, rows)
 	if queryErr != nil {
-		err = errors.ServiceError("fns Postgres: query failed").WithCause(queryErr).WithMeta("_fns_postgres", "Query")
+		err = errors.ServiceError("postgres: query failed").WithCause(queryErr).WithMeta("postgres", "query")
 		return
 	}
 	fetched = fetched0
 	return
 }
 
-func QueryWithRange(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows interface{}) (fetched bool, err errors.CodeError) {
+func QueryWithRange(ctx context.Context, cond *Conditions, orders *Orders, rng *Range, rows interface{}) (fetched bool, err errors.CodeError) {
 	fetched0, queryErr := query0(ctx, cond, orders, rng, rows)
 	if queryErr != nil {
-		err = errors.ServiceError("fns Postgres: query with range failed").WithCause(queryErr).WithMeta("_fns_postgres", "QueryWithRange")
+		err = errors.ServiceError("postgres: query with range failed").WithCause(queryErr).WithMeta("postgres", "query with range")
 		return
 	}
 	fetched = fetched0
 	return
 }
 
-func QueryOne(ctx fns.Context, cond *Conditions, row interface{}) (fetched bool, err errors.CodeError) {
+func QueryOne(ctx context.Context, cond *Conditions, row interface{}) (fetched bool, err errors.CodeError) {
 	if row == nil {
-		err = errors.ServiceError("fns Postgres: query one failed for row is nil").WithMeta("_fns_postgres", "QueryOne")
+		err = errors.ServiceError("postgres: query one failed for row is nil").WithMeta("postgres", "one")
 		return
 	}
 	rv := reflect.ValueOf(row)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("fns Postgres: query one failed for type of row is not ptr").WithMeta("_fns_postgres", "QueryOne")
+		err = errors.ServiceError("postgres: query one failed for type of row is not ptr").WithMeta("postgres", "one")
 		return
 	}
 	if rv.Elem().Type().Kind() != reflect.Struct {
-		err = errors.ServiceError("fns Postgres: query one failed for type of row is not ptr struct").WithMeta("_fns_postgres", "QueryOne")
+		err = errors.ServiceError("postgres: query one failed for type of row is not ptr struct").WithMeta("postgres", "one")
 		return
 	}
 	rowsRV := reflect.New(reflect.SliceOf(reflect.TypeOf(row)))
 	rows := rowsRV.Interface()
 	fetched0, queryErr := query0(ctx, cond, nil, nil, rows)
 	if queryErr != nil {
-		err = errors.ServiceError("fns Postgres: query one failed").WithCause(queryErr).WithMeta("_fns_postgres", "QueryOne")
+		err = errors.ServiceError("postgres: query one failed").WithCause(queryErr).WithMeta("postgres", "one")
 		return
 	}
 	if !fetched0 {
@@ -62,14 +62,11 @@ func QueryOne(ctx fns.Context, cond *Conditions, row interface{}) (fetched bool,
 	return
 }
 
-func QueryDirect(ctx fns.Context, query string, args *sql.Tuple, rows interface{}) (fetched bool, err error) {
+func QueryDirect(ctx context.Context, rows interface{}, query string, args ...interface{}) (fetched bool, err error) {
 	// query
-	results, queryErr := sql.Query(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
+	results, queryErr := sql.Query(ctx, query, args...)
 	if queryErr != nil {
-		err = errors.ServiceError("fns Postgres: query direct failed").WithCause(queryErr).WithMeta("_fns_postgres", "QueryDirect")
+		err = errors.ServiceError("postgres: query direct failed").WithCause(queryErr).WithMeta("postgres", "query direct")
 		return
 	}
 	fetched = !results.Empty()
@@ -79,13 +76,13 @@ func QueryDirect(ctx fns.Context, query string, args *sql.Tuple, rows interface{
 	rv := reflect.ValueOf(rows)
 	scanErr := scanQueryResults(ctx, results, rv)
 	if scanErr != nil {
-		err = errors.ServiceError("fns Postgres: query direct failed").WithCause(scanErr).WithMeta("_fns_postgres", "QueryDirect")
+		err = errors.ServiceError("postgres: query direct failed").WithCause(scanErr).WithMeta("postgres", "query direct")
 		return
 	}
 	return
 }
 
-func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows interface{}) (fetched bool, err error) {
+func query0(ctx context.Context, cond *Conditions, orders *Orders, rng *Range, rows interface{}) (fetched bool, err error) {
 	if rows == nil {
 		err = fmt.Errorf("rows is nil")
 		return
@@ -113,10 +110,7 @@ func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows 
 	}
 	query, args := tab.generateQuerySQL(cond, rng, orderValues)
 	// query
-	results, queryErr := sql.Query(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
+	results, queryErr := sql.Query(ctx, query, args...)
 	if queryErr != nil {
 		err = queryErr
 		return
@@ -134,7 +128,7 @@ func query0(ctx fns.Context, cond *Conditions, orders *Orders, rng *Range, rows 
 	return
 }
 
-func scanQueryResults(ctx fns.Context, results *sql.Rows, rows reflect.Value) (err error) {
+func scanQueryResults(ctx context.Context, results sql.Rows, rows reflect.Value) (err error) {
 	rv := rows.Elem()
 	for {
 		result, has := results.Next()
@@ -165,16 +159,16 @@ var (
 	sqlSTDJsonType     = reflect.TypeOf(stdJson.RawMessage{})
 )
 
-func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err error) {
+func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (err error) {
 	rv := row.Elem()
 	rt := rv.Type()
 	fieldNum := rt.NumField()
 	columns := result.Columns()
 	for _, c := range columns {
-		if c.Nil {
+		if c.IsNil() {
 			continue
 		}
-		cName := strings.ToUpper(strings.TrimSpace(c.Name))
+		cName := strings.ToUpper(strings.TrimSpace(c.Name()))
 		field := reflect.StructField{}
 		hasField := false
 		for i := 0; i < fieldNum; i++ {
@@ -203,12 +197,12 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 		if !hasField {
 			continue
 		}
-		switch c.Type {
+		switch sql.ColumnType(c.Type()) {
 		case sql.StringType:
 			v := ""
-			decodeErr := c.Decode(&v)
+			decodeErr := c.Get(&v)
 			if decodeErr != nil {
-				err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 				return
 			}
 			if field.Type == sqlNullStringType {
@@ -222,9 +216,9 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 			}
 		case sql.BoolType:
 			v := false
-			decodeErr := c.Decode(&v)
+			decodeErr := c.Get(&v)
 			if decodeErr != nil {
-				err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 				return
 			}
 			if field.Type == sqlNullBoolType {
@@ -238,9 +232,9 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 			}
 		case sql.IntType:
 			v := int64(0)
-			decodeErr := c.Decode(&v)
+			decodeErr := c.Get(&v)
 			if decodeErr != nil {
-				err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 				return
 			}
 			if field.Type == sqlNullInt16Type {
@@ -266,9 +260,9 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 			}
 		case sql.FloatType:
 			v := 0.0
-			decodeErr := c.Decode(&v)
+			decodeErr := c.Get(&v)
 			if decodeErr != nil {
-				err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 				return
 			}
 			if field.Type == sqlNullFloat64Type {
@@ -282,9 +276,9 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 			}
 		case sql.TimeType:
 			v := time.Time{}
-			decodeErr := c.Decode(&v)
+			decodeErr := c.Get(&v)
 			if decodeErr != nil {
-				err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 				return
 			}
 			if field.Type == sqlNullTimeType {
@@ -297,22 +291,22 @@ func scanQueryResult(ctx fns.Context, result *sql.Row, row reflect.Value) (err e
 				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
 			}
 		case sql.BytesType:
-			rv.FieldByName(field.Name).SetBytes(c.Value)
+			rv.FieldByName(field.Name).SetBytes(c.RawValue())
 		case sql.JsonType:
 			if field.Type == sqlJsonType || field.Type == sqlSTDJsonType {
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(c.Value).Convert(field.Type))
+				rv.FieldByName(field.Name).Set(reflect.ValueOf(c.RawValue()).Convert(field.Type))
 			} else {
 				v := reflect.New(field.Type).Interface()
-				decodeErr := c.Decode(&v)
+				decodeErr := c.Get(&v)
 				if decodeErr != nil {
-					err = fmt.Errorf("decode %s failed, %v", cName, decodeErr)
+					err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
 					return
 				}
 				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Elem())
 			}
 		case sql.UnknownType:
 			if field.Type.AssignableTo(sqlBytesType) {
-				rv.FieldByName(field.Name).SetBytes(c.Value)
+				rv.FieldByName(field.Name).SetBytes(c.RawValue())
 			}
 		}
 	}

@@ -1,9 +1,7 @@
 package postgres
 
-import "github.com/aacfactory/fns-contrib/databases/sql"
-
 type Select interface {
-	Build(args *sql.Tuple) (query string)
+	Build(args []interface{}) (query string)
 }
 
 func LitSelect(query string) Select {
@@ -16,7 +14,7 @@ type litSelect struct {
 	query string
 }
 
-func (s *litSelect) Build(_ *sql.Tuple) (query string) {
+func (s *litSelect) Build(_ []interface{}) (query string) {
 	query = s.query
 	return
 }

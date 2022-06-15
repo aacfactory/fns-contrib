@@ -1,13 +1,14 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
-	"github.com/aacfactory/fns"
+	"github.com/aacfactory/fns/service"
 	"reflect"
 	"time"
 )
 
-func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err error) {
+func tryFillAuditCreate(ctx context.Context, rv reflect.Value, tab *table) (err error) {
 	creates := tab.findAuditCreate()
 	if len(creates) == 0 {
 		return
@@ -36,11 +37,14 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		if createByStringTypeKind {
 			createByString := createBY.(string)
 			if createByString == "" {
-				user := ctx.User()
-				if !user.Exists() && user.Id().String() != "" {
-					createByString = user.Id().String()
-					rv.Elem().FieldByName(createByColumn.FieldName).SetString(createByString)
-					hasCreateByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						createByString = userId
+						rv.Elem().FieldByName(createByColumn.FieldName).SetString(createByString)
+						hasCreateByValue = true
+					}
 				}
 			} else {
 				hasCreateByValue = true
@@ -48,11 +52,14 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		} else {
 			createByInt := reflect.ValueOf(createBY).Int()
 			if createByInt <= 0 {
-				user := ctx.User()
-				if !user.Exists() && user.Id().Int() != 0 {
-					createByInt = int64(user.Id().Int())
-					rv.Elem().FieldByName(createByColumn.FieldName).SetInt(createByInt)
-					hasCreateByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						createByInt = request.User().IntId()
+						rv.Elem().FieldByName(createByColumn.FieldName).SetInt(createByInt)
+						hasCreateByValue = true
+					}
 				}
 			} else {
 				hasCreateByValue = true
@@ -73,7 +80,7 @@ func tryFillAuditCreate(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	return
 }
 
-func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err error) {
+func tryFillAuditModify(ctx context.Context, rv reflect.Value, tab *table) (err error) {
 	modifies := tab.findAuditModify()
 	if len(modifies) == 0 {
 		return
@@ -102,11 +109,14 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		if modifyByStringTypeKind {
 			modifyByString := modifyBY.(string)
 			if modifyByString == "" {
-				user := ctx.User()
-				if !user.Exists() && user.Id().String() != "" {
-					modifyByString = user.Id().String()
-					rv.Elem().FieldByName(modifyByColumn.FieldName).SetString(modifyByString)
-					hasModifyByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						modifyByString = request.User().Id()
+						rv.Elem().FieldByName(modifyByColumn.FieldName).SetString(modifyByString)
+						hasModifyByValue = true
+					}
 				}
 			} else {
 				hasModifyByValue = true
@@ -114,11 +124,14 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		} else {
 			modifyByInt := reflect.ValueOf(modifyBY).Int()
 			if modifyByInt <= 0 {
-				user := ctx.User()
-				if !user.Exists() && user.Id().Int() != 0 {
-					modifyByInt = int64(user.Id().Int())
-					rv.Elem().FieldByName(modifyByColumn.FieldName).SetInt(modifyByInt)
-					hasModifyByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						modifyByInt = request.User().IntId()
+						rv.Elem().FieldByName(modifyByColumn.FieldName).SetInt(modifyByInt)
+						hasModifyByValue = true
+					}
 				}
 			} else {
 				hasModifyByValue = true
@@ -139,7 +152,7 @@ func tryFillAuditModify(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 	return
 }
 
-func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err error) {
+func tryFillAuditDelete(ctx context.Context, rv reflect.Value, tab *table) (err error) {
 	deletes := tab.findAuditDelete()
 	if len(deletes) == 0 {
 		return
@@ -168,11 +181,14 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		if deleteByStringTypeKind {
 			deleteByString := deleteBY.(string)
 			if deleteByString == "" {
-				user := ctx.User()
-				if !user.Exists() && user.Id().String() != "" {
-					deleteByString = user.Id().String()
-					rv.Elem().FieldByName(deleteByColumn.FieldName).SetString(deleteByString)
-					hasDeleteByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						deleteByString = request.User().Id()
+						rv.Elem().FieldByName(deleteByColumn.FieldName).SetString(deleteByString)
+						hasDeleteByValue = true
+					}
 				}
 			} else {
 				hasDeleteByValue = true
@@ -180,11 +196,14 @@ func tryFillAuditDelete(ctx fns.Context, rv reflect.Value, tab *table) (err erro
 		} else {
 			deleteByInt := reflect.ValueOf(deleteBY).Int()
 			if deleteByInt <= 0 {
-				user := ctx.User()
-				if !user.Exists() && user.Id().Int() != 0 {
-					deleteByInt = int64(user.Id().Int())
-					rv.Elem().FieldByName(deleteByColumn.FieldName).SetInt(deleteByInt)
-					hasDeleteByValue = true
+				request, hasRequest := service.GetRequest(ctx)
+				if hasRequest {
+					userId := request.User().Id()
+					if userId != "" {
+						deleteByInt = request.User().IntId()
+						rv.Elem().FieldByName(deleteByColumn.FieldName).SetInt(deleteByInt)
+						hasDeleteByValue = true
+					}
 				}
 			} else {
 				hasDeleteByValue = true

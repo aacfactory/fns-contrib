@@ -1,24 +1,24 @@
 package postgres
 
 import (
+	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
 )
 
-func Delete(ctx fns.Context, row interface{}) (err errors.CodeError) {
+func Delete(ctx context.Context, row interface{}) (err errors.CodeError) {
 	if row == nil {
-		err = errors.ServiceError("fns Postgres: delete failed for row is nil").WithMeta("_fns_postgres", "Delete")
+		err = errors.ServiceError("postgres: delete failed for row is nil").WithMeta("postgres", "delete")
 		return
 	}
 	rv := reflect.ValueOf(row)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("fns Postgres: delete failed for type of row is not ptr").WithMeta("_fns_postgres", "Delete")
+		err = errors.ServiceError("postgres: delete failed for type of row is not ptr").WithMeta("postgres", "delete")
 		return
 	}
 	if rv.Elem().Type().Kind() != reflect.Struct {
-		err = errors.ServiceError("fns Postgres: delete failed for type of row is not ptr struct").WithMeta("_fns_postgres", "Delete")
+		err = errors.ServiceError("postgres: delete failed for type of row is not ptr struct").WithMeta("postgres", "delete")
 		return
 	}
 	tab := createOrLoadTable(row)
@@ -28,7 +28,7 @@ func Delete(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		genericQuery = tab.softDeleteQuery
 		tryFillDeleteErr := tryFillAuditDelete(ctx, rv, tab)
 		if tryFillDeleteErr != nil {
-			err = errors.ServiceError("fns Postgres: delete failed, try to fill modify audit failed").WithCause(tryFillDeleteErr).WithMeta("_fns_postgres", "Delete")
+			err = errors.ServiceError("postgres: delete failed, try to fill modify audit failed").WithCause(tryFillDeleteErr).WithMeta("postgres", "delete")
 			return
 		}
 	} else {
@@ -36,21 +36,17 @@ func Delete(ctx fns.Context, row interface{}) (err errors.CodeError) {
 	}
 	query := genericQuery.query
 	columns := genericQuery.columns
-	args := sql.NewTuple()
-	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	args, argsErr := mapColumnsToSqlArgs(columns, rv)
 	if argsErr != nil {
-		err = errors.ServiceError("fns Postgres: delete failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Delete")
+		err = errors.ServiceError("postgres: delete failed, try to fill args failed").WithCause(argsErr).WithMeta("postgres", "delete")
 		return
 	}
-	result, execErr := sql.Execute(ctx, sql.Param{
-		Query: query,
-		Args:  args,
-	})
+	affected, _, execErr := sql.Execute(ctx, query, args...)
 	if execErr != nil {
-		err = errors.ServiceError("fns Postgres: delete failed").WithCause(execErr).WithMeta("_fns_postgres", "Delete")
+		err = errors.ServiceError("postgres: delete failed").WithCause(execErr).WithMeta("postgres", "delete")
 		return
 	}
-	if result.Affected == 0 {
+	if affected == 0 {
 		return
 	}
 	// version

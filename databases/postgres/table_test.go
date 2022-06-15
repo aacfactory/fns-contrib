@@ -13,6 +13,7 @@ func TestTable(t *testing.T) {
 	fmt.Println("--")
 	fmt.Println(fooTable.insertQuery.query)
 	fmt.Println(len(fooTable.insertQuery.columns))
+	fmt.Println(fooTable.insertQuery.columns)
 	fmt.Println("--")
 	fmt.Println(fooTable.updateQuery.query)
 	fmt.Println(len(fooTable.updateQuery.columns))

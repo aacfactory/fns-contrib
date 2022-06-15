@@ -1,52 +1,48 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
 	"strings"
 )
 
-func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
+func Insert(ctx context.Context, row interface{}) (err errors.CodeError) {
 	if row == nil {
-		err = errors.ServiceError("fns Postgres: insert failed for row is nil").WithMeta("_fns_postgres", "Insert")
+		err = errors.ServiceError("postgres: insert failed for row is nil").WithMeta("postgres", "insert")
 		return
 	}
 	rv := reflect.ValueOf(row)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("fns Postgres: insert failed for type of row is not ptr").WithMeta("_fns_postgres", "Insert")
+		err = errors.ServiceError("postgres: insert failed for type of row is not ptr").WithMeta("postgres", "insert")
 		return
 	}
 	if rv.Elem().Type().Kind() != reflect.Struct {
-		err = errors.ServiceError("fns Postgres: insert failed for type of row is not ptr struct").WithMeta("_fns_postgres", "Insert")
+		err = errors.ServiceError("postgres: insert failed for type of row is not ptr struct").WithMeta("postgres", "insert")
 		return
 	}
 	tab := createOrLoadTable(row)
 	// create by
 	tryFillCreateErr := tryFillAuditCreate(ctx, rv, tab)
 	if tryFillCreateErr != nil {
-		err = errors.ServiceError("fns Postgres: insert failed, try to fill create audit failed").WithCause(tryFillCreateErr).WithMeta("_fns_postgres", "Insert")
+		err = errors.ServiceError("postgres: insert failed, try to fill create audit failed").WithCause(tryFillCreateErr).WithMeta("postgres", "insert")
 		return
 	}
 	// exec
 	useQuery := tab.insertQuery.useQuery
 	query := tab.insertQuery.query
 	columns := tab.insertQuery.columns
-	args := sql.NewTuple()
-	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	args, argsErr := mapColumnsToSqlArgs(columns, rv)
 	if argsErr != nil {
-		err = errors.ServiceError("fns Postgres: insert failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "Insert")
+		err = errors.ServiceError("postgres: insert failed, try to fill args failed").WithCause(argsErr).WithMeta("postgres", "insert")
 		return
 	}
 	if useQuery {
-		rows, queryErr := sql.Query(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		rows, queryErr := sql.Query(ctx, query, args...)
 		if queryErr != nil {
-			err = errors.ServiceError("fns Postgres: insert failed").WithCause(queryErr).WithMeta("_fns_postgres", "Insert")
+			err = errors.ServiceError("postgres: insert failed").WithCause(queryErr).WithMeta("postgres", "insert")
 			return
 		}
 		if rows.Empty() {
@@ -56,11 +52,11 @@ func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		lastInsertId := int64(0)
 		hasColumn, columnErr := row0.Column("LAST_INSERT_ID", &lastInsertId)
 		if columnErr != nil {
-			err = errors.ServiceError("fns Postgres: insert failed").WithCause(columnErr).WithMeta("_fns_postgres", "Insert")
+			err = errors.ServiceError("postgres: insert failed").WithCause(columnErr).WithMeta("postgres", "insert")
 			return
 		}
 		if !hasColumn {
-			err = errors.ServiceError("fns Postgres: insert failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("_fns_postgres", "Insert")
+			err = errors.ServiceError("postgres: insert failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("postgres", "insert")
 			return
 		}
 		// incrPk
@@ -74,74 +70,65 @@ func Insert(ctx fns.Context, row interface{}) (err errors.CodeError) {
 			}
 		}
 	} else {
-		result, execErr := sql.Execute(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		affected, _, execErr := sql.Execute(ctx, query, args...)
 		if execErr != nil {
-			err = errors.ServiceError("fns Postgres: insert failed").WithCause(execErr).WithMeta("_fns_postgres", "Insert")
+			err = errors.ServiceError("postgres: insert failed").WithCause(execErr).WithMeta("postgres", "insert")
 			return
 		}
-		if result.Affected == 0 {
+		if affected == 0 {
 			return
 		}
 	}
-
 	// version
 	tryFillAuditVersionExact(rv, tab, int64(1))
-
 	return
 }
 
-func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
+func InsertOrUpdate(ctx context.Context, row interface{}) (err errors.CodeError) {
 	if row == nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed for row is nil").WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed for row is nil").WithMeta("postgres", "insert or update")
 		return
 	}
 	rv := reflect.ValueOf(row)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("fns Postgres: insert or update failed for type of row is not ptr").WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed for type of row is not ptr").WithMeta("postgres", "insert or update")
 		return
 	}
 	if rv.Elem().Type().Kind() != reflect.Struct {
-		err = errors.ServiceError("fns Postgres: insert or update failed for type of row is not ptr struct").WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed for type of row is not ptr struct").WithMeta("postgres", "insert or update")
 		return
 	}
 	tab := createOrLoadTable(row)
 	querySetting := tab.insertOrUpdateQuery
 	if querySetting == nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed for type of row is not supported, need conflict or string typed pk").WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed for type of row is not supported, need conflict or string typed pk").WithMeta("postgres", "insert or update")
 		return
 	}
 	// create
 	tryFillCreateErr := tryFillAuditCreate(ctx, rv, tab)
 	if tryFillCreateErr != nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed, try to fill create audit failed").WithCause(tryFillCreateErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed, try to fill create audit failed").WithCause(tryFillCreateErr).WithMeta("postgres", "insert or update")
 		return
 	}
 	// modify
 	tryFillModifyErr := tryFillAuditModify(ctx, rv, tab)
 	if tryFillModifyErr != nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed, try to fill modify audit failed").WithCause(tryFillModifyErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed, try to fill modify audit failed").WithCause(tryFillModifyErr).WithMeta("postgres", "insert or update")
 		return
 	}
 	// exec
 	useQuery := querySetting.useQuery
 	query := querySetting.query
 	columns := querySetting.columns
-	args := sql.NewTuple()
-	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	args, argsErr := mapColumnsToSqlArgs(columns, rv)
 	if argsErr != nil {
-		err = errors.ServiceError("fns Postgres: insert or update failed, try to fill args failed").WithCause(argsErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+		err = errors.ServiceError("postgres: insert or update failed, try to fill args failed").WithCause(argsErr).WithMeta("postgres", "insert or update")
 		return
 	}
 	if useQuery {
-		rows, queryErr := sql.Query(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		rows, queryErr := sql.Query(ctx, query, args...)
 		if queryErr != nil {
-			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(queryErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			err = errors.ServiceError("postgres: insert or update failed").WithCause(queryErr).WithMeta("postgres", "insert or update")
 			return
 		}
 		if rows.Empty() {
@@ -151,11 +138,11 @@ func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
 		lastInsertId := int64(0)
 		hasColumn, columnErr := row0.Column("LAST_INSERT_ID", &lastInsertId)
 		if columnErr != nil {
-			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(columnErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			err = errors.ServiceError("postgres: insert or update failed").WithCause(columnErr).WithMeta("postgres", "insert or update")
 			return
 		}
 		if !hasColumn {
-			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("_fns_postgres", "InsertOrUpdate")
+			err = errors.ServiceError("postgres: insert or update failed").WithCause(fmt.Errorf("LAST_INSERT_ID is not found in results")).WithMeta("postgres", "insert or update")
 			return
 		}
 		// incrPk
@@ -169,43 +156,39 @@ func InsertOrUpdate(ctx fns.Context, row interface{}) (err errors.CodeError) {
 			}
 		}
 	} else {
-		result, execErr := sql.Execute(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		affected, _, execErr := sql.Execute(ctx, query, args...)
 		if execErr != nil {
-			err = errors.ServiceError("fns Postgres: insert or update failed").WithCause(execErr).WithMeta("_fns_postgres", "InsertOrUpdate")
+			err = errors.ServiceError("postgres: insert or update failed").WithCause(execErr).WithMeta("postgres", "insert or update")
 			return
 		}
-		if result.Affected == 0 {
+		if affected == 0 {
 			return
 		}
 	}
-
 	// version
 	tryFillAuditVersion(rv, tab)
 	return
 }
 
-func InsertWhenExist(ctx fns.Context, row interface{}, source Select) (err errors.CodeError) {
+func InsertWhenExist(ctx context.Context, row interface{}, source Select) (err errors.CodeError) {
 	execErr := insertWhenExistOrNot(ctx, row, true, source)
 	if execErr != nil {
-		err = errors.ServiceError("fns Postgres: insert when exist failed").WithCause(execErr).WithMeta("_fns_postgres", "InsertWhenExist")
+		err = errors.ServiceError("postgres: insert when exist failed").WithCause(execErr).WithMeta("postgres", "insert when exist")
 		return
 	}
 	return
 }
 
-func InsertWhenNotExist(ctx fns.Context, row interface{}, source Select) (err errors.CodeError) {
+func InsertWhenNotExist(ctx context.Context, row interface{}, source Select) (err errors.CodeError) {
 	execErr := insertWhenExistOrNot(ctx, row, false, source)
 	if execErr != nil {
-		err = errors.ServiceError("fns Postgres: insert when not exist failed").WithCause(execErr).WithMeta("_fns_postgres", "InsertWhenNotExist")
+		err = errors.ServiceError("postgres: insert when not exist failed").WithCause(execErr).WithMeta("postgres", "insert when not exist")
 		return
 	}
 	return
 }
 
-func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source Select) (err error) {
+func insertWhenExistOrNot(ctx context.Context, row interface{}, exist bool, source Select) (err error) {
 	if row == nil {
 		err = fmt.Errorf("row is nil")
 		return
@@ -234,8 +217,7 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 	useQuery := tab.insertWhenExistOrNotQuery.useQuery
 	query := tab.insertWhenExistOrNotQuery.query
 	columns := tab.insertWhenExistOrNotQuery.columns
-	args := sql.NewTuple()
-	argsErr := mapColumnsToSqlArgs(columns, rv, args)
+	args, argsErr := mapColumnsToSqlArgs(columns, rv)
 	if argsErr != nil {
 		err = fmt.Errorf("try to fill args failed, %v", argsErr)
 		return
@@ -248,10 +230,7 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 	}
 	query = strings.Replace(query, "$$SOURCE_QUERY$$", sourceQuery, 1)
 	if useQuery {
-		rows, queryErr := sql.Query(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		rows, queryErr := sql.Query(ctx, query, args...)
 		if queryErr != nil {
 			err = queryErr
 			return
@@ -281,21 +260,16 @@ func insertWhenExistOrNot(ctx fns.Context, row interface{}, exist bool, source S
 			}
 		}
 	} else {
-		result, execErr := sql.Execute(ctx, sql.Param{
-			Query: query,
-			Args:  args,
-		})
+		affected, _, execErr := sql.Execute(ctx, query, args...)
 		if execErr != nil {
 			err = execErr
 			return
 		}
-		if result.Affected == 0 {
+		if affected == 0 {
 			return
 		}
 	}
-
 	// version
 	tryFillAuditVersionExact(rv, tab, int64(1))
-
 	return
 }

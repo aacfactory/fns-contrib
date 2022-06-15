@@ -1,8 +1,8 @@
 package postgres
 
 import (
+	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	"math"
 	"reflect"
 )
@@ -17,7 +17,7 @@ func (p *PageInfo) Empty() bool {
 	return p.Total == 0
 }
 
-func Page(ctx fns.Context, cond *Conditions, orders *Orders, pageNo int, pageSize int, rows interface{}) (page *PageInfo, err errors.CodeError) {
+func Page(ctx context.Context, cond *Conditions, orders *Orders, pageNo int, pageSize int, rows interface{}) (page *PageInfo, err errors.CodeError) {
 	if pageNo < 1 {
 		pageNo = 1
 	}
@@ -27,7 +27,7 @@ func Page(ctx fns.Context, cond *Conditions, orders *Orders, pageNo int, pageSiz
 	rng := NewRange((pageNo-1)*pageSize, pageSize)
 	fetched, fetchErr := query0(ctx, cond, orders, rng, rows)
 	if fetchErr != nil {
-		err = errors.ServiceError("fns Postgres: page failed").WithCause(fetchErr).WithMeta("_fns_postgres", "Page")
+		err = errors.ServiceError("postgres: page failed").WithCause(fetchErr).WithMeta("postgres", "page")
 		return
 	}
 	if !fetched {
@@ -42,7 +42,7 @@ func Page(ctx fns.Context, cond *Conditions, orders *Orders, pageNo int, pageSiz
 	tab := reflect.New(reflect.TypeOf(rows).Elem().Elem().Elem()).Interface().(Table)
 	count, countErr := Count(ctx, cond, tab)
 	if countErr != nil {
-		err = errors.ServiceError("fns Postgres: page failed").WithCause(countErr).WithMeta("_fns_postgres", "Page")
+		err = errors.ServiceError("postgres: page failed").WithCause(countErr).WithMeta("postgres", "page")
 		return
 	}
 	if count == 0 {

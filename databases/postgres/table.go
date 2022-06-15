@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"go/ast"
 	"golang.org/x/sync/singleflight"
 	"reflect"
@@ -833,7 +832,7 @@ func (t *table) generateInsertOrUpdateSQL() (useQuery bool, query string, column
 	return
 }
 
-func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sql.Tuple) {
+func (t *table) generateExistSQL(conditions *Conditions) (query string, args []interface{}) {
 	cc := ""
 	pks := t.findPk()
 	if len(pks) > 0 {
@@ -850,7 +849,7 @@ func (t *table) generateExistSQL(conditions *Conditions) (query string, args *sq
 	return
 }
 
-func (t *table) generateCountSQL(conditions *Conditions) (query string, args *sql.Tuple) {
+func (t *table) generateCountSQL(conditions *Conditions) (query string, args []interface{}) {
 	cc := ""
 	pks := t.findPk()
 	if len(pks) > 0 {
@@ -875,7 +874,7 @@ func (t *table) generateQuerySelects() (selects string) {
 	return
 }
 
-func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args *sql.Tuple) {
+func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args []interface{}) {
 	pks := t.findPk()
 	if len(pks) > 0 {
 		pk := pks[0].queryName()

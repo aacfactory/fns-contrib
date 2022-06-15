@@ -1,18 +1,18 @@
 package postgres
 
 import (
+	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
 	"reflect"
 )
 
 type LoadMakeupHook interface {
-	Makeup(ctx fns.Context) (err errors.CodeError)
+	Makeup(ctx context.Context) (err errors.CodeError)
 }
 
 var loadMakeupHookType = reflect.TypeOf((*LoadMakeupHook)(nil)).Elem()
 
-func executeLoadMakeupHook(ctx fns.Context, row reflect.Value) (err errors.CodeError) {
+func executeLoadMakeupHook(ctx context.Context, row reflect.Value) (err errors.CodeError) {
 	if !row.Type().Implements(loadMakeupHookType) {
 		return
 	}

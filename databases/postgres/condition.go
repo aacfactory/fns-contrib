@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
 	"strings"
 )
@@ -21,8 +20,9 @@ type Condition struct {
 	Values    []interface{}
 }
 
-func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
-	latestArgNum := args.Size()
+func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) {
+	query := ""
+	args := make([]interface{}, 0, 1)
 	switch c.Operation {
 	case "=", "<>", ">", ">=", "<", "<=":
 		query = `"` + c.Column + `" ` + c.Operation + " "
@@ -32,7 +32,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 		} else {
 			latestArgNum++
 			query = query + fmt.Sprintf("$%d", latestArgNum)
-			args.Append(c.Values[0])
+			args = append(args, c.Values[0])
 		}
 	case "BETWEEN":
 		query = `"` + c.Column + `" ` + c.Operation + " "
@@ -43,7 +43,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 		} else {
 			latestArgNum++
 			query = query + fmt.Sprintf("$%d", latestArgNum)
-			args.Append(left)
+			args = append(args, left)
 		}
 		query = query + " AND "
 		right := c.Values[1]
@@ -53,7 +53,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 		} else {
 			latestArgNum++
 			query = query + fmt.Sprintf("$%d", latestArgNum)
-			args.Append(right)
+			args = append(args, right)
 		}
 	case "LIKE":
 		query = `"` + c.Column + `" ` + c.Operation + " " + c.Values[0].(*lit).value
@@ -71,7 +71,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 			for _, value := range c.Values {
 				latestArgNum++
 				sub = sub + "," + fmt.Sprintf("$%d", latestArgNum)
-				args.Append(value)
+				args = append(args, value)
 			}
 			if len(sub) > 0 {
 				sub = sub[1:]
@@ -80,7 +80,7 @@ func (c *Condition) queryAndArguments(args *sql.Tuple) (query string) {
 
 		}
 	}
-	return
+	return query, args
 }
 
 func Eq(column string, value interface{}) *Condition {
@@ -263,31 +263,37 @@ func (c *Conditions) OrConditions(v *Conditions) *Conditions {
 	return c
 }
 
-func (c *Conditions) QueryAndArguments() (query string, args *sql.Tuple) {
-	args = sql.NewTuple()
-	query = c.queryAndArguments(args)
+func (c *Conditions) QueryAndArguments() (query string, args []interface{}) {
+	query, args = c.queryAndArguments()
 	query = query[1 : len(query)-1]
 	return
 }
 
-func (c *Conditions) queryAndArguments(args *sql.Tuple) (query string) {
+func (c *Conditions) queryAndArguments() (query string, args []interface{}) {
+	args = make([]interface{}, 0, 1)
 	for _, unit := range c.units {
 		switch unit.value.(type) {
 		case *Condition:
 			v := unit.value.(*Condition)
-			sub := v.queryAndArguments(args)
+			sub, subArgs := v.queryAndArguments(len(args))
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
 			} else {
 				query = query + sub
 			}
+			if len(subArgs) > 0 {
+				args = append(args, subArgs...)
+			}
 		case *Conditions:
 			v := unit.value.(*Conditions)
-			sub := v.queryAndArguments(args)
+			sub, subArgs := v.queryAndArguments()
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
 			} else {
 				query = query + sub
+			}
+			if len(subArgs) > 0 {
+				args = append(args, subArgs...)
 			}
 		}
 	}

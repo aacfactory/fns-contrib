@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/json"
 	"reflect"
 )
@@ -194,25 +193,26 @@ func (c *column) isJson() (ok bool) {
 	return
 }
 
-func mapColumnsToSqlArgs(columns []*column, rv reflect.Value, args *sql.Tuple) (err error) {
+func mapColumnsToSqlArgs(columns []*column, rv reflect.Value) (args []interface{}, err error) {
+	args = make([]interface{}, 0, 1)
 	rv = reflect.Indirect(rv)
 	for _, col := range columns {
 		fv := rv.FieldByName(col.FieldName)
 		if col.isRef() {
 			fmt.Println("ref", col.Name, col.RefName, col.RefTargetColumn.Name, fv)
 			if fv.IsNil() {
-				args.Append(nil)
+				args = append(args, nil)
 				continue
 			}
 			rfv := reflect.Indirect(fv)
 
 			refValue := rfv.FieldByName(col.RefTargetColumn.FieldName)
-			args.Append(refValue.Interface())
+			args = append(args, refValue.Interface())
 			continue
 		}
 		if col.isJson() {
 			if fv.IsNil() {
-				args.Append(nil)
+				args = append(args, nil)
 				continue
 			}
 			p, encodeErr := json.Marshal(fv.Interface())
@@ -220,10 +220,10 @@ func mapColumnsToSqlArgs(columns []*column, rv reflect.Value, args *sql.Tuple) (
 				err = fmt.Errorf("encode %s column value failed, %v", col.Name, encodeErr)
 				return
 			}
-			args.Append(p)
+			args = append(args, p)
 			continue
 		}
-		args.Append(fv.Interface())
+		args = append(args, fv.Interface())
 	}
 	return
 }
