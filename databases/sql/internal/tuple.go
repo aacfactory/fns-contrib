@@ -1,4 +1,4 @@
-package sql
+package internal
 
 import (
 	"database/sql"
@@ -146,7 +146,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 	return t
 }
 
-func (t *Tuple) mapToSQLArgs() (args []interface{}) {
+func (t *Tuple) MapToSQLArgs() (args []interface{}) {
 	args = make([]interface{}, 0, 1)
 	if t.values == nil || len(t.values) == 0 {
 		return

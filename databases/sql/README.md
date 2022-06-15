@@ -63,9 +63,9 @@ sql.BeginTransaction(ctx)
 // commit transaction
 sql.CommitTransaction(ctx)
 // query
-sql.Query(ctx, query, nil)
+sql.Query(ctx, querySQL, ...)
 // execute
-sql.Execute(ctx, query, nil)
+sql.Execute(ctx, executeSQL, ...)
 ```
 
 

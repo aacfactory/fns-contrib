@@ -1,24 +1,24 @@
 package sql
 
 import (
-	db "database/sql"
+	"database/sql"
 	"github.com/aacfactory/json"
 )
 
-func newRows(raws *db.Rows) (r *Rows, err error) {
+func newRows(raws *sql.Rows) (r Rows, err error) {
 	colTypes, colTypesErr := raws.ColumnTypes()
 	if colTypesErr != nil {
 		err = colTypesErr
 		return
 	}
-	rows := make([]*Row, 0, 1)
+	values := make([]Row, 0, 1)
 	for raws.Next() {
-		columns := make([]*Column, 0, 1)
+		columns := make([]Column, 0, 1)
 		columnScanners := make([]interface{}, 0, 1)
 		for _, colType := range colTypes {
-			column := NewColumnScanner(colType)
-			columnScanners = append(columnScanners, column)
-			columns = append(columns, column.Column)
+			col := NewColumnScanner(colType)
+			columnScanners = append(columnScanners, col)
+			columns = append(columns, col.column)
 		}
 
 		scanErr := raws.Scan(columnScanners...)
@@ -27,23 +27,23 @@ func newRows(raws *db.Rows) (r *Rows, err error) {
 			return
 		}
 
-		rows = append(rows, &Row{
+		values = append(values, &row{
 			columns,
 		})
 	}
 
-	r = &Rows{
-		values: rows,
+	r = &rows{
+		values: values,
 	}
 	return
 }
 
-type Rows struct {
+type rows struct {
 	idx    int
-	values []*Row
+	values []Row
 }
 
-func (r Rows) MarshalJSON() (p []byte, err error) {
+func (r rows) MarshalJSON() (p []byte, err error) {
 	if r.Empty() {
 		p = []byte{'[', ']'}
 		return
@@ -52,8 +52,8 @@ func (r Rows) MarshalJSON() (p []byte, err error) {
 	return
 }
 
-func (r *Rows) UnmarshalJSON(p []byte) (err error) {
-	r.values = make([]*Row, 0, 1)
+func (r *rows) UnmarshalJSON(p []byte) (err error) {
+	r.values = make([]Row, 0, 1)
 	if p == nil || len(p) == 0 || len(p) == 2 {
 		return
 	}
@@ -61,19 +61,19 @@ func (r *Rows) UnmarshalJSON(p []byte) (err error) {
 	return
 }
 
-func (r *Rows) Empty() (ok bool) {
+func (r *rows) Empty() (ok bool) {
 	ok = r.values == nil || len(r.values) == 0
 	return
 }
 
-func (r *Rows) Size() int {
+func (r *rows) Size() int {
 	if r.Empty() {
 		return 0
 	}
 	return len(r.values)
 }
 
-func (r *Rows) Next() (v *Row, has bool) {
+func (r *rows) Next() (v Row, has bool) {
 	if r.Empty() {
 		return
 	}
@@ -85,11 +85,11 @@ func (r *Rows) Next() (v *Row, has bool) {
 	return
 }
 
-type Row struct {
-	columns []*Column
+type row struct {
+	columns []Column
 }
 
-func (r Row) MarshalJSON() (p []byte, err error) {
+func (r *row) MarshalJSON() (p []byte, err error) {
 	if r.Empty() {
 		p = []byte{'[', ']'}
 		return
@@ -98,8 +98,8 @@ func (r Row) MarshalJSON() (p []byte, err error) {
 	return
 }
 
-func (r *Row) UnmarshalJSON(p []byte) (err error) {
-	r.columns = make([]*Column, 0, 1)
+func (r *row) UnmarshalJSON(p []byte) (err error) {
+	r.columns = make([]Column, 0, 1)
 	if p == nil || len(p) == 0 {
 		return
 	}
@@ -107,24 +107,24 @@ func (r *Row) UnmarshalJSON(p []byte) (err error) {
 	return
 }
 
-func (r *Row) Empty() (ok bool) {
+func (r *row) Empty() (ok bool) {
 	ok = r.columns == nil || len(r.columns) == 0
 	return
 }
 
-func (r *Row) Columns() (columns []*Column) {
+func (r *row) Columns() (columns []Column) {
 	columns = r.columns
 	return
 }
 
-func (r *Row) Column(name string, value interface{}) (has bool, err error) {
+func (r *row) Column(name string, value interface{}) (has bool, err error) {
 	if r.Empty() {
 		return
 	}
-	for _, column := range r.columns {
-		if column.Name == name {
+	for _, col := range r.columns {
+		if col.Name() == name {
 			has = true
-			err = column.Decode(value)
+			err = col.Get(value)
 			return
 		}
 	}

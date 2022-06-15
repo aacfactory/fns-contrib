@@ -97,14 +97,14 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		var queryArgs []interface{}
 		if qa.Args != nil && qa.Args.Size() > 0 {
-			queryArgs = qa.Args.mapToSQLArgs()
+			queryArgs = qa.Args.MapToSQLArgs()
 		}
-		rows, queryErr := svc.db.Query(ctx, qa.Query, queryArgs)
+		rows0, queryErr := svc.db.Query(ctx, qa.Query, queryArgs)
 		if queryErr != nil {
 			err = errors.ServiceError("sql: query argument").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
 			return
 		}
-		result, resultErr := newRows(rows)
+		result, resultErr := newRows(rows0)
 		if resultErr != nil {
 			err = errors.ServiceError("sql: query argument").WithCause(resultErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
 			return
@@ -120,7 +120,7 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		var executeArgs []interface{}
 		if ea.Args != nil && ea.Args.Size() > 0 {
-			executeArgs = ea.Args.mapToSQLArgs()
+			executeArgs = ea.Args.MapToSQLArgs()
 		}
 		result, queryErr := svc.db.Execute(ctx, ea.Query, executeArgs)
 		if queryErr != nil {
@@ -129,7 +129,7 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		affected, _ := result.RowsAffected()
 		lastInsertId, _ := result.LastInsertId()
-		v = &ExecuteResult{
+		v = &executeResult{
 			Affected:     affected,
 			LastInsertId: lastInsertId,
 		}

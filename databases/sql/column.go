@@ -1,7 +1,7 @@
 package sql
 
 import (
-	db "database/sql"
+	"database/sql"
 	"fmt"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -21,14 +21,24 @@ const (
 
 type ColumnType string
 
-type Column struct {
-	Type  ColumnType      `json:"type"`
-	Name  string          `json:"name"`
+type column struct {
+	Type_ ColumnType      `json:"type"`
+	Name_ string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 	Nil   bool            `json:"nil"`
 }
 
-func (c *Column) Decode(v interface{}) (err error) {
+func (c *column) Type() (typ string) {
+	typ = string(c.Type_)
+	return
+}
+
+func (c *column) Name() (v string) {
+	v = c.Name_
+	return
+}
+
+func (c *column) Get(v interface{}) (err error) {
 	if c.Nil {
 		return
 	}
@@ -37,8 +47,8 @@ func (c *Column) Decode(v interface{}) (err error) {
 }
 
 type ColumnScanner struct {
-	*Column
-	value db.Scanner
+	*column
+	value sql.Scanner
 }
 
 func (c *ColumnScanner) Scan(src interface{}) error {
@@ -46,9 +56,9 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 	if scanErr != nil {
 		return scanErr
 	}
-	switch c.Type {
+	switch c.Type_ {
 	case StringType:
-		x := c.value.(*db.NullString)
+		x := c.value.(*sql.NullString)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.String)
 			if encodeErr != nil {
@@ -60,7 +70,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Nil = true
 		}
 	case IntType:
-		x := c.value.(*db.NullInt64)
+		x := c.value.(*sql.NullInt64)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.Int64)
 			if encodeErr != nil {
@@ -72,7 +82,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Nil = true
 		}
 	case FloatType:
-		x := c.value.(*db.NullFloat64)
+		x := c.value.(*sql.NullFloat64)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.Float64)
 			if encodeErr != nil {
@@ -104,7 +114,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Nil = true
 		}
 	case BoolType:
-		x := c.value.(*db.NullBool)
+		x := c.value.(*sql.NullBool)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.Bool)
 			if encodeErr != nil {
@@ -116,7 +126,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Nil = true
 		}
 	case TimeType:
-		x := c.value.(*db.NullTime)
+		x := c.value.(*sql.NullTime)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.Time)
 			if encodeErr != nil {
@@ -131,29 +141,29 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 	return c.value.Scan(src)
 }
 
-func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
+func NewColumnScanner(ct *sql.ColumnType) (scanner *ColumnScanner) {
 	colName := strings.ToUpper(ct.Name())
 	_, scale, isNumber := ct.DecimalSize()
 	if isNumber {
 		if scale > 0 {
 			scanner = &ColumnScanner{
-				Column: &Column{
-					Type:  FloatType,
-					Name:  colName,
+				column: &column{
+					Type_: FloatType,
+					Name_: colName,
 					Value: nil,
 					Nil:   false,
 				},
-				value: &db.NullFloat64{},
+				value: &sql.NullFloat64{},
 			}
 		} else {
 			scanner = &ColumnScanner{
-				Column: &Column{
-					Type:  IntType,
-					Name:  colName,
+				column: &column{
+					Type_: IntType,
+					Name_: colName,
 					Value: nil,
 					Nil:   false,
 				},
-				value: &db.NullInt64{},
+				value: &sql.NullInt64{},
 			}
 		}
 		return
@@ -164,74 +174,74 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// string
 	if strings.Contains(typeName, "VARCHAR") || strings.Contains(typeName, "CHAR") || strings.Contains(typeName, "TEXT") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  StringType,
-				Name:  colName,
+			column: &column{
+				Type_: StringType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
-			value: &db.NullString{},
+			value: &sql.NullString{},
 		}
 		return
 	}
 	// int serial
 	if strings.Contains(typeName, "INT") || strings.Contains(typeName, "SERIAL") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  IntType,
-				Name:  colName,
+			column: &column{
+				Type_: IntType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
-			value: &db.NullInt64{},
+			value: &sql.NullInt64{},
 		}
 		return
 	}
 	// float
 	if strings.Contains(typeName, "FLOAT") || strings.Contains(typeName, "DOUBLE") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  FloatType,
-				Name:  colName,
+			column: &column{
+				Type_: FloatType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
-			value: &db.NullFloat64{},
+			value: &sql.NullFloat64{},
 		}
 		return
 	}
 	// bool
 	if strings.Contains(typeName, "BOOL") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  BoolType,
-				Name:  colName,
+			column: &column{
+				Type_: BoolType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
-			value: &db.NullBool{},
+			value: &sql.NullBool{},
 		}
 		return
 	}
 	// time
 	if strings.Contains(typeName, "TIMESTAMP") || strings.Contains(typeName, "DATE") || strings.Contains(typeName, "TIME") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  TimeType,
-				Name:  colName,
+			column: &column{
+				Type_: TimeType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
-			value: &db.NullTime{},
+			value: &sql.NullTime{},
 		}
 		return
 	}
 	// json
 	if strings.Contains(typeName, "JSON") || strings.Contains(typeName, "JSONB") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  JsonType,
-				Name:  colName,
+			column: &column{
+				Type_: JsonType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
@@ -242,9 +252,9 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 	// bytes
 	if strings.Contains(typeName, "BLOB") {
 		scanner = &ColumnScanner{
-			Column: &Column{
-				Type:  BytesType,
-				Name:  colName,
+			column: &column{
+				Type_: BytesType,
+				Name_: colName,
 				Value: nil,
 				Nil:   false,
 			},
@@ -253,9 +263,9 @@ func NewColumnScanner(ct *db.ColumnType) (scanner *ColumnScanner) {
 		return
 	}
 	scanner = &ColumnScanner{
-		Column: &Column{
-			Type:  UnknownType,
-			Name:  colName,
+		column: &column{
+			Type_: UnknownType,
+			Name_: colName,
 			Value: nil,
 			Nil:   false,
 		},
@@ -271,7 +281,7 @@ type NullJson struct {
 
 func (v *NullJson) Scan(src interface{}) error {
 	v.Json = []byte("null")
-	str := &db.NullString{}
+	str := &sql.NullString{}
 	scanErr := str.Scan(src)
 	if scanErr != nil {
 		return scanErr
@@ -287,7 +297,7 @@ func (v *NullJson) Scan(src interface{}) error {
 }
 
 type NullSQLRaw struct {
-	Raw   db.RawBytes
+	Raw   sql.RawBytes
 	Valid bool
 }
 

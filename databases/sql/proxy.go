@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql/internal"
 	"github.com/aacfactory/fns/service"
 )
 
@@ -25,7 +26,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
 	}
 	if !hasEndpoint {
-		err = errors.NotFound("sql: sql endpoint was not found")
+		err = errors.NotFound("sql: endpoint was not found")
 		if rid != "" {
 			err = err.WithMeta("endpointId", rid)
 			request.Header().Raw().Del(requestHeaderTransactionHostId)
@@ -64,7 +65,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, name, rid)
 	if !hasEndpoint {
 		request.Header().Raw().Del(requestHeaderTransactionHostId)
-		err = errors.NotFound("sql: sql endpoint was not found").WithMeta("endpointId", rid)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid)
 		return
 	}
 	fr := endpoint.Request(ctx, commitTransactionFn, service.NewArgument(nil))
@@ -94,7 +95,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, name, rid)
 	if !hasEndpoint {
 		request.Header().Raw().Del(requestHeaderTransactionHostId)
-		err = errors.NotFound("sql: sql endpoint was not found").WithMeta("endpointId", rid)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid)
 		return
 	}
 	fr := endpoint.Request(ctx, rollbackTransactionFn, service.NewArgument(nil))
@@ -107,7 +108,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 	return
 }
 
-func Query(ctx context.Context, query string, args *Tuple) (rows *Rows, err errors.CodeError) {
+func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err errors.CodeError) {
 	if query == "" {
 		err = errors.BadRequest("sql: invalid query argument")
 		return
@@ -126,27 +127,32 @@ func Query(ctx context.Context, query string, args *Tuple) (rows *Rows, err erro
 		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
 	}
 	if !hasEndpoint {
-		err = errors.NotFound("sql: sql endpoint was not found")
+		err = errors.NotFound("sql: endpoint was not found")
 		if rid != "" {
 			err = err.WithMeta("endpointId", rid)
 			request.Header().Raw().Del(requestHeaderTransactionHostId)
 		}
 		return
 	}
+	var tuple *internal.Tuple
+	if args != nil && len(args) > 0 {
+		tuple = internal.NewTuple().Append(args...)
+	}
 	fr := endpoint.Request(ctx, queryFn, service.NewArgument(&queryArgument{
 		Query: query,
-		Args:  args,
+		Args:  tuple,
 	}))
-	rows = &Rows{}
-	_, getResultErr := fr.Get(ctx, rows)
+	rows0 := &rows{}
+	_, getResultErr := fr.Get(ctx, rows0)
 	if getResultErr != nil {
 		err = getResultErr
 		return
 	}
+	v = rows0
 	return
 }
 
-func Execute(ctx context.Context, query string, args *Tuple) (result *ExecuteResult, err errors.CodeError) {
+func Execute(ctx context.Context, query string, args ...interface{}) (affected int64, lastInsertId int64, err errors.CodeError) {
 	if query == "" {
 		err = errors.BadRequest("sql: invalid execute argument")
 		return
@@ -165,22 +171,28 @@ func Execute(ctx context.Context, query string, args *Tuple) (result *ExecuteRes
 		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, name, rid)
 	}
 	if !hasEndpoint {
-		err = errors.NotFound("sql: sql endpoint was not found")
+		err = errors.NotFound("sql: endpoint was not found")
 		if rid != "" {
 			err = err.WithMeta("endpointId", rid)
 			request.Header().Raw().Del(requestHeaderTransactionHostId)
 		}
 		return
 	}
+	var tuple *internal.Tuple
+	if args != nil && len(args) > 0 {
+		tuple = internal.NewTuple().Append(args...)
+	}
 	fr := endpoint.Request(ctx, executeFn, service.NewArgument(&executeArgument{
 		Query: query,
-		Args:  args,
+		Args:  tuple,
 	}))
-	result = &ExecuteResult{}
+	result := &executeResult{}
 	_, getResultErr := fr.Get(ctx, result)
 	if getResultErr != nil {
 		err = getResultErr
 		return
 	}
+	affected = result.Affected
+	lastInsertId = result.LastInsertId
 	return
 }
