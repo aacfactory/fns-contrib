@@ -1,4 +1,4 @@
-package redis
+package internal
 
 import (
 	"context"
@@ -14,18 +14,18 @@ import (
 )
 
 type Config struct {
-	MasterSlaverMode   bool     `json:"masterSlaverMode,omitempty"`
-	Network            string   `json:"network,omitempty"`
-	Addr               []string `json:"addr,omitempty"`
-	Username           string   `json:"username,omitempty"`
-	Password           string   `json:"password,omitempty"`
-	DB                 int      `json:"db,omitempty"`
-	PoolSize           int      `json:"poolSize,omitempty"`
-	SSL                bool     `json:"ssl,omitempty"`
-	CaFilePath         string   `json:"caFilePath,omitempty"`
-	CertFilePath       string   `json:"certFilePath,omitempty"`
-	KeyFilePath        string   `json:"keyFilePath,omitempty"`
-	InsecureSkipVerify bool     `json:"insecureSkipVerify,omitempty"`
+	MasterSlaverMode   bool     `json:"masterSlaverMode"`
+	Network            string   `json:"network"`
+	Addr               []string `json:"addr"`
+	Username           string   `json:"username"`
+	Password           string   `json:"password"`
+	DB                 int      `json:"db"`
+	PoolSize           int      `json:"poolSize"`
+	SSL                bool     `json:"ssl"`
+	CaFilePath         string   `json:"caFilePath"`
+	CertFilePath       string   `json:"certFilePath"`
+	KeyFilePath        string   `json:"keyFilePath"`
+	InsecureSkipVerify bool     `json:"insecureSkipVerify"`
 }
 
 func (config *Config) CreateClient() (client Client, err error) {
@@ -53,12 +53,12 @@ func (config *Config) CreateClient() (client Client, err error) {
 	}
 	if config.MasterSlaverMode {
 		if len(config.Addr) < 2 {
-			err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but num of addr is not gt 1")
+			err = fmt.Errorf("redis: masterSlaverMode is enabled but num of addr is not gt 1")
 			return
 		}
 		masterAddr := strings.TrimSpace(config.Addr[0])
 		if masterAddr == "" {
-			err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but first of addr is empty")
+			err = fmt.Errorf("redis: masterSlaverMode is enabled but first of addr is empty")
 			return
 		}
 		master := rds.NewClient(&rds.Options{
@@ -75,7 +75,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := master.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis: ping %s failed, %v", masterAddr, pingErr)
+			err = fmt.Errorf("redis: ping %s failed, %v", masterAddr, pingErr)
 			return
 		}
 
@@ -84,7 +84,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 		for _, slaverAddr := range slaverAddrs {
 			slaverAddr = strings.TrimSpace(slaverAddr)
 			if slaverAddr == "" {
-				err = fmt.Errorf("fns Redis: masterSlaverMode is enabled but one of slavers addr is empty")
+				err = fmt.Errorf("redis: masterSlaverMode is enabled but one of slavers addr is empty")
 				return
 			}
 			slaver := rds.NewClient(&rds.Options{
@@ -101,13 +101,13 @@ func (config *Config) CreateClient() (client Client, err error) {
 			})
 			pingSlaverErr := slaver.Ping(context.TODO()).Err()
 			if pingSlaverErr != nil {
-				err = fmt.Errorf("fns Redis: ping %s failed, %v", slaverAddr, pingSlaverErr)
+				err = fmt.Errorf("redis: ping %s failed, %v", slaverAddr, pingSlaverErr)
 				return
 			}
 			slavers = append(slavers, slaver)
 		}
 
-		client = &MasterSlaver{
+		client = &masterSlaver{
 			master:     master,
 			slavers:    slavers,
 			slaversNum: len(slavers),
@@ -118,7 +118,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 	if len(config.Addr) == 1 {
 		addr := strings.TrimSpace(config.Addr[0])
 		if addr == "" {
-			err = fmt.Errorf("fns Redis: first of addr is empty")
+			err = fmt.Errorf("redis: first of addr is empty")
 			return
 		}
 		node := rds.NewClient(&rds.Options{
@@ -135,10 +135,10 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := node.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis: ping %s failed, %v", addr, pingErr)
+			err = fmt.Errorf("redis: ping %s failed, %v", addr, pingErr)
 			return
 		}
-		client = &Standalone{
+		client = &standalone{
 			client: node,
 		}
 		return
@@ -148,7 +148,7 @@ func (config *Config) CreateClient() (client Client, err error) {
 	for _, addr := range config.Addr {
 		addr = strings.TrimSpace(addr)
 		if addr == "" {
-			err = fmt.Errorf("fns Redis: one of addr is empty")
+			err = fmt.Errorf("redis: one of addr is empty")
 			return
 		}
 		node := rds.NewClient(&rds.Options{
@@ -165,13 +165,13 @@ func (config *Config) CreateClient() (client Client, err error) {
 		})
 		pingErr := node.Ping(context.TODO()).Err()
 		if pingErr != nil {
-			err = fmt.Errorf("fns Redis: ping %s failed, %v", addr, pingErr)
+			err = fmt.Errorf("redis: ping %s failed, %v", addr, pingErr)
 			return
 		}
 		nodes = append(nodes, node)
 	}
 
-	cluster := rds.NewClusterClient(&rds.ClusterOptions{
+	clusterClient := rds.NewClusterClient(&rds.ClusterOptions{
 		Addrs:        config.Addr,
 		Username:     username,
 		Password:     password,
@@ -183,14 +183,14 @@ func (config *Config) CreateClient() (client Client, err error) {
 		TLSConfig:    ssl,
 	})
 
-	pingErr := cluster.Ping(context.TODO()).Err()
+	pingErr := clusterClient.Ping(context.TODO()).Err()
 	if pingErr != nil {
-		err = fmt.Errorf("fns Redis: ping %s failed, %v", config.Addr, pingErr)
+		err = fmt.Errorf("redis: ping %s failed, %v", config.Addr, pingErr)
 		return
 	}
 
-	client = &Cluster{
-		client: cluster,
+	client = &cluster{
+		client: clusterClient,
 	}
 
 	return
@@ -199,28 +199,28 @@ func (config *Config) CreateClient() (client Client, err error) {
 func (config *Config) LoadSSL() (ssl *tls.Config, err error) {
 	certFilePath := strings.TrimSpace(config.CertFilePath)
 	if certFilePath == "" {
-		err = fmt.Errorf("fns Redis: ssl is enabled but certFilePath is empty")
+		err = fmt.Errorf("redis: ssl is enabled but certFilePath is empty")
 		return
 	}
 	keyFilePath := strings.TrimSpace(config.KeyFilePath)
 	if keyFilePath == "" {
-		err = fmt.Errorf("fns Redis: ssl is enabled but keyFilePath is empty")
+		err = fmt.Errorf("redis: ssl is enabled but keyFilePath is empty")
 		return
 	}
 	var absErr error
 	certFilePath, absErr = filepath.Abs(certFilePath)
 	if absErr != nil {
-		err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
+		err = fmt.Errorf("redis: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
 		return
 	}
 	keyFilePath, absErr = filepath.Abs(keyFilePath)
 	if absErr != nil {
-		err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
+		err = fmt.Errorf("redis: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
 		return
 	}
 	certificate, certificateErr := tls.LoadX509KeyPair(certFilePath, keyFilePath)
 	if certificateErr != nil {
-		err = fmt.Errorf("fns Redis: ssl is enabled but load x509 key pair failed, %v", certificateErr)
+		err = fmt.Errorf("redis: ssl is enabled but load x509 key pair failed, %v", certificateErr)
 		return
 	}
 
@@ -233,17 +233,17 @@ func (config *Config) LoadSSL() (ssl *tls.Config, err error) {
 	if caFilePath != "" {
 		caFilePath, absErr = filepath.Abs(caFilePath)
 		if absErr != nil {
-			err = fmt.Errorf("fns Redis: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
+			err = fmt.Errorf("redis: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
 			return
 		}
 		caContent, caReadErr := ioutil.ReadFile(caFilePath)
 		if caReadErr != nil {
-			err = fmt.Errorf("fns Redis: ssl is enabled but read caFilePath content failed, %v", caReadErr)
+			err = fmt.Errorf("redis: ssl is enabled but read caFilePath content failed, %v", caReadErr)
 			return
 		}
 		caPool := x509.NewCertPool()
 		if !caPool.AppendCertsFromPEM(caContent) {
-			err = fmt.Errorf("fns Redis: ssl is enabled but append ca into cert pool failed")
+			err = fmt.Errorf("redis: ssl is enabled but append ca into cert pool failed")
 			return
 		}
 		ssl.RootCAs = caPool

@@ -31,7 +31,9 @@ type executeResult struct {
 type Column interface {
 	Type() (typ string)
 	Name() (v string)
+	IsNil() (ok bool)
 	Get(v interface{}) (err error)
+	RawValue() (raw []byte)
 }
 
 type Row interface {

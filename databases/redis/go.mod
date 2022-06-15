@@ -1,11 +1,15 @@
 module github.com/aacfactory/fns-contrib/databases/redis
 
-go 1.17
+go 1.18
+
+replace (
+	github.com/aacfactory/fns v0.11.2 => ../../../fns
+)
 
 require (
 	github.com/aacfactory/configuares v1.3.1
 	github.com/aacfactory/errors v1.6.3
-	github.com/aacfactory/fns v0.11.1
+	github.com/aacfactory/fns v0.11.2
 	github.com/aacfactory/json v1.5.0
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/valyala/bytebufferpool v1.0.0

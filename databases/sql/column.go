@@ -38,11 +38,21 @@ func (c *column) Name() (v string) {
 	return
 }
 
+func (c *column) IsNil() (ok bool) {
+	ok = c.Nil
+	return
+}
+
 func (c *column) Get(v interface{}) (err error) {
 	if c.Nil {
 		return
 	}
 	err = json.Unmarshal(c.Value, v)
+	return
+}
+
+func (c *column) RawValue() (raw []byte) {
+	raw = c.Value
 	return
 }
 
