@@ -144,7 +144,7 @@ func decrBy(ctx context.Context, client Client, key string, value int64) (v int6
 	return
 }
 
-func append(ctx context.Context, client Client, key string, value string) (v int64, err errors.CodeError) {
+func append0(ctx context.Context, client Client, key string, value string) (v int64, err errors.CodeError) {
 	var doErr error
 	v, doErr = client.Writer().Append(ctx, key, value).Result()
 	if doErr != nil {
