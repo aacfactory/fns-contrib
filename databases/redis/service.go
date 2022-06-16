@@ -1,14 +1,17 @@
 package redis
 
 import (
+	"context"
 	"fmt"
-	"github.com/aacfactory/configuares"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns"
+	"github.com/aacfactory/fns-contrib/databases/redis/internal"
+	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/logs"
 )
 
 const (
-	namespace = "redis"
+	name      = "redis"
+	commandFn = "command"
 
 	setFn              = "set"
 	getFn              = "get"
@@ -34,272 +37,79 @@ const (
 	originCmdFn        = "cmd"
 )
 
-func Service() fns.Service {
-	return &service{}
+func Service() service.Service {
+	return &_service_{}
 }
 
-type service struct {
-	client Client
+type _service_ struct {
+	log      logs.Logger
+	database internal.Database
 }
 
-func (svc *service) Namespace() string {
-	return namespace
+func (svc *_service_) Name() string {
+	return name
 }
 
-func (svc *service) Internal() bool {
+func (svc *_service_) Internal() bool {
 	return true
 }
 
-func (svc *service) Build(_ fns.Context, root configuares.Config) (err error) {
-	config := Config{}
-	readErr := root.As(&config)
-	if readErr != nil {
-		err = fmt.Errorf("fns Redis Build: read redis config failed, %v", readErr)
-		return
-	}
+func (svc *_service_) Build(options service.Options) (err error) {
 
-	client, createErr := config.CreateClient()
-	if createErr != nil {
-		err = createErr
-		return
-	}
-
-	svc.client = client
 	return
 }
 
-func (svc *service) Document() (doc *fns.ServiceDocument) {
+func (svc *_service_) Components() (components map[string]service.Component) {
+	return
+}
+func (svc *_service_) Document() (doc service.Document) {
 	return
 }
 
-func (svc *service) Handle(context fns.Context, fn string, argument fns.Argument) (result interface{}, err errors.CodeError) {
+func (svc *_service_) Handle(context context.Context, fn string, argument service.Argument) (result interface{}, err errors.CodeError) {
 	switch fn {
-	case setFn:
-		context = fns.WithFn(context, fn)
-		param := SetParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
+	case commandFn:
+		command := &Command{}
+		argumentErr := argument.As(command)
+		if argumentErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(argumentErr).WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		err = svc.set(context, param)
-		if err == nil {
-			result = struct{}{}
-		}
-	case getFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
+		commandName := command.Name
+		if commandName == "" {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(fmt.Errorf("command name is empty")).WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		result, err = svc.get(context, key)
-	case getSetFn:
-		context = fns.WithFn(context, fn)
-		param := SetParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
+		commandParams, paramsErr := command.Params.convert()
+		if paramsErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramsErr).WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		result, err = svc.getAndSet(context, param)
-	case incrFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
+		handleResult, handleErr := svc.database.HandleCommand(context, commandName, commandParams)
+		if handleErr != nil {
+			if handleErr.Code() == 404 {
+				result = &Result{
+					Exist: false,
+					Value: nil,
+				}
+				return
+			}
+			err = handleErr.WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		result, err = svc.incr(context, key)
-		if err == nil {
-			result = struct{}{}
+		result = &Result{
+			Exist: true,
+			Value: handleResult,
 		}
-	case decrFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.decr(context, key)
-		if err == nil {
-			result = struct{}{}
-		}
-	case containsFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.contains(context, key)
-	case removeFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		err = svc.remove(context, key)
-		if err == nil {
-			result = struct{}{}
-		}
-	case expireFn:
-		context = fns.WithFn(context, fn)
-		param := ExpireParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.expire(context, param)
-	case persistFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.persist(context, key)
-	case ttlFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.ttl(context, key)
-	case zAddFn:
-		context = fns.WithFn(context, fn)
-		param := ZAddParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		err = svc.zAdd(context, param)
-		if err == nil {
-			result = struct{}{}
-		}
-	case zCardFn:
-		context = fns.WithFn(context, fn)
-		key := ""
-		argErr := argument.As(&key)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zCard(context, key)
-	case zRangeFn:
-		context = fns.WithFn(context, fn)
-		param := ZRangeParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRange(context, param)
-	case zRangeByScoreFn:
-		context = fns.WithFn(context, fn)
-		param := ZRangeByScoreParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRangeByScore(context, param)
-	case zRemFn:
-		context = fns.WithFn(context, fn)
-		param := ZRemParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRem(context, param)
-	case zRemByRankFn:
-		context = fns.WithFn(context, fn)
-		param := ZRemByRankParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRemByRank(context, param)
-	case zRemByScoreFn:
-		context = fns.WithFn(context, fn)
-		param := ZRemByScoreParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRemByScore(context, param)
-	case zRevRangeFn:
-		context = fns.WithFn(context, fn)
-		param := ZRevRangeParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRevRange(context, param)
-	case zRevRangeByScoreFn:
-		context = fns.WithFn(context, fn)
-		param := ZRevRangeByScoreParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.zRevRangeByScore(context, param)
-	case lockFn:
-		context = fns.WithFn(context, fn)
-		param := LockParam{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		err = svc.lock(context, param)
-		if err == nil {
-			result = struct{}{}
-		}
-	case unlockFn:
-		context = fns.WithFn(context, fn)
-		param := ""
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		err = svc.unlock(context, param)
-		if err == nil {
-			result = struct{}{}
-		}
-	case originCmdFn:
-		context = fns.WithFn(context, fn)
-		param := OriginCommandArg{}
-		argErr := argument.As(&param)
-		if argErr != nil {
-			err = argErr
-			return
-		}
-		result, err = svc.cmd(context, param)
+		break
 	default:
-		err = errors.NotFound(fmt.Sprintf("fns Redis: %s was not found", fn))
+		err = errors.NotFound("redis: fn was not found").WithMeta("service", name).WithMeta("fn", fn)
+		break
 	}
 	return
 }
 
-func (svc *service) Shutdown() (err error) {
-	err = svc.client.Close()
+func (svc *_service_) Close() {
+	svc.database.Close()
 	return
 }

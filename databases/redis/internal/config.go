@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/aacfactory/fns/commons/container/ring"
 	rds "github.com/go-redis/redis/v8"
 	"io/ioutil"
 	"path/filepath"
@@ -80,8 +81,8 @@ func (config *Config) CreateClient() (client Client, err error) {
 		}
 
 		slaverAddrs := config.Addr[1:]
-		slavers := make([]*rds.Client, 0, len(slaverAddrs))
-		for _, slaverAddr := range slaverAddrs {
+		slavers := ring.New()
+		for i, slaverAddr := range slaverAddrs {
 			slaverAddr = strings.TrimSpace(slaverAddr)
 			if slaverAddr == "" {
 				err = fmt.Errorf("redis: masterSlaverMode is enabled but one of slavers addr is empty")
@@ -104,13 +105,14 @@ func (config *Config) CreateClient() (client Client, err error) {
 				err = fmt.Errorf("redis: ping %s failed, %v", slaverAddr, pingSlaverErr)
 				return
 			}
-			slavers = append(slavers, slaver)
+			slavers.Append(&keyedClient{
+				key: fmt.Sprintf("%v", i),
+				v:   slaver,
+			})
 		}
-
 		client = &masterSlaver{
-			master:     master,
-			slavers:    slavers,
-			slaversNum: len(slavers),
+			master:  master,
+			slavers: slavers,
 		}
 		return
 	}

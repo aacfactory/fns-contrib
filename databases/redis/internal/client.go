@@ -1,10 +1,11 @@
-package redis
+package internal
 
 import (
 	"context"
 	"fmt"
+	"github.com/aacfactory/fns/commons/container/ring"
 	rds "github.com/go-redis/redis/v8"
-	"math/rand"
+	"strings"
 )
 
 type Client interface {
@@ -37,10 +38,18 @@ func (client *standalone) Close() (err error) {
 	return
 }
 
+type keyedClient struct {
+	key string
+	v   *rds.Client
+}
+
+func (k *keyedClient) Key() string {
+	return k.key
+}
+
 type masterSlaver struct {
-	master     *rds.Client
-	slavers    []*rds.Client
-	slaversNum int
+	master  *rds.Client
+	slavers *ring.Ring
 }
 
 func (client *masterSlaver) Do(ctx context.Context, args ...interface{}) *rds.Cmd {
@@ -53,27 +62,35 @@ func (client *masterSlaver) Writer() (cmd rds.Cmdable) {
 }
 
 func (client *masterSlaver) Reader() (cmd rds.Cmdable) {
-	cmd = client.slavers[rand.Intn(client.slaversNum)]
+	x := client.slavers.Next()
+	if x == nil {
+		return
+	}
+	kdb, _ := x.(*keyedClient)
+	cmd = kdb.v
 	return
 }
 
 func (client *masterSlaver) Close() (err error) {
-	errs := ""
-
+	closeErrors := make([]string, 0, 1)
 	masterCloseErr := client.master.Close()
 	if masterCloseErr != nil {
-		errs = errs + ", " + masterCloseErr.Error()
+		closeErrors = append(closeErrors, masterCloseErr.Error())
 	}
-
-	for _, slaver := range client.slavers {
-		slaverCloseErr := slaver.Close()
-		if slaverCloseErr != nil {
-			errs = errs + ", " + slaverCloseErr.Error()
+	for i := 0; i < client.slavers.Size(); i++ {
+		x := client.slavers.Next()
+		if x == nil {
+			return
+		}
+		kdb, _ := x.(*keyedClient)
+		slaverErr := kdb.v.Close()
+		if slaverErr != nil {
+			closeErrors = append(closeErrors, slaverErr.Error())
 		}
 	}
 
-	if errs != "" {
-		err = fmt.Errorf(errs[2:])
+	if len(closeErrors) > 0 {
+		err = fmt.Errorf("redis: close failed, %v", strings.Join(closeErrors, ","))
 		return
 	}
 	return
