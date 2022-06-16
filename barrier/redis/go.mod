@@ -4,6 +4,7 @@ go 1.18
 
 replace (
 	github.com/aacfactory/fns v0.11.2 => ../../../fns
+	github.com/aacfactory/fns-contrib/databases/redis v0.11.0 => ../../databases/redis
 )
 
 require (
