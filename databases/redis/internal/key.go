@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	KeysCmd    = "KEYS"
-	DeleteCmd  = "DEL"
-	ExistsCmd  = "EXISTS"
-	ExpireCmd  = "EXPIRE"
-	PersistCmd = "PERSIST"
-	ScanCmd    = "SCAN"
+	KEYS    = "KEYS"
+	DEL     = "DEL"
+	EXISTS  = "EXISTS"
+	EXPIRE  = "EXPIRE"
+	PERSIST = "PERSIST"
+	SCAN    = "SCAN"
 )
 
 func keys(ctx context.Context, client Client, pattern string) (v []string, err errors.CodeError) {

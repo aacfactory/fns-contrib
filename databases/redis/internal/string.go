@@ -8,18 +8,18 @@ import (
 )
 
 const (
-	SetCmd    = "SET"
-	SetNxCmd  = "SETNX"
-	GetCmd    = "GET"
-	GetSetCmd = "GETSET"
-	MGetCmd   = "MGET"
-	MSetCmd   = "MSET"
-	SetExCmd  = "SETEX"
-	IncrCmd   = "INCR"
-	IncrByCmd = "INCRBY"
-	DecrCmd   = "DECR"
-	DecrByCmd = "DECRBY"
-	AppendCmd = "APPEND"
+	SET    = "SET"
+	SETNX  = "SETNX"
+	GET    = "GET"
+	GETSET = "GETSET"
+	MGET   = "MGET"
+	MSET   = "MSET"
+	SETEX  = "SETEX"
+	INCR   = "INCR"
+	INCRBY = "INCRBY"
+	DECR   = "DECR"
+	DECRBY = "DECRBY"
+	APPEND = "APPEND"
 )
 
 func set(ctx context.Context, client Client, key string, value interface{}, expiration time.Duration) (err errors.CodeError) {
