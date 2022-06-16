@@ -17,7 +17,11 @@ var (
 	prefix = []byte("Bearer ")
 )
 
-type Encoding struct {
+func Encoding() authorizations.TokenEncoding {
+	return &encoding{}
+}
+
+type encoding struct {
 	log         logs.Logger
 	method      gwt.SigningMethod
 	pubKey      interface{}
@@ -27,7 +31,7 @@ type Encoding struct {
 	expirations time.Duration
 }
 
-func (encoding *Encoding) Build(options authorizations.TokenEncodingOptions) (err error) {
+func (encoding *encoding) Build(options authorizations.TokenEncodingOptions) (err error) {
 	encoding.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -134,7 +138,7 @@ func (encoding *Encoding) Build(options authorizations.TokenEncodingOptions) (er
 	return
 }
 
-func (encoding *Encoding) Encode(id string, attributes *json.Object) (token authorizations.Token, err error) {
+func (encoding *encoding) Encode(id string, attributes *json.Object) (token authorizations.Token, err error) {
 	if attributes == nil {
 		attributes = json.NewObject()
 	}
@@ -167,7 +171,7 @@ func (encoding *Encoding) Encode(id string, attributes *json.Object) (token auth
 	return
 }
 
-func (encoding *Encoding) Decode(p []byte) (token authorizations.Token, err error) {
+func (encoding *encoding) Decode(p []byte) (token authorizations.Token, err error) {
 	if p == nil || len(p) < 7 {
 		err = errors.Unauthorized(fmt.Sprintf("jwt: decode failed for %s is not jwt", string(p)))
 		return
