@@ -16,7 +16,8 @@ const (
 	SCAN    = "SCAN"
 )
 
-func keys(ctx context.Context, client Client, pattern string) (v []string, err errors.CodeError) {
+func keys(ctx context.Context, client Client, params []interface{}) (v []string, err errors.CodeError) {
+	pattern := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().Keys(ctx, pattern).Result()
 	if doErr != nil {
@@ -30,7 +31,11 @@ func keys(ctx context.Context, client Client, pattern string) (v []string, err e
 	return
 }
 
-func del(ctx context.Context, client Client, key ...string) (err errors.CodeError) {
+func del(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := make([]string, 0, 1)
+	for _, param := range params {
+		key = append(key, param.(string))
+	}
 	doErr := client.Writer().Del(ctx, key...).Err()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle del command failed").WithCause(doErr)
@@ -39,7 +44,8 @@ func del(ctx context.Context, client Client, key ...string) (err errors.CodeErro
 	return
 }
 
-func exists(ctx context.Context, client Client, key string) (has bool, err errors.CodeError) {
+func exists(ctx context.Context, client Client, params []interface{}) (has bool, err errors.CodeError) {
+	key := params[0].(string)
 	v, doErr := client.Reader().Exists(ctx, key).Result()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle exists command failed").WithCause(doErr)
@@ -49,7 +55,9 @@ func exists(ctx context.Context, client Client, key string) (has bool, err error
 	return
 }
 
-func expire(ctx context.Context, client Client, key string, expiration time.Duration) (err errors.CodeError) {
+func expire(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	expiration := params[1].(time.Duration)
 	_, doErr := client.Writer().Expire(ctx, key, expiration).Result()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle expire command failed").WithCause(doErr)
@@ -58,7 +66,8 @@ func expire(ctx context.Context, client Client, key string, expiration time.Dura
 	return
 }
 
-func persist(ctx context.Context, client Client, key string) (err errors.CodeError) {
+func persist(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
 	_, doErr := client.Writer().Persist(ctx, key).Result()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle persist command failed").WithCause(doErr)
@@ -67,7 +76,10 @@ func persist(ctx context.Context, client Client, key string) (err errors.CodeErr
 	return
 }
 
-func scan(ctx context.Context, client Client, cursor uint64, match string, count int64) (keys []string, next uint64, err errors.CodeError) {
+func scan(ctx context.Context, client Client, params []interface{}) (keys []string, next uint64, err errors.CodeError) {
+	cursor := params[0].(uint64)
+	match := params[1].(string)
+	count := params[2].(int64)
 	var doErr error
 	keys, next, doErr = client.Reader().Scan(ctx, cursor, match, count).Result()
 	if doErr != nil {

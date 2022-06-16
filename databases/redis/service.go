@@ -12,29 +12,6 @@ import (
 const (
 	name      = "redis"
 	commandFn = "command"
-
-	setFn              = "set"
-	getFn              = "get"
-	getSetFn           = "get_set"
-	incrFn             = "incr"
-	decrFn             = "decr"
-	containsFn         = "contains"
-	removeFn           = "remove"
-	expireFn           = "expire"
-	persistFn          = "persist"
-	ttlFn              = "ttl"
-	zAddFn             = "z_add"
-	zCardFn            = "z_card"
-	zRangeFn           = "z_range"
-	zRangeByScoreFn    = "z_range_by_score"
-	zRemFn             = "z_rem"
-	zRemByRankFn       = "z_rem_by_rank"
-	zRemByScoreFn      = "z_rem_by_score"
-	zRevRangeFn        = "z_rev_range"
-	zRevRangeByScoreFn = "z_rev_range_by_score"
-	lockFn             = "lock"
-	unlockFn           = "unlock"
-	originCmdFn        = "cmd"
 )
 
 func Service() service.Service {

@@ -22,7 +22,13 @@ const (
 	APPEND = "APPEND"
 )
 
-func set(ctx context.Context, client Client, key string, value interface{}, expiration time.Duration) (err errors.CodeError) {
+func set(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1]
+	expiration := time.Duration(0)
+	if len(params) > 2 {
+		expiration = params[2].(time.Duration)
+	}
 	var doErr error
 	doErr = client.Writer().Set(ctx, key, value, expiration).Err()
 	if doErr != nil {
@@ -32,7 +38,13 @@ func set(ctx context.Context, client Client, key string, value interface{}, expi
 	return
 }
 
-func setNX(ctx context.Context, client Client, key string, value interface{}, expiration time.Duration) (err errors.CodeError) {
+func setNX(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1]
+	expiration := time.Duration(0)
+	if len(params) > 2 {
+		expiration = params[2].(time.Duration)
+	}
 	var doErr error
 	doErr = client.Writer().SetNX(ctx, key, value, expiration).Err()
 	if doErr != nil {
@@ -42,7 +54,8 @@ func setNX(ctx context.Context, client Client, key string, value interface{}, ex
 	return
 }
 
-func get(ctx context.Context, client Client, key string) (v string, err errors.CodeError) {
+func get(ctx context.Context, client Client, params []interface{}) (v string, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().Get(ctx, key).Result()
 	if doErr != nil {
@@ -56,7 +69,9 @@ func get(ctx context.Context, client Client, key string) (v string, err errors.C
 	return
 }
 
-func getSet(ctx context.Context, client Client, key string, value interface{}) (v string, err errors.CodeError) {
+func getSet(ctx context.Context, client Client, params []interface{}) (v string, err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1]
 	var doErr error
 	v, doErr = client.Writer().GetSet(ctx, key, value).Result()
 	if doErr != nil {
@@ -70,7 +85,11 @@ func getSet(ctx context.Context, client Client, key string, value interface{}) (
 	return
 }
 
-func mget(ctx context.Context, client Client, key ...string) (v []interface{}, err errors.CodeError) {
+func mget(ctx context.Context, client Client, params []interface{}) (v []interface{}, err errors.CodeError) {
+	key := make([]string, 0, 1)
+	for _, param := range params {
+		key = append(key, param.(string))
+	}
 	var doErr error
 	v, doErr = client.Reader().MGet(ctx, key...).Result()
 	if doErr != nil {
@@ -84,9 +103,9 @@ func mget(ctx context.Context, client Client, key ...string) (v []interface{}, e
 	return
 }
 
-func mset(ctx context.Context, client Client, values ...interface{}) (err errors.CodeError) {
+func mset(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
 	var doErr error
-	_, doErr = client.Writer().MSet(ctx, values...).Result()
+	_, doErr = client.Writer().MSet(ctx, params...).Result()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle mset command failed").WithCause(doErr)
 		return
@@ -94,7 +113,13 @@ func mset(ctx context.Context, client Client, values ...interface{}) (err errors
 	return
 }
 
-func setEX(ctx context.Context, client Client, key string, value interface{}, expiration time.Duration) (err errors.CodeError) {
+func setEX(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1]
+	expiration := time.Duration(0)
+	if len(params) > 2 {
+		expiration = params[2].(time.Duration)
+	}
 	var doErr error
 	_, doErr = client.Writer().SetEX(ctx, key, value, expiration).Result()
 	if doErr != nil {
@@ -104,7 +129,8 @@ func setEX(ctx context.Context, client Client, key string, value interface{}, ex
 	return
 }
 
-func incr(ctx context.Context, client Client, key string) (v int64, err errors.CodeError) {
+func incr(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Writer().Incr(ctx, key).Result()
 	if doErr != nil {
@@ -114,7 +140,9 @@ func incr(ctx context.Context, client Client, key string) (v int64, err errors.C
 	return
 }
 
-func incrBy(ctx context.Context, client Client, key string, value int64) (v int64, err errors.CodeError) {
+func incrBy(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1].(int64)
 	var doErr error
 	v, doErr = client.Writer().IncrBy(ctx, key, value).Result()
 	if doErr != nil {
@@ -124,7 +152,8 @@ func incrBy(ctx context.Context, client Client, key string, value int64) (v int6
 	return
 }
 
-func decr(ctx context.Context, client Client, key string) (v int64, err errors.CodeError) {
+func decr(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Writer().Decr(ctx, key).Result()
 	if doErr != nil {
@@ -134,7 +163,9 @@ func decr(ctx context.Context, client Client, key string) (v int64, err errors.C
 	return
 }
 
-func decrBy(ctx context.Context, client Client, key string, value int64) (v int64, err errors.CodeError) {
+func decrBy(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1].(int64)
 	var doErr error
 	v, doErr = client.Writer().DecrBy(ctx, key, value).Result()
 	if doErr != nil {
@@ -144,7 +175,9 @@ func decrBy(ctx context.Context, client Client, key string, value int64) (v int6
 	return
 }
 
-func append0(ctx context.Context, client Client, key string, value string) (v int64, err errors.CodeError) {
+func append0(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	value := params[1].(string)
 	var doErr error
 	v, doErr = client.Writer().Append(ctx, key, value).Result()
 	if doErr != nil {

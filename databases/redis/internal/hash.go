@@ -22,7 +22,12 @@ const (
 	HSCAN    = "HSCAN"
 )
 
-func hdel(ctx context.Context, client Client, key string, fields ...string) (err errors.CodeError) {
+func hdel(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	fields := make([]string, 0, 1)
+	for _, param := range params[1:] {
+		fields = append(fields, param.(string))
+	}
 	var doErr error
 	doErr = client.Writer().HDel(ctx, key, fields...).Err()
 	if doErr != nil {
@@ -32,7 +37,9 @@ func hdel(ctx context.Context, client Client, key string, fields ...string) (err
 	return
 }
 
-func hexist(ctx context.Context, client Client, key string, field string) (has bool, err errors.CodeError) {
+func hexist(ctx context.Context, client Client, params []interface{}) (has bool, err errors.CodeError) {
+	key := params[0].(string)
+	field := params[1].(string)
 	var doErr error
 	has, doErr = client.Reader().HExists(ctx, key, field).Result()
 	if doErr != nil {
@@ -42,7 +49,9 @@ func hexist(ctx context.Context, client Client, key string, field string) (has b
 	return
 }
 
-func hget(ctx context.Context, client Client, key string, field string) (v string, err errors.CodeError) {
+func hget(ctx context.Context, client Client, params []interface{}) (v string, err errors.CodeError) {
+	key := params[0].(string)
+	field := params[1].(string)
 	var doErr error
 	v, doErr = client.Reader().HGet(ctx, key, field).Result()
 	if doErr != nil {
@@ -56,7 +65,8 @@ func hget(ctx context.Context, client Client, key string, field string) (v strin
 	return
 }
 
-func hgetall(ctx context.Context, client Client, key string) (v map[string]string, err errors.CodeError) {
+func hgetall(ctx context.Context, client Client, params []interface{}) (v map[string]string, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().HGetAll(ctx, key).Result()
 	if doErr != nil {
@@ -70,7 +80,10 @@ func hgetall(ctx context.Context, client Client, key string) (v map[string]strin
 	return
 }
 
-func hincrby(ctx context.Context, client Client, key string, field string, value int64) (v int64, err errors.CodeError) {
+func hincrby(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	field := params[1].(string)
+	value := params[2].(int64)
 	var doErr error
 	v, doErr = client.Writer().HIncrBy(ctx, key, field, value).Result()
 	if doErr != nil {
@@ -80,7 +93,8 @@ func hincrby(ctx context.Context, client Client, key string, field string, value
 	return
 }
 
-func hkeys(ctx context.Context, client Client, key string) (v []string, err errors.CodeError) {
+func hkeys(ctx context.Context, client Client, params []interface{}) (v []string, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().HKeys(ctx, key).Result()
 	if doErr != nil {
@@ -94,7 +108,8 @@ func hkeys(ctx context.Context, client Client, key string) (v []string, err erro
 	return
 }
 
-func hlen(ctx context.Context, client Client, key string) (v int64, err errors.CodeError) {
+func hlen(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().HLen(ctx, key).Result()
 	if doErr != nil {
@@ -108,7 +123,12 @@ func hlen(ctx context.Context, client Client, key string) (v int64, err errors.C
 	return
 }
 
-func hmget(ctx context.Context, client Client, key string, fields ...string) (v []interface{}, err errors.CodeError) {
+func hmget(ctx context.Context, client Client, params []interface{}) (v []interface{}, err errors.CodeError) {
+	key := params[0].(string)
+	fields := make([]string, 0, 1)
+	for _, param := range params[1:] {
+		fields = append(fields, param.(string))
+	}
 	var doErr error
 	v, doErr = client.Reader().HMGet(ctx, key, fields...).Result()
 	if doErr != nil {
@@ -122,7 +142,12 @@ func hmget(ctx context.Context, client Client, key string, fields ...string) (v 
 	return
 }
 
-func hmset(ctx context.Context, client Client, key string, values ...interface{}) (v bool, err errors.CodeError) {
+func hmset(ctx context.Context, client Client, params []interface{}) (v bool, err errors.CodeError) {
+	key := params[0].(string)
+	values := make([]interface{}, 0, 1)
+	for _, param := range params[1:] {
+		values = append(values, param)
+	}
 	var doErr error
 	v, doErr = client.Writer().HMSet(ctx, key, values...).Result()
 	if doErr != nil {
@@ -132,7 +157,12 @@ func hmset(ctx context.Context, client Client, key string, values ...interface{}
 	return
 }
 
-func hset(ctx context.Context, client Client, key string, values ...interface{}) (err errors.CodeError) {
+func hset(ctx context.Context, client Client, params []interface{}) (err errors.CodeError) {
+	key := params[0].(string)
+	values := make([]interface{}, 0, 1)
+	for _, param := range params[1:] {
+		values = append(values, param)
+	}
 	var doErr error
 	_, doErr = client.Writer().HSet(ctx, key, values...).Result()
 	if doErr != nil {
@@ -142,7 +172,10 @@ func hset(ctx context.Context, client Client, key string, values ...interface{})
 	return
 }
 
-func hsetnx(ctx context.Context, client Client, key string, field string, value interface{}) (ok bool, err errors.CodeError) {
+func hsetnx(ctx context.Context, client Client, params []interface{}) (ok bool, err errors.CodeError) {
+	key := params[0].(string)
+	field := params[1].(string)
+	value := params[2]
 	var doErr error
 	ok, doErr = client.Writer().HSetNX(ctx, key, field, value).Result()
 	if doErr != nil {
@@ -152,7 +185,8 @@ func hsetnx(ctx context.Context, client Client, key string, field string, value 
 	return
 }
 
-func hvals(ctx context.Context, client Client, key string) (v []string, err errors.CodeError) {
+func hvals(ctx context.Context, client Client, params []interface{}) (v []string, err errors.CodeError) {
+	key := params[0].(string)
 	var doErr error
 	v, doErr = client.Reader().HVals(ctx, key).Result()
 	if doErr != nil {
@@ -166,7 +200,11 @@ func hvals(ctx context.Context, client Client, key string) (v []string, err erro
 	return
 }
 
-func hscan(ctx context.Context, client Client, key string, cursor uint64, match string, count int64) (keys []string, next uint64, err errors.CodeError) {
+func hscan(ctx context.Context, client Client, params []interface{}) (keys []string, next uint64, err errors.CodeError) {
+	key := params[0].(string)
+	cursor := params[1].(uint64)
+	match := params[2].(string)
+	count := params[3].(int64)
 	var doErr error
 	keys, next, doErr = client.Reader().HScan(ctx, key, cursor, match, count).Result()
 	if doErr != nil {
