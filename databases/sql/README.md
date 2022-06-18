@@ -28,21 +28,17 @@ go get github.com/aacfactory/fns-contrib/databases/sql
     * all in dsn is members
 
 Example:
-```json
-{
-  "sql": {
-    "masterSlaverMode": false,
-    "driver": "",
-    "dsn": [
-      "username:password@tcp(ip:port)/databases"
-    ],
-    "maxIdles": 0,
-    "maxOpens": 0,
-    "enableDebugLog": true,
-    "gtmCleanUpSecond": 120,
-    "isolation": 2
-  }
-}
+```yaml
+sql:
+  masterSlaverMode: false,
+  driver: "postgres",
+  dsn:
+    - "username:password@tcp(ip:port)/databases"
+  maxIdles: 0
+  maxOpens: 0
+  enableDebugLog: true
+  gtmCleanUpSecond: 120
+  isolation: 2
 ```
 
 ### Import driver
@@ -67,5 +63,7 @@ sql.Query(ctx, querySQL, ...)
 // execute
 sql.Execute(ctx, executeSQL, ...)
 ```
-
+### ORM usage
+* [postgres](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/postgres)
+* [mysql](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/mysql)
 
