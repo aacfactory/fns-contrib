@@ -35,8 +35,17 @@ go get github.com/aacfactory/fns-contrib/authorizations/encoding/jwt
 }
 ```
 
-### Deploy
+### Register encoding
 
 ```go
-app.Deply(authorizations.Service(jwt.Encoding(), authorizations.DiscardTokenStore()))
+import (
+    _ "github.com/aacfactory/fns-contrib/authorizations/encoding/jwt"
+)
+
+```
+
+### Deploy service
+
+```go
+app.Deploy(authorizations.Service())
 ```
