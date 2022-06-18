@@ -52,7 +52,7 @@ func createOrLoadTable(x interface{}) (v *table) {
 	}
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 	if !isImplementTable(rt) {
-		panic(fmt.Sprintf("fns postgres: analyse %s failed, type of it is not Table", key))
+		panic(fmt.Sprintf("postgres: analyse %s failed, type of it is not Table", key))
 		return
 	}
 	stored, hasStored := getTable(rt)
@@ -73,14 +73,14 @@ func createTable(x interface{}) (v *table) {
 	r, _, _ := tableGroup.Do(key, func() (r interface{}, err error) {
 		target, typeOk := x.(Table)
 		if !typeOk {
-			panic(fmt.Sprintf("fns postgres: analyse %s failed, type of it is not Table", key))
+			panic(fmt.Sprintf("postgres: analyse %s failed, type of it is not Table", key))
 			return
 		}
 		schema, tableName := target.TableName()
 		schema = strings.TrimSpace(schema)
 		tableName = strings.TrimSpace(tableName)
 		if tableName == "" {
-			panic(fmt.Sprintf("fns postgres: analyse %s failed, table name is empty", key))
+			panic(fmt.Sprintf("postgres: analyse %s failed, table name is empty", key))
 			return
 		}
 		if schema == "" {
@@ -89,7 +89,7 @@ func createTable(x interface{}) (v *table) {
 
 		fieldNum := rt.NumField()
 		if fieldNum == 0 {
-			panic(fmt.Sprintf("fns postgres: analyse %s failed, no field", key))
+			panic(fmt.Sprintf("postgres: analyse %s failed, no field", key))
 			return
 		}
 
@@ -104,13 +104,13 @@ func createTable(x interface{}) (v *table) {
 		for i := 0; i < fieldNum; i++ {
 			err = v.addColumn(rt.Field(i))
 			if err != nil {
-				panic(fmt.Sprintf("fns postgres: analyse %s failed, %v", key, err))
+				panic(fmt.Sprintf("postgres: analyse %s failed, %v", key, err))
 				return
 			}
 		}
 
 		if len(v.Columns) == 0 {
-			panic(fmt.Sprintf("fns postgres: analyse %s failed, no columns", key))
+			panic(fmt.Sprintf("postgres: analyse %s failed, no columns", key))
 			return
 		}
 
