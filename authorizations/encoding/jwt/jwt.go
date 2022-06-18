@@ -17,8 +17,8 @@ var (
 	prefix = []byte("Bearer ")
 )
 
-func Encoding() authorizations.TokenEncoding {
-	return &encoding{}
+func init() {
+	authorizations.RegisterTokenEncoding(&encoding{})
 }
 
 type encoding struct {
