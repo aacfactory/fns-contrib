@@ -22,25 +22,17 @@ go get github.com/aacfactory/fns-contrib/databases/redis
     * masterSlaverMode = false
     * all in addr is members
 
-```json
-{
-  "redis": {
-    "masterSlaverMode": false,
-    "network": "tcp",
-    "addr": [
-      "ip:port"
-    ],
-    "username": "",
-    "password": "",
-    "db": 0,
-    "poolSize": 0,
-    "ssl": false,
-    "caFilePath": "",
-    "certFilePath": "",
-    "keyFilePath": "",
-    "insecureSkipVerify": false
-  }
-}
+Example
+```yaml
+redis:
+  masterSlaverMode: false
+  network: "tcp"
+  addr: 
+    - "ip:port"
+  username: ""
+  password: ""
+  db: 0
+  poolSize: 0
 ```
 
 ### Deploy
