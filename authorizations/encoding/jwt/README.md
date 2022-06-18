@@ -11,28 +11,17 @@ go get github.com/aacfactory/fns-contrib/authorizations/encoding/jwt
 ## Usage
 
 ### Config
-
-```json
-{
-  "authorization": {
-    "encoding": {
-      "method": "",
-      // HS256, RS512, SOME VALUE OF ALG
-      "sk": "",
-      // only HSXXX used
-      "publicKey": "",
-      // pem file path
-      "privateKey": "",
-      // pem file path
-      "issuer": "",
-      "audience": [
-        ""
-      ],
-      "expirations": ""
-      // time.Duration Formatter
-    }
-  }
-}
+```yaml
+authorization:
+  encoding:
+    method: "RS512"
+    publicKey: "path of public key"
+    privateKey: "path of private key"
+    issuer: ""
+    audience: 
+      - foo
+      - bar
+    expirations: "720h0m0s"
 ```
 
 ### Register encoding
