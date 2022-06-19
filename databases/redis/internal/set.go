@@ -24,11 +24,27 @@ const (
 	SSCAN       = "SSCAN"
 )
 
-func sadd(ctx context.Context, client Client, key string, members ...interface{}) (v int64, err errors.CodeError) {
+func sadd(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	members := make([]interface{}, 0, 1)
+	for _, param := range params[1:] {
+		members = append(members, param)
+	}
 	var doErr error
 	v, doErr = client.Writer().SAdd(ctx, key, members...).Result()
 	if doErr != nil {
 		err = errors.ServiceError("redis: handle sadd command failed").WithCause(doErr)
+		return
+	}
+	return
+}
+
+func smembers(ctx context.Context, client Client, params []interface{}) (v []string, err errors.CodeError) {
+	key := params[0].(string)
+	var doErr error
+	v, doErr = client.Writer().SMembers(ctx, key).Result()
+	if doErr != nil {
+		err = errors.ServiceError("redis: handle smembers command failed").WithCause(doErr)
 		return
 	}
 	return
@@ -140,7 +156,12 @@ func srandmember(ctx context.Context, client Client, key string) (v string, err 
 	return
 }
 
-func srem(ctx context.Context, client Client, key string, members ...interface{}) (v int64, err errors.CodeError) {
+func srem(ctx context.Context, client Client, params []interface{}) (v int64, err errors.CodeError) {
+	key := params[0].(string)
+	members := make([]interface{}, 0, 1)
+	for _, param := range params[1:] {
+		members = append(members, param)
+	}
 	var doErr error
 	v, doErr = client.Writer().SRem(ctx, key, members...).Result()
 	if doErr != nil {

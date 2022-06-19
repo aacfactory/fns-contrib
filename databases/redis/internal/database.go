@@ -376,6 +376,45 @@ func (db *Database) HandleCommand(ctx context.Context, name string, params []int
 		}
 		result = p
 		return
+	case SADD:
+		v, handleErr := sadd(ctx, db.client, params)
+		if handleErr != nil {
+			err = handleErr
+			return
+		}
+		p, encodeErr := json.Marshal(v)
+		if encodeErr != nil {
+			err = errors.ServiceError("redis: encode result failed").WithCause(encodeErr)
+			return
+		}
+		result = p
+		return
+	case SMEMBERS:
+		v, handleErr := smembers(ctx, db.client, params)
+		if handleErr != nil {
+			err = handleErr
+			return
+		}
+		p, encodeErr := json.Marshal(v)
+		if encodeErr != nil {
+			err = errors.ServiceError("redis: encode result failed").WithCause(encodeErr)
+			return
+		}
+		result = p
+		return
+	case SREM:
+		v, handleErr := srem(ctx, db.client, params)
+		if handleErr != nil {
+			err = handleErr
+			return
+		}
+		p, encodeErr := json.Marshal(v)
+		if encodeErr != nil {
+			err = errors.ServiceError("redis: encode result failed").WithCause(encodeErr)
+			return
+		}
+		result = p
+		return
 		// todo list set sorted-set
 	default:
 		args := make([]interface{}, 0, 1)

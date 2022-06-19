@@ -281,3 +281,79 @@ func DoCommand(ctx context.Context, command Command) (result *Result, err errors
 	result = &r
 	return
 }
+
+func SAdd(ctx context.Context, key string, members ...interface{}) (err errors.CodeError) {
+	params := Params{}
+	paramsErr := params.Append(key)
+	if paramsErr != nil {
+		err = errors.ServiceError("redis: sadd failed").WithCause(paramsErr)
+		return
+	}
+	for _, member := range members {
+		paramsErr = params.Append(member)
+		if paramsErr != nil {
+			err = errors.ServiceError("redis: sadd failed").WithCause(paramsErr)
+			return
+		}
+	}
+	_, doErr := DoCommand(ctx, Command{
+		Name:   "SADD",
+		Params: params,
+	})
+	if doErr != nil {
+		err = errors.ServiceError("redis: sadd failed").WithCause(doErr)
+		return
+	}
+	return
+}
+
+func SRem(ctx context.Context, key string, members ...interface{}) (err errors.CodeError) {
+	params := Params{}
+	paramsErr := params.Append(key)
+	if paramsErr != nil {
+		err = errors.ServiceError("redis: srem failed").WithCause(paramsErr)
+		return
+	}
+	for _, member := range members {
+		paramsErr = params.Append(member)
+		if paramsErr != nil {
+			err = errors.ServiceError("redis: srem failed").WithCause(paramsErr)
+			return
+		}
+	}
+	_, doErr := DoCommand(ctx, Command{
+		Name:   "SREM",
+		Params: params,
+	})
+	if doErr != nil {
+		err = errors.ServiceError("redis: srem failed").WithCause(doErr)
+		return
+	}
+	return
+}
+
+func SMembers(ctx context.Context, key string) (members []string, err errors.CodeError) {
+	params := Params{}
+	paramsErr := params.Append(key)
+	if paramsErr != nil {
+		err = errors.ServiceError("redis: smembers failed").WithCause(paramsErr)
+		return
+	}
+	result, doErr := DoCommand(ctx, Command{
+		Name:   "SMEMBERS",
+		Params: params,
+	})
+	if doErr != nil {
+		err = errors.ServiceError("redis: smembers failed").WithCause(doErr)
+		return
+	}
+	if result.Exist {
+		members = make([]string, 0, 1)
+		decodeErr := result.DecodeJsonValueTo(&members)
+		if decodeErr != nil {
+			err = errors.ServiceError("redis: smembers failed").WithCause(decodeErr)
+			return
+		}
+	}
+	return
+}
