@@ -74,7 +74,7 @@ func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
 	key := makeKey(tokenId)
 	got, getErr := redis.Get(ctx, key)
 	if getErr != nil {
-		err = errors.ServiceError("authorizations redis remove: remove token failed").WithCause(getErr)
+		err = errors.ServiceError("authorizations redis store: remove token failed").WithCause(getErr)
 		return
 	}
 	if !got.Exist {
@@ -83,7 +83,7 @@ func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
 	token := &Token{}
 	decodeErr := got.DecodeJsonValueTo(token)
 	if decodeErr != nil {
-		err = errors.ServiceError("authorizations redis remove: remove token failed").WithCause(decodeErr)
+		err = errors.ServiceError("authorizations redis store: remove token failed").WithCause(decodeErr)
 		return
 	}
 	removeTokenErr := redis.Remove(ctx, key)
@@ -95,7 +95,7 @@ func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
 	userKey := makeUserKey(token.UserId)
 	remUserTokenErr := redis.SRem(ctx, userKey, key)
 	if remUserTokenErr != nil {
-		err = errors.ServiceError("authorizations redis remove: remove token failed").WithCause(remUserTokenErr)
+		err = errors.ServiceError("authorizations redis store: remove token failed").WithCause(remUserTokenErr)
 		return
 	}
 	return
@@ -105,7 +105,7 @@ func (store *Store) RemoveUserTokens(ctx context.Context, userId string) (err er
 	userKey := makeUserKey(userId)
 	members, membersErr := redis.SMembers(ctx, userKey)
 	if membersErr != nil {
-		err = errors.ServiceError("authorizations redis remove: remove user tokens failed").WithCause(membersErr)
+		err = errors.ServiceError("authorizations redis store: remove user tokens failed").WithCause(membersErr)
 		return
 	}
 	if members == nil || len(members) == 0 {
