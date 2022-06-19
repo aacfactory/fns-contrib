@@ -30,7 +30,7 @@ func (store *Store) Build(options authorizations.TokenStoreOptions) (err error) 
 	schema := strings.TrimSpace(config.Schema)
 	table := strings.TrimSpace(config.Table)
 	if table == "" {
-		err = errors.Warning("authorizations postgres store: build failed, table in config is required").WithCause(configErr)
+		err = errors.Warning("authorizations postgres store: build failed, table in config is required")
 		return
 	}
 	store.Schema = schema
