@@ -594,15 +594,15 @@ func (t *table) generateInsertSQL() (useQuery bool, query string, columns []*col
 	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
 	//conflicts
 	conflicts := ""
-	pks := t.findPk()
-	if len(pks) > 0 {
-		for _, pk := range pks {
-			if pk.isIncrPk() {
-				continue
-			}
-			conflicts = conflicts + ", " + pk.queryName()
-		}
-	}
+	//pks := t.findPk()
+	//if len(pks) > 0 {
+	//	for _, pk := range pks {
+	//		if pk.isIncrPk() {
+	//			continue
+	//		}
+	//		conflicts = conflicts + ", " + pk.queryName()
+	//	}
+	//}
 
 	conflictColumns := t.findConflicts()
 	if len(conflictColumns) > 0 {
@@ -761,15 +761,15 @@ func (t *table) generateSoftDeleteSQL() (query string, columns []*column) {
 func (t *table) generateInsertOrUpdateSQL() (useQuery bool, query string, columns []*column) {
 	//conflicts
 	conflicts := ""
-	pks := t.findPk()
-	if len(pks) > 0 {
-		for _, pk := range pks {
-			if pk.isIncrPk() {
-				continue
-			}
-			conflicts = conflicts + ", " + pk.queryName()
-		}
-	}
+	//pks := t.findPk()
+	//if len(pks) > 0 {
+	//	for _, pk := range pks {
+	//		if pk.isIncrPk() {
+	//			continue
+	//		}
+	//		conflicts = conflicts + ", " + pk.queryName()
+	//	}
+	//}
 	conflictColumns := t.findConflicts()
 	if len(conflictColumns) > 0 {
 		for _, conflictColumn := range conflictColumns {
