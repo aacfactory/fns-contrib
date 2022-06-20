@@ -7,7 +7,7 @@
 诸如 RBAC 一类的权限控制功能。
 ## [数据库操作](https://github.com/aacfactory/fns-contrib/tree/main/databases)
 诸如 Postgres、MySQL、Redis 一类的数据库操作功能，它们将会是 fns.Service 的实现。
-## [服务注册与发现](https://github.com/aacfactory/fns-contrib/tree/main/discovery)
+## [集群](https://github.com/aacfactory/fns-contrib/tree/main/cluster)
 分布式运行环境下的 Fns Service 注册与发现。
 ## [事件总线](https://github.com/aacfactory/fns-contrib/tree/main/eventbus)
 诸如 RabbitMQ、Nats、Kafka 一类的事件服务操作功能，它们将会是 fns.Service 的实现。
