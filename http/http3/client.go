@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func ClientBuild(options cluster.ClientOptions) (client cluster.Client, err error) {
+func ClientBuilder(options cluster.ClientOptions) (client cluster.Client, err error) {
 	timeout := options.RequestTimeout
 	if timeout == 0 {
 		timeout = 10 * time.Second
