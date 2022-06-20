@@ -8,6 +8,7 @@ import (
 	"github.com/aacfactory/fns/server"
 	"github.com/aacfactory/logs"
 	"github.com/lucas-clemente/quic-go/http3"
+	"log"
 	"net"
 	"net/http"
 )
@@ -56,14 +57,22 @@ func (srv *quicServer) Build(options server.HttpOptions) (err error) {
 		return
 	}
 	tlsConn := tls.NewListener(tcpConn, options.ServerTLS)
-	httpServer := &http.Server{}
-	quicServer := &http3.Server{
+	httpServer := &http.Server{
+		ErrorLog: log.New(&Printf{
+			Core: options.Log,
+		}, "", log.LstdFlags),
+	}
+	qsServer := &http3.Server{
 		Server: &http.Server{
 			TLSConfig: options.ServerTLS,
+			Handler:   options.Handler,
+			ErrorLog: log.New(&Printf{
+				Core: options.Log,
+			}, "", log.LstdFlags),
 		},
 	}
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		headerErr := quicServer.SetQuicHeaders(w.Header())
+		headerErr := qsServer.SetQuicHeaders(w.Header())
 		if headerErr != nil {
 			errorHandler(w, headerErr)
 			return
@@ -73,7 +82,7 @@ func (srv *quicServer) Build(options server.HttpOptions) (err error) {
 	srv.udpConn = udpConn
 	srv.tcpConn = tlsConn
 	srv.ss = httpServer
-	srv.qs = quicServer
+	srv.qs = qsServer
 	return
 }
 
