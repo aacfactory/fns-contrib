@@ -192,14 +192,14 @@ type userConsumerHandler struct {
 func (handler *userConsumerHandler) Handle(ctx context.Context, message ConsumerMessage) {
 	log := service.GetLog(ctx)
 	if log.DebugEnabled() {
-		log.Debug().With("handler", "default").Message(fmt.Sprintf("rabbitmq: consume message[%s]", message.Id()))
+		log.Debug().With("handler", "user_handler").Message(fmt.Sprintf("rabbitmq: consume message[%s]", message.Id()))
 	}
 	body := message.Body()
 	msg := &Message{}
 	decodeErr := json.Unmarshal(body, msg)
 	if decodeErr != nil {
 		if log.ErrorEnabled() {
-			log.Error().With("handler", "default").Cause(decodeErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, decode failed", message.Id()))
+			log.Error().With("handler", "user_handler").Cause(decodeErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, decode failed", message.Id()))
 		}
 		return
 	}
@@ -207,21 +207,21 @@ func (handler *userConsumerHandler) Handle(ctx context.Context, message Consumer
 	fn := msg.Fn
 	if sn == "" || fn == "" {
 		if log.ErrorEnabled() {
-			log.Error().With("handler", "default").Cause(decodeErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, decode failed", message.Id()))
+			log.Error().With("handler", "user_handler").Cause(decodeErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, decode failed", message.Id()))
 		}
 		return
 	}
 	endpoint, hasEndpoint := service.GetEndpoint(ctx, sn)
 	if !hasEndpoint {
 		if log.WarnEnabled() {
-			log.Warn().With("handler", "default").Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, %s service endpoint was not found", message.Id(), sn))
+			log.Warn().With("handler", "user_handler").Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, %s service endpoint was not found", message.Id(), sn))
 		}
 		return
 	}
 	request, requestErr := service.NewInternalRequest(sn, fn, service.NewArgument(msg.Argument))
 	if requestErr != nil {
 		if log.ErrorEnabled() {
-			log.Error().With("handler", "default").Cause(requestErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, new internal request failed", message.Id()))
+			log.Error().With("handler", "user_handler").Cause(requestErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, new internal request failed", message.Id()))
 		}
 		return
 	}
@@ -230,12 +230,12 @@ func (handler *userConsumerHandler) Handle(ctx context.Context, message Consumer
 	_, _, fnErr := result.Value(ctx)
 	if fnErr != nil {
 		if log.WarnEnabled() {
-			log.Warn().With("handler", "default").Cause(fnErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, %s service handle %s fn failed", message.Id(), sn, fn))
+			log.Warn().With("handler", "user_handler").Cause(fnErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, %s service handle %s fn failed", message.Id(), sn, fn))
 		}
 		rejectErr := message.Reject()
 		if rejectErr != nil {
 			if log.WarnEnabled() {
-				log.Warn().With("handler", "default").Cause(rejectErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, reject failed", message.Id()))
+				log.Warn().With("handler", "user_handler").Cause(rejectErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, reject failed", message.Id()))
 			}
 			return
 		}
@@ -244,7 +244,7 @@ func (handler *userConsumerHandler) Handle(ctx context.Context, message Consumer
 	ackErr := message.Ack()
 	if ackErr != nil {
 		if log.WarnEnabled() {
-			log.Warn().With("handler", "default").Cause(ackErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, ack failed", message.Id()))
+			log.Warn().With("handler", "user_handler").Cause(ackErr).Message(fmt.Sprintf("rabbitmq: consume message[%s] failed, ack failed", message.Id()))
 		}
 		return
 	}
