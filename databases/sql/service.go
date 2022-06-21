@@ -60,7 +60,7 @@ func (svc *_service_) Components() (components map[string]service.Component) {
 func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
 	switch fn {
 	case beginTransactionFn:
-		appId := service.GetAppId(ctx)
+		appId := service.GetApplicationId(ctx)
 		handleErr := svc.db.BeginTransaction(ctx)
 		if handleErr != nil {
 			err = handleErr.WithMeta("service", name).WithMeta("fn", fn)
