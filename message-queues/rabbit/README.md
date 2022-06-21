@@ -32,3 +32,10 @@ consumers:
     handlerOptions:
       userId: "userId"
 ```
+## As proxy
+```go
+published, publishErr := rabbit.Publish(ctx, rabbit.PublishArgument{
+	Name: "producer name", 
+	Body: json.RawMessage([]byte("{}"))
+})
+```

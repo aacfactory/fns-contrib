@@ -159,8 +159,8 @@ func (svc *_service_) Document() (doc service.Document) {
 
 func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
 	switch fn {
-	case "produce":
-		arg := ProduceArgument{}
+	case "publish":
+		arg := PublishArgument{}
 		scanErr := argument.As(&arg)
 		if scanErr != nil {
 			err = errors.BadRequest("rabbitmq: scan request argument failed").WithCause(scanErr).WithMeta("service", name).WithMeta("fn", fn)
@@ -179,7 +179,7 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 			err = publishErr.WithMeta("service", name).WithMeta("fn", fn)
 			return
 		}
-		v = &ProduceResult{
+		v = &PublishResult{
 			Succeed: ok,
 		}
 	default:

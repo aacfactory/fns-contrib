@@ -8,7 +8,7 @@ import (
 )
 
 func TestConsume(t *testing.T) {
-	conn, dialErr := amqp.Dial(`amqp://admin:freedom1581@106.14.203.132:15672/`)
+	conn, dialErr := amqp.Dial(`amqp://`)
 	if dialErr != nil {
 		fmt.Println(dialErr)
 		return

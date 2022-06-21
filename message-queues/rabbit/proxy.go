@@ -7,23 +7,23 @@ import (
 	"github.com/aacfactory/json"
 )
 
-type ProduceArgument struct {
+type PublishArgument struct {
 	Name string          `json:"name"`
 	Body json.RawMessage `json:"body"`
 }
 
-type ProduceResult struct {
+type PublishResult struct {
 	Succeed bool `json:"succeed"`
 }
 
-func Produce(ctx context.Context, argument ProduceArgument) (ok bool, err errors.CodeError) {
+func Publish(ctx context.Context, argument PublishArgument) (ok bool, err errors.CodeError) {
 	endpoint, hasEndpoint := service.GetEndpoint(ctx, name)
 	if !hasEndpoint {
 		err = errors.NotFound("rabbitmq: endpoint was not found")
 		return
 	}
-	fr := endpoint.Request(ctx, "produce", service.NewArgument(argument))
-	result := ProduceResult{}
+	fr := endpoint.Request(ctx, "publish", service.NewArgument(argument))
+	result := PublishResult{}
 	_, getResultErr := fr.Get(ctx, &result)
 	if getResultErr != nil {
 		err = getResultErr
