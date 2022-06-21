@@ -85,16 +85,16 @@ func (svc *_service_) Build(options service.Options) (err error) {
 		svc.conn = conn
 	}
 	if config.Producers != nil {
-		for producerName, producerConfig := range config.Producers {
+		for subject, producerConfig := range config.Producers {
 			if producerConfig == nil {
 				continue
 			}
-			producer, producerErr := newProducer(svc.conn, producerName, producerConfig)
+			producer, producerErr := newProducer(svc.conn, subject, producerConfig)
 			if producerErr != nil {
 				err = errors.Warning("nats: build failed").WithCause(producerErr).WithMeta("service", _name)
 				return
 			}
-			svc.producers[producerName] = producer
+			svc.producers[subject] = producer
 		}
 	}
 	if config.Consumers != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 func TestProducer(t *testing.T) {
-	nc, ncErr := nats.Connect("nats://106.14.203.132:14222")
+	nc, ncErr := nats.Connect("nats://:14222")
 	if ncErr != nil {
 		fmt.Println("nc", ncErr)
 		return
@@ -23,7 +23,7 @@ func TestProducer(t *testing.T) {
 }
 
 func TestConsumer11(t *testing.T) {
-	nc, ncErr := nats.Connect("nats:admin//106.14.203.132:14222")
+	nc, ncErr := nats.Connect("nats:admin//:14222")
 	if ncErr != nil {
 		fmt.Println("nc", ncErr)
 		return
@@ -43,7 +43,7 @@ func TestConsumer11(t *testing.T) {
 }
 
 func TestConsumer12(t *testing.T) {
-	nc, ncErr := nats.Connect("nats://106.14.203.132:14222")
+	nc, ncErr := nats.Connect("nats://:14222")
 	if ncErr != nil {
 		fmt.Println("nc", ncErr)
 		return
@@ -63,7 +63,7 @@ func TestConsumer12(t *testing.T) {
 }
 
 func TestConsumer2(t *testing.T) {
-	nc, ncErr := nats.Connect("nats://106.14.203.132:14222")
+	nc, ncErr := nats.Connect("nats://:14222")
 	if ncErr != nil {
 		fmt.Println("nc", ncErr)
 		return

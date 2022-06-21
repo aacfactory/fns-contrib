@@ -19,10 +19,10 @@ func (conn *connection) Key() (key string) {
 	return
 }
 
-func newProducer(conn *nats.Conn, name string, config *ProducerConfig) (producer *Producer, err error) {
-	subject := strings.TrimSpace(config.Subject)
+func newProducer(conn *nats.Conn, subject string, config *ProducerConfig) (producer *Producer, err error) {
+	subject = strings.TrimSpace(subject)
 	if subject == "" {
-		err = errors.Warning(fmt.Sprintf("nats: new %s producer failed", name)).WithCause(fmt.Errorf("subject is required"))
+		err = errors.Warning(fmt.Sprintf("nats: new %s producer failed", subject)).WithCause(fmt.Errorf("subject is required"))
 		return
 	}
 	size := config.Size
@@ -37,7 +37,6 @@ func newProducer(conn *nats.Conn, name string, config *ProducerConfig) (producer
 		})
 	}
 	producer = &Producer{
-		name:    name,
 		subject: subject,
 		conns:   conns,
 	}
@@ -45,7 +44,6 @@ func newProducer(conn *nats.Conn, name string, config *ProducerConfig) (producer
 }
 
 type Producer struct {
-	name    string
 	subject string
 	conns   *ring.Ring
 }

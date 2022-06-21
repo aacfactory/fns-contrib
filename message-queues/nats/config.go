@@ -33,6 +33,5 @@ type ConsumerConfig struct {
 }
 
 type ProducerConfig struct {
-	Subject string `json:"subject"`
-	Size    int    `json:"size"`
+	Size int `json:"size"`
 }
