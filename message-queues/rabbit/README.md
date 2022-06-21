@@ -1,4 +1,8 @@
 # RABBITMQ
+## Install
+```shell
+go get github.com/aacfactory/fns-contrib/message-queues/rabbit
+```
 ## Usage
 ```go
 app.Deploy(rabbit.Service())
