@@ -89,7 +89,9 @@ func (consumer *Consumer) Consume(ctx context.Context) (err error) {
 }
 
 func (consumer *Consumer) msgHandle(msg *nats.Msg) {
-
+	consumer.handler.Handle(consumer.ctx, &DefaultConsumerMessage{
+		raw: msg,
+	})
 }
 
 func (consumer *Consumer) Close() (err error) {
