@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/mysql"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/service/builtin/authorizations"
 	"github.com/aacfactory/logs"
 	"strings"
@@ -94,7 +93,7 @@ func (store *Store) RemoveUserTokens(ctx context.Context, userId string) (err er
 		query = query + `"` + store.Schema + `".`
 	}
 	query = query + `"` + store.Table + `" WHERE "USER_ID" = $1`
-	_, _, execErr := sql.Execute(ctx, query, userId)
+	_, _, execErr := mysql.ExecuteContext(ctx, query, userId)
 	if execErr != nil {
 		err = errors.ServiceError("authorizations mysql store: remove user tokens failed").WithCause(execErr)
 		return
