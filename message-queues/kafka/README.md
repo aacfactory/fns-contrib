@@ -12,6 +12,15 @@ app.Deploy(kafka.Service())
 rabbitmq:
   brokers: 
     - "192.168.0.1:9093"
+  options:
+    saslType: "plain"
+    username: "user"
+    password: "pass"
+    clientId: "clientId"
+    clientTLS:
+      ca: "path of ca.pem"
+      cert: "path of cert.pem"
+      key: "path of key.pem"
   producers:
     topicA:
       compression: "snappy"
