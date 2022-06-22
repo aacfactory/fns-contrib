@@ -19,7 +19,7 @@ type OptionsConfig struct {
 	FrameSize        int                `json:"frameSize"`
 	HeartbeatSeconds int                `json:"heartbeatSeconds"`
 	Locale           string             `json:"locale"`
-	ClientTLS        *ClientTLSConfig   `json:"clientTls"`
+	ClientTLS        *ClientTLSConfig   `json:"clientTLS"`
 }
 
 type Config struct {

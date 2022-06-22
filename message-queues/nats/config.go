@@ -15,7 +15,7 @@ type OptionsConfig struct {
 	Token             string           `json:"token"`
 	EnableCompression bool             `json:"enableCompression"`
 	TimeoutSeconds    int              `json:"timeoutSeconds"`
-	ClientTLS         *ClientTLSConfig `json:"clientTls"`
+	ClientTLS         *ClientTLSConfig `json:"clientTLS"`
 }
 
 type Config struct {
