@@ -13,7 +13,7 @@ type OptionsConfig struct {
 	Algo           string           `json:"algo"`
 	Username       string           `json:"username"`
 	Password       string           `json:"password"`
-	ClientTLS      *ClientTLSConfig `json:"clientTls"`
+	ClientTLS      *ClientTLSConfig `json:"clientTLS"`
 	DualStack      bool             `json:"dualStack"`
 	TimeoutSeconds int              `json:"timeoutSeconds"`
 	ClientId       string           `json:"clientId"`
