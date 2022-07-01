@@ -7,6 +7,13 @@ import (
 	"github.com/aacfactory/logs"
 )
 
+func NewDatabase(log logs.Logger, client Client) *Database {
+	return &Database{
+		log:    log,
+		client: client,
+	}
+}
+
 type Database struct {
 	log    logs.Logger
 	client Client

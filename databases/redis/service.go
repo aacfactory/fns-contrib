@@ -20,7 +20,7 @@ func Service() service.Service {
 
 type _service_ struct {
 	log      logs.Logger
-	database internal.Database
+	database *internal.Database
 }
 
 func (svc *_service_) Name() string {
@@ -32,7 +32,19 @@ func (svc *_service_) Internal() bool {
 }
 
 func (svc *_service_) Build(options service.Options) (err error) {
-
+	svc.log = options.Log
+	config := internal.Config{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.BadRequest("redis: build failed").WithCause(configErr)
+		return
+	}
+	client, clientErr := config.CreateClient()
+	if clientErr != nil {
+		err = errors.BadRequest("redis: build failed").WithCause(clientErr)
+		return
+	}
+	svc.database = internal.NewDatabase(svc.log, client)
 	return
 }
 
