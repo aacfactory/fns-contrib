@@ -16,10 +16,11 @@ cluster:
   devMode: false
   kind: "swarm"
   options:
-    fromEnv: false
-    host: "swarm master host"
-    certDir: "cert file dir, there are [ca.pem, cert.pem, key.pem] in the dir"
-    labels:
-      - "FNS-SERVICE"
-      - "ACTIVE=dev"       
+    swarm:
+      fromEnv: false
+      host: "swarm master host"
+      certDir: "cert file dir, there are [ca.pem, cert.pem, key.pem] in the dir"
+      labels:
+        - "FNS-SERVICE"
+        - "ACTIVE=dev"       
 ```
