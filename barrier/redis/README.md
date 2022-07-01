@@ -5,20 +5,27 @@
 go get github.com/aacfactory/fns-contrib/barrier/redis
 ```
 ## Usage
-make sure that redis service has been deployed.
+Add redis barrier in `main.go`
 ```go
 import (
-	rb "github.com/aacfactory/fns-contrib/barrier/redis"
-	"github.com/aacfactory/fns-contrib/database/redis"
+	"github.com/aacfactory/fns-contrib/barrier/redis"
 )
 
 func main() {
-
     app := fns.New(
-        fns.Barrier(rb.Barrier())
+        fns.Barrier(redis.Barrier())
     )
-
-    deployErr := app.Deploy(redis.Service())
-	
 }
+```
+Add redis service in `modules/dependencies.go`
+```go
+import (
+	"github.com/aacfactory/fns-contrib/database/redis"
+)
+
+func dependencies() (services []service.Service) {
+    services = append(services, redis.Service())
+    return
+}
+
 ```
