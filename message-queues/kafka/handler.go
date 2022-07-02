@@ -3,7 +3,7 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/aacfactory/configuares"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
@@ -100,7 +100,7 @@ func (msg *DefaultConsumerMessage) Raw() (raw kafka.Message) {
 
 type ConsumerHandlerOptions struct {
 	Log    logs.Logger
-	Config configuares.Config
+	Config configures.Config
 }
 
 type ConsumerHandlerBuilder func(options ConsumerHandlerOptions) (handler ConsumerHandler, err error)

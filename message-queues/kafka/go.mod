@@ -3,11 +3,11 @@ module github.com/aacfactory/fns-contrib/message-queues/kafka
 go 1.18
 
 require (
-	github.com/aacfactory/configuares v1.4.0
-	github.com/aacfactory/errors v1.6.3
-	github.com/aacfactory/fns v0.12.1
-	github.com/aacfactory/json v1.6.0
-	github.com/aacfactory/logs v1.2.0
+	github.com/aacfactory/configures v1.12.1
+	github.com/aacfactory/errors v1.12.0
+	github.com/aacfactory/fns v0.12.2
+	github.com/aacfactory/json v1.12.1
+	github.com/aacfactory/logs v1.12.0
 	github.com/segmentio/kafka-go v0.4.32
 )
 
@@ -19,7 +19,7 @@ require (
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/goccy/go-yaml v1.9.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.15.6 // indirect
+	github.com/klauspost/compress v1.15.7 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -35,9 +35,9 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c // indirect
+	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 )

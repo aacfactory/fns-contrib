@@ -3,7 +3,7 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/aacfactory/configuares"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/logs"
 	"github.com/segmentio/kafka-go"
@@ -31,15 +31,15 @@ func newConsumer(topic string, log logs.Logger, config *ConsumerConfig, brokers 
 		err = errors.Warning(fmt.Sprintf("kafka: new %s consumer failed", topic)).WithCause(fmt.Errorf("%s handler is not registered", handlerName))
 		return
 	}
-	var handlerConfig configuares.Config
+	var handlerConfig configures.Config
 	if config.HandlerOptions != nil && len(config.HandlerOptions) > 2 {
-		handlerConfig, err = configuares.NewJsonConfig(config.HandlerOptions)
+		handlerConfig, err = configures.NewJsonConfig(config.HandlerOptions)
 		if err != nil {
 			err = errors.Warning(fmt.Sprintf("kafka: new %s consumer failed", topic)).WithCause(fmt.Errorf("%s handler options is invalied", handlerName)).WithCause(err)
 			return
 		}
 	} else {
-		handlerConfig, _ = configuares.NewJsonConfig([]byte{'{', '}'})
+		handlerConfig, _ = configures.NewJsonConfig([]byte{'{', '}'})
 	}
 	handler, handlerErr := handlerBuilder(ConsumerHandlerOptions{
 		Log:    log.With("handler", handlerName),
