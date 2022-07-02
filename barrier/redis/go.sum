@@ -2,10 +2,10 @@ github.com/aacfactory/configures v1.12.1 h1:dt8EafWfEG1xTfZ1lO4UY56i5EieI4lkG+Vz
 github.com/aacfactory/configures v1.12.1/go.mod h1:Iw63k3WoJD8eb1HWE6cvkBTFXfoeCqutuj8vVnia1Kg=
 github.com/aacfactory/errors v1.12.0 h1:annMr3MgWDtjlxIz8xk2iqcn7Qpm06cxAs7dpXDytH4=
 github.com/aacfactory/errors v1.12.0/go.mod h1:8XVeG/W1HWO0xQOs84pwRLms0CTHblQc610g0JZn8xo=
-github.com/aacfactory/fns v0.12.2 h1:3fTiDcWpdTCaFSn/vHuoGIXw08vW5Bl5XGF/ATMkwms=
-github.com/aacfactory/fns v0.12.2/go.mod h1:Y3EQMDWVuEW/rluA7yv0wbh+c0qDFoJXWcmxmNoioRM=
-github.com/aacfactory/fns-contrib/databases/redis v0.12.2 h1:cya3ExrK/2ArdkDmennbKDr2XHhQ+cW0janiw9EFnXk=
-github.com/aacfactory/fns-contrib/databases/redis v0.12.2/go.mod h1:PyMXBo2j1HccQdA0GI43JDX1lK/Ch0ySP7XSYJYNEDw=
+github.com/aacfactory/fns v0.12.3 h1:cEm4XMDfySxWmL0lWFLnylxgimrb+zXqCvrbHJhjGIo=
+github.com/aacfactory/fns v0.12.3/go.mod h1:Y3EQMDWVuEW/rluA7yv0wbh+c0qDFoJXWcmxmNoioRM=
+github.com/aacfactory/fns-contrib/databases/redis v0.12.3 h1:9tSd6b2wOHUV/J11SWTwdAnG71X3t88igzwKxE9Sln8=
+github.com/aacfactory/fns-contrib/databases/redis v0.12.3/go.mod h1:OHaxR5G9bxNujNr29N4FoA42W83eASavV9uLmQ8ZbTw=
 github.com/aacfactory/json v1.12.1 h1:+yMy4BFdsPb+S5HIRgNsi+oRMFPeQa/DbILywuvhSaQ=
 github.com/aacfactory/json v1.12.1/go.mod h1:nWupQJKp4wB4ccCPGHfwlgpuz7vjuVC+uX4hk7TtMxk=
 github.com/aacfactory/logs v1.12.0 h1:OQ4P/UBmfTrHWocWAER7i1XILx8fbM5e4CEZkzpiE2U=
