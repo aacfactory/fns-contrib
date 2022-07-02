@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.2
+	github.com/aacfactory/fns v0.12.3
 	github.com/aacfactory/logs v1.12.0
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2
