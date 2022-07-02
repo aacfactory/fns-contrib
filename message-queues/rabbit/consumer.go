@@ -3,7 +3,7 @@ package rabbit
 import (
 	"context"
 	"fmt"
-	"github.com/aacfactory/configuares"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/logs"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -25,15 +25,15 @@ func newConsumer(conn *amqp.Connection, name string, log logs.Logger, config *Co
 		err = errors.Warning(fmt.Sprintf("rabbitmq: new %s consumer failed", name)).WithCause(fmt.Errorf("%s handler is not registered", handlerName))
 		return
 	}
-	var handlerConfig configuares.Config
+	var handlerConfig configures.Config
 	if config.HandlerOptions != nil && len(config.HandlerOptions) > 2 {
-		handlerConfig, err = configuares.NewJsonConfig(config.HandlerOptions)
+		handlerConfig, err = configures.NewJsonConfig(config.HandlerOptions)
 		if err != nil {
 			err = errors.Warning(fmt.Sprintf("rabbitmq: new %s consumer failed", name)).WithCause(fmt.Errorf("%s handler options is invalied", handlerName)).WithCause(err)
 			return
 		}
 	} else {
-		handlerConfig, _ = configuares.NewJsonConfig([]byte{'{', '}'})
+		handlerConfig, _ = configures.NewJsonConfig([]byte{'{', '}'})
 	}
 	handler, handlerErr := handlerBuilder(ConsumerHandlerOptions{
 		Log:    log.With("handler", handlerName),
