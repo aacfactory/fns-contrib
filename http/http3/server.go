@@ -63,13 +63,8 @@ func (srv *quicServer) Build(options server.HttpOptions) (err error) {
 		}, "", log.LstdFlags),
 	}
 	qsServer := &http3.Server{
-		Server: &http.Server{
-			TLSConfig: options.ServerTLS,
-			Handler:   options.Handler,
-			ErrorLog: log.New(&Printf{
-				Core: options.Log,
-			}, "", log.LstdFlags),
-		},
+		TLSConfig: options.ServerTLS,
+		Handler:   options.Handler,
 	}
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headerErr := qsServer.SetQuicHeaders(w.Header())
