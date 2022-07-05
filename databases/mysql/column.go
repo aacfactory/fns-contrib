@@ -185,7 +185,6 @@ func mapColumnsToSqlArgs(columns []*column, rv reflect.Value) (args []interface{
 	for _, col := range columns {
 		fv := rv.FieldByName(col.FieldName)
 		if col.isRef() {
-			fmt.Println("ref", col.Name, col.RefName, col.RefTargetColumn.Name, fv)
 			if fv.IsNil() {
 				args = append(args, nil)
 				continue
