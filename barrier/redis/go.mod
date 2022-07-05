@@ -4,14 +4,14 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.3
-	github.com/aacfactory/fns-contrib/databases/redis v0.12.3
+	github.com/aacfactory/fns v0.12.4
+	github.com/aacfactory/fns-contrib/databases/redis v0.12.4
 	github.com/aacfactory/json v1.12.1
 )
 
 require (
 	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/aacfactory/logs v1.12.0 // indirect
+	github.com/aacfactory/logs v1.12.1 // indirect
 	github.com/aacfactory/workers v1.4.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
