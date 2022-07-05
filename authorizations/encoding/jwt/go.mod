@@ -4,9 +4,9 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.3
+	github.com/aacfactory/fns v0.12.4
 	github.com/aacfactory/json v1.12.1
-	github.com/aacfactory/logs v1.12.0
+	github.com/aacfactory/logs v1.12.1
 )
 
 require (
