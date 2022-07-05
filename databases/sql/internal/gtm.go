@@ -95,7 +95,7 @@ func (gtm *globalTransactionManagement) Begin(ctx context.Context, db *sql.DB, i
 		if isolation < 0 || isolation > 7 {
 			isolation = 0
 		}
-		tx, txErr := db.BeginTx(ctx, &sql.TxOptions{
+		tx, txErr := db.BeginTx(context.TODO(), &sql.TxOptions{
 			Isolation: isolation,
 			ReadOnly:  false,
 		})

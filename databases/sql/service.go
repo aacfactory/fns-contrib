@@ -101,12 +101,12 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		rows0, queryErr := svc.db.Query(ctx, qa.Query, queryArgs)
 		if queryErr != nil {
-			err = errors.ServiceError("sql: query argument").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
+			err = errors.ServiceError("sql: query failed").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
 			return
 		}
 		result, resultErr := newRows(rows0)
 		if resultErr != nil {
-			err = errors.ServiceError("sql: query argument").WithCause(resultErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
+			err = errors.ServiceError("sql: query failed").WithCause(resultErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", qa.Query)
 			return
 		}
 		v = result
@@ -124,7 +124,7 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		result, queryErr := svc.db.Execute(ctx, ea.Query, executeArgs)
 		if queryErr != nil {
-			err = errors.ServiceError("sql: execute argument").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", ea.Query)
+			err = errors.ServiceError("sql: execute failed").WithCause(queryErr).WithMeta("service", name).WithMeta("fn", fn).WithMeta("query", ea.Query)
 			return
 		}
 		affected, _ := result.RowsAffected()

@@ -145,6 +145,9 @@ func (db *db) Query(ctx context.Context, query string, args []interface{}) (rows
 		db.log.Debug().Caller().With("succeed", queryErr != nil).With("latency", time.Now().Sub(begin)).Message(fmt.Sprintf("\n%s\n", query))
 	}
 	if queryErr != nil {
+		if hasTx {
+			db.gtm.Rollback(ctx)
+		}
 		err = errors.ServiceError("sql: query failed").WithCause(queryErr)
 		return
 	}
@@ -177,6 +180,9 @@ func (db *db) Execute(ctx context.Context, query string, args []interface{}) (re
 		db.log.Debug().Caller().With("succeed", executeErr != nil).With("latency", time.Now().Sub(begin)).Message(fmt.Sprintf("\n%s\n", query))
 	}
 	if executeErr != nil {
+		if hasTx {
+			db.gtm.Rollback(ctx)
+		}
 		err = errors.ServiceError("sql: execute failed").WithCause(executeErr)
 		return
 	}
