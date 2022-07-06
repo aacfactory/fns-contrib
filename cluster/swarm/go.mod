@@ -4,13 +4,14 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.4
+	github.com/aacfactory/fns v0.12.5
 	github.com/aacfactory/logs v1.12.1
 	github.com/docker/docker v20.10.17+incompatible
 )
 
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
+	github.com/aacfactory/afssl v1.5.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/json v1.12.1 // indirect
 	github.com/aacfactory/workers v1.4.0 // indirect

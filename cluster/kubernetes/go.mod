@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.4
+	github.com/aacfactory/fns v0.12.5
 	github.com/aacfactory/logs v1.12.1
 	k8s.io/apimachinery v0.24.2
 	k8s.io/client-go v0.24.2
@@ -13,6 +13,7 @@ require (
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/aacfactory/afssl v1.5.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/json v1.12.1 // indirect
 	github.com/aacfactory/workers v1.4.0 // indirect
