@@ -4,12 +4,13 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.4
+	github.com/aacfactory/fns v0.12.5
 	github.com/aacfactory/logs v1.12.1
 	github.com/lucas-clemente/quic-go v0.28.0
 )
 
 require (
+	github.com/aacfactory/afssl v1.5.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/json v1.12.1 // indirect
 	github.com/aacfactory/workers v1.4.0 // indirect
