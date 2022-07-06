@@ -4,8 +4,8 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.12.0
-	github.com/aacfactory/fns v0.12.4
-	github.com/aacfactory/fns-contrib/databases/sql v0.12.4
+	github.com/aacfactory/fns v0.12.5
+	github.com/aacfactory/fns-contrib/databases/sql v0.12.5
 	github.com/aacfactory/json v1.12.1
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 )
