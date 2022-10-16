@@ -2,15 +2,18 @@ package postgres
 
 import (
 	"fmt"
+	"github.com/aacfactory/json"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 )
 
-func LitValue(v string) *lit {
-	return &lit{value: v}
+func LitValue(v string) *Lit {
+	return &Lit{value: v}
 }
 
-type lit struct {
+type Lit struct {
 	value string
 }
 
@@ -26,7 +29,7 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 	switch c.Operation {
 	case "=", "<>", ">", ">=", "<", "<=":
 		query = `"` + c.Column + `" ` + c.Operation + " "
-		litValue, litOk := c.Values[0].(*lit)
+		litValue, litOk := c.Values[0].(*Lit)
 		if litOk {
 			query = query + litValue.value
 		} else {
@@ -34,10 +37,11 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 			query = query + fmt.Sprintf("$%d", latestArgNum)
 			args = append(args, c.Values[0])
 		}
+		break
 	case "BETWEEN":
 		query = `"` + c.Column + `" ` + c.Operation + " "
 		left := c.Values[0]
-		leftLit, leftLitOk := left.(*lit)
+		leftLit, leftLitOk := left.(*Lit)
 		if leftLitOk {
 			query = query + leftLit.value
 		} else {
@@ -47,7 +51,7 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 		}
 		query = query + " AND "
 		right := c.Values[1]
-		rightLit, rightLitOk := right.(*lit)
+		rightLit, rightLitOk := right.(*Lit)
 		if rightLitOk {
 			query = query + rightLit.value
 		} else {
@@ -55,11 +59,13 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 			query = query + fmt.Sprintf("$%d", latestArgNum)
 			args = append(args, right)
 		}
+		break
 	case "LIKE":
-		query = `"` + c.Column + `" ` + c.Operation + " " + c.Values[0].(*lit).value
+		query = `"` + c.Column + `" ` + c.Operation + " " + c.Values[0].(*Lit).value
+		break
 	case "IN", "NOT IN":
 		query = `"` + c.Column + `" ` + c.Operation + " "
-		litValue, litOk := c.Values[0].(*lit)
+		litValue, litOk := c.Values[0].(*Lit)
 		if litOk {
 			sub := strings.TrimSpace(litValue.value)
 			if sub[0] != '(' {
@@ -77,10 +83,34 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 				sub = sub[1:]
 			}
 			query = query + "(" + sub + ")"
-
 		}
+		break
+	case "@>":
+		litValue := c.Values[0].(*Lit)
+		query = `"` + c.Column + `" ` + c.Operation + " " + litValue.value
+		break
+	case "?":
+		litValue := c.Values[0].(*Lit)
+		query = `"` + c.Column + `" ` + c.Operation + " " + litValue.value
+		break
+	case "?&", "?|":
+		vv := make([]string, 0, 1)
+		for _, value := range c.Values {
+			litValue := value.(*Lit)
+			vv = append(vv, litValue.value)
+		}
+		query = `"` + c.Column + `" ` + c.Operation + " array[" + strings.Join(vv, ",") + "]"
+		break
 	}
 	return query, args
+}
+
+func LitCond(column string, operator string, value string) *Condition {
+	return &Condition{
+		Column:    strings.TrimSpace(column),
+		Operation: operator,
+		Values:    []interface{}{LitValue(value)},
+	}
 }
 
 func Eq(column string, value interface{}) *Condition {
@@ -140,7 +170,7 @@ func Between(column string, left interface{}, right interface{}) *Condition {
 }
 
 func IN(column string, value interface{}) *Condition {
-	if litValue, litOk := value.(*lit); litOk {
+	if litValue, litOk := value.(*Lit); litOk {
 		return &Condition{
 			Column:    strings.TrimSpace(column),
 			Operation: "IN",
@@ -160,7 +190,7 @@ func IN(column string, value interface{}) *Condition {
 }
 
 func NotIn(column string, value interface{}) *Condition {
-	if litValue, litOk := value.(*lit); litOk {
+	if litValue, litOk := value.(*Lit); litOk {
 		return &Condition{
 			Column:    strings.TrimSpace(column),
 			Operation: "NOT IN",
@@ -208,6 +238,91 @@ func NotDeleted(deletedByColumnName string) *Condition {
 		Column:    deletedByColumnName,
 		Operation: "=",
 		Values:    []interface{}{LitValue("''")},
+	}
+}
+
+func ContainsJsonObject(column string, object string) *Condition {
+	return &Condition{
+		Column:    column,
+		Operation: "@>",
+		Values:    []interface{}{LitValue("'" + object + "'")},
+	}
+}
+
+func ContainsJsonKey(column string, key string) *Condition {
+	return &Condition{
+		Column:    column,
+		Operation: "?",
+		Values:    []interface{}{LitValue("'" + key + "'")},
+	}
+}
+
+func ContainsJsonObjectOfArray(column string, object string) *Condition {
+	return &Condition{
+		Column:    column,
+		Operation: "?",
+		Values:    []interface{}{LitValue("'" + object + "'")},
+	}
+}
+
+func ContainsJsonObjectsOfArray(column string, all bool, elements ...interface{}) *Condition {
+	values := make([]interface{}, 0, 1)
+	for _, element := range elements {
+		if element == nil {
+			values = append(values, LitValue("null"))
+			continue
+		}
+		switch element.(type) {
+		case string:
+			ele := element.(string)
+			values = append(values, LitValue("'"+ele+"'"))
+			break
+		case int:
+			ele := element.(int)
+			values = append(values, LitValue(strconv.FormatInt(int64(ele), 10)))
+			break
+		case int16:
+			ele := element.(int16)
+			values = append(values, LitValue(strconv.FormatInt(int64(ele), 10)))
+			break
+		case int32:
+			ele := element.(int32)
+			values = append(values, LitValue(strconv.FormatInt(int64(ele), 10)))
+			break
+		case int64:
+			ele := element.(int64)
+			values = append(values, LitValue(strconv.FormatInt(ele, 10)))
+			break
+		case float32:
+			ele := element.(float32)
+			values = append(values, LitValue(fmt.Sprintf("%v", ele)))
+			break
+		case float64:
+			ele := element.(float64)
+			values = append(values, LitValue(fmt.Sprintf("%v", ele)))
+			break
+		case bool:
+			ele := element.(bool)
+			values = append(values, LitValue(fmt.Sprintf("%v", ele)))
+			break
+		case time.Time:
+			ele := element.(time.Time)
+			values = append(values, LitValue("'"+ele.Format(time.RFC3339)+"'"))
+			break
+		case json.Date:
+			ele := element.(json.Date)
+			values = append(values, LitValue("'"+ele.String()+"'"))
+			break
+		}
+	}
+	op := "?|"
+	if all {
+		op = "?&"
+	}
+	return &Condition{
+		Column:    column,
+		Operation: op,
+		Values:    values,
 	}
 }
 

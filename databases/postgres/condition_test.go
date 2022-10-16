@@ -10,6 +10,11 @@ import (
 
 func TestConditions(t *testing.T) {
 	conds := postgres.NewConditions(postgres.Eq("id", "FOO"))
+	conds.And(postgres.ContainsJsonKey("id", "foo"))
+	conds.And(postgres.ContainsJsonObject("id", `{"foo": "bar"}`))
+	conds.And(postgres.ContainsJsonObjectOfArray("id", "foo"))
+	conds.And(postgres.ContainsJsonObjectsOfArray("id", true, "foo", "bar"))
+	conds.And(postgres.ContainsJsonObjectsOfArray("id", false, "foo", "bar"))
 	conds.And(postgres.GT("age", 10))
 	conds.And(postgres.GTE("age", 11))
 	conds.And(postgres.LT("age", 10))
