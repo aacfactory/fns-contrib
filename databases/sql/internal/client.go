@@ -23,7 +23,7 @@ type Executor interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (result sql.Result, err error)
 }
 
-func newClient(config Config) (client Client, err error) {
+func newClient(config DatabaseConfig) (client Client, err error) {
 	if config.DSN == nil || len(config.DSN) < 1 {
 		err = fmt.Errorf("sql: dsn is invalid")
 		return

@@ -9,7 +9,22 @@ import (
 
 const (
 	requestLocalTransactionHostId = "_sql_rid"
+	dbnameContextKey              = "_sql_dbname"
 )
+
+func SwitchDatabase(ctx context.Context, dbname string) context.Context {
+	return context.WithValue(ctx, dbnameContextKey, dbname)
+}
+
+func currentDatabase(ctx context.Context) (dbname string) {
+	dbname0 := ctx.Value(dbnameContextKey)
+	if dbname0 == nil {
+		dbname = "default"
+		return
+	}
+	dbname = dbname0.(string)
+	return
+}
 
 func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	request, hasRequest := service.GetRequest(ctx)
@@ -38,7 +53,9 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		}
 		return
 	}
-	fr := endpoint.Request(ctx, beginTransactionFn, service.NewArgument(nil))
+	fr := endpoint.Request(ctx, beginTransactionFn, service.NewArgument(&databaseArgument{
+		Database: currentDatabase(ctx),
+	}))
 	r := transactionRegistration{}
 	_, getResultErr := fr.Get(ctx, &r)
 	if getResultErr != nil {
@@ -78,7 +95,9 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid)
 		return
 	}
-	fr := endpoint.Request(ctx, commitTransactionFn, service.NewArgument(nil))
+	fr := endpoint.Request(ctx, commitTransactionFn, service.NewArgument(&databaseArgument{
+		Database: currentDatabase(ctx),
+	}))
 	status := transactionStatus{}
 	_, getResultErr := fr.Get(ctx, &status)
 	if getResultErr != nil {
@@ -113,7 +132,10 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid)
 		return
 	}
-	fr := endpoint.Request(ctx, rollbackTransactionFn, service.NewArgument(nil))
+
+	fr := endpoint.Request(ctx, rollbackTransactionFn, service.NewArgument(&databaseArgument{
+		Database: currentDatabase(ctx),
+	}))
 	_, getResultErr := fr.Get(ctx, &service.Empty{})
 	if getResultErr != nil {
 		err = getResultErr
@@ -159,8 +181,9 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 		tuple = internal.NewTuple().Append(args...)
 	}
 	fr := endpoint.Request(ctx, queryFn, service.NewArgument(&queryArgument{
-		Query: query,
-		Args:  tuple,
+		Database: currentDatabase(ctx),
+		Query:    query,
+		Args:     tuple,
 	}))
 	rows0 := &rows{}
 	_, getResultErr := fr.Get(ctx, rows0)
@@ -208,8 +231,9 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 		tuple = internal.NewTuple().Append(args...)
 	}
 	fr := endpoint.Request(ctx, executeFn, service.NewArgument(&executeArgument{
-		Query: query,
-		Args:  tuple,
+		Database: currentDatabase(ctx),
+		Query:    query,
+		Args:     tuple,
 	}))
 	result := &executeResult{}
 	_, getResultErr := fr.Get(ctx, result)

@@ -13,14 +13,20 @@ type transactionStatus struct {
 	Finished bool `json:"finished"`
 }
 
+type databaseArgument struct {
+	Database string `json:"database"`
+}
+
 type queryArgument struct {
-	Query string          `json:"query"`
-	Args  *internal.Tuple `json:"args"`
+	Database string          `json:"database"`
+	Query    string          `json:"query"`
+	Args     *internal.Tuple `json:"args"`
 }
 
 type executeArgument struct {
-	Query string          `json:"query"`
-	Args  *internal.Tuple `json:"args"`
+	Database string          `json:"database"`
+	Query    string          `json:"query"`
+	Args     *internal.Tuple `json:"args"`
 }
 
 type executeResult struct {

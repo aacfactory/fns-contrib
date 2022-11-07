@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/logs"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -19,7 +20,9 @@ type Database interface {
 	Close()
 }
 
-type Config struct {
+type Config map[string]DatabaseConfig
+
+type DatabaseConfig struct {
 	Driver           string   `json:"driver"`
 	MasterSlaverMode bool     `json:"masterSlaverMode"`
 	DSN              []string `json:"dsn"`
@@ -35,26 +38,34 @@ type Options struct {
 	Config Config
 }
 
-func New(options Options) (v Database, err error) {
-	client, clientErr := newClient(options.Config)
-	if clientErr != nil {
-		err = clientErr
-		return
-	}
-	isolation := sql.IsolationLevel(options.Config.Isolation)
-	if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
-		isolation = sql.LevelReadCommitted
-	}
-	v = &db{
-		running:           1,
-		log:               options.Log.With("sql", "db"),
-		enableSQLDebugLog: options.Config.EnableDebugLog,
-		isolation:         isolation,
-		client:            client,
-		gtm: newGlobalTransactionManagement(globalTransactionManagementOptions{
-			log:             options.Log,
-			checkupInterval: time.Duration(options.Config.GTMCleanUpSecond) * time.Second,
-		}),
+func New(options Options) (v map[string]Database, err error) {
+	v = make(map[string]Database)
+	hasDefault := false
+	for name, config := range options.Config {
+		name = strings.TrimSpace(name)
+		if !hasDefault {
+			hasDefault = strings.ToLower(name) == "default"
+		}
+		client, clientErr := newClient(config)
+		if clientErr != nil {
+			err = clientErr
+			return
+		}
+		isolation := sql.IsolationLevel(config.Isolation)
+		if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
+			isolation = sql.LevelReadCommitted
+		}
+		v[name] = &db{
+			running:           1,
+			log:               options.Log.With("sql", "db"),
+			enableSQLDebugLog: config.EnableDebugLog,
+			isolation:         isolation,
+			client:            client,
+			gtm: newGlobalTransactionManagement(globalTransactionManagementOptions{
+				log:             options.Log,
+				checkupInterval: time.Duration(config.GTMCleanUpSecond) * time.Second,
+			}),
+		}
 	}
 	return
 }

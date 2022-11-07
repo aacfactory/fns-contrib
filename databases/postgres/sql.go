@@ -53,3 +53,7 @@ func ExecuteContext(ctx context.Context, query string, args ...interface{}) (aff
 	}
 	return
 }
+
+func SwitchDatabase(ctx context.Context, dbname string) context.Context {
+	return context.WithValue(ctx, "_sql_dbname", dbname)
+}
