@@ -31,6 +31,9 @@ func isImplementTable(typ reflect.Type) bool {
 
 func getTable(typ reflect.Type) (v *table, has bool) {
 	key := fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
+	if typ.Kind() == reflect.Ptr {
+		key = fmt.Sprintf("%s.%s", typ.Elem().PkgPath(), typ.Elem().Name())
+	}
 	stored, hasStored := tables.Load(key)
 	if hasStored {
 		has = true
@@ -42,15 +45,18 @@ func getTable(typ reflect.Type) (v *table, has bool) {
 
 func setTable(typ reflect.Type, v *table) {
 	key := fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
+	if typ.Kind() == reflect.Ptr {
+		key = fmt.Sprintf("%s.%s", typ.Elem().PkgPath(), typ.Elem().Name())
+	}
 	tables.Store(key, v)
 }
 
 func createOrLoadTable(x interface{}) (v *table) {
 	rt := reflect.TypeOf(x)
-	if rt.Kind() == reflect.Ptr {
-		rt = rt.Elem()
-	}
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
+	if rt.Kind() == reflect.Ptr {
+		key = fmt.Sprintf("%s.%s", rt.Elem().PkgPath(), rt.Elem().Name())
+	}
 	if !isImplementTable(rt) {
 		panic(fmt.Sprintf("postgres: analyse %s failed, type of it is not Table", key))
 		return
@@ -66,10 +72,10 @@ func createOrLoadTable(x interface{}) (v *table) {
 
 func createTable(x interface{}) (v *table) {
 	rt := reflect.TypeOf(x)
-	if rt.Kind() == reflect.Ptr {
-		rt = rt.Elem()
-	}
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
+	if rt.Kind() == reflect.Ptr {
+		key = fmt.Sprintf("%s.%s", rt.Elem().PkgPath(), rt.Elem().Name())
+	}
 	r, _, _ := tableGroup.Do(key, func() (r interface{}, err error) {
 		target, typeOk := x.(Table)
 		if !typeOk {
@@ -85,6 +91,9 @@ func createTable(x interface{}) (v *table) {
 		}
 		if schema == "" {
 			schema = "public"
+		}
+		if rt.Kind() == reflect.Ptr {
+			rt = rt.Elem()
 		}
 
 		fieldNum := rt.NumField()
@@ -932,6 +941,16 @@ func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*O
 		if rng != nil {
 			query = query + ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
 		}
+	}
+	return
+}
+
+func (t *table) generateSubQuerySQL(column string, conditions *Conditions) (query string, args []interface{}) {
+	query = `SELECT "` + column + `" FROM ` + t.fullName()
+	if conditions != nil {
+		conditionQuery, conditionArgs := conditions.QueryAndArguments()
+		query = query + " WHERE " + conditionQuery
+		args = conditionArgs
 	}
 	return
 }

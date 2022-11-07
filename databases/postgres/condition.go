@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"fmt"
+	"github.com/aacfactory/fns/commons/times"
 	"github.com/aacfactory/json"
 	"reflect"
 	"strconv"
@@ -15,6 +16,27 @@ func LitValue(v string) *Lit {
 
 type Lit struct {
 	value string
+}
+
+func NewSubQuery(row Table, column string, conditions *Conditions) (sub *SubQuery) {
+	return &SubQuery{
+		Row:        row,
+		Column:     column,
+		Conditions: conditions,
+	}
+}
+
+type SubQuery struct {
+	Row        Table
+	Column     string
+	Conditions *Conditions
+}
+
+func (sub *SubQuery) queryAndArguments(latestArgNum int) (query string, args []interface{}) {
+	sub.Conditions.latestArgNum = latestArgNum
+	tab := createOrLoadTable(sub.Row)
+	query, args = tab.generateSubQuerySQL(sub.Column, sub.Conditions)
+	return
 }
 
 type Condition struct {
@@ -65,14 +87,25 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 		break
 	case "IN", "NOT IN":
 		query = `"` + c.Column + `" ` + c.Operation + " "
-		litValue, litOk := c.Values[0].(*Lit)
-		if litOk {
+		switch c.Values[0].(type) {
+		case *Lit:
+			litValue := c.Values[0].(*Lit)
 			sub := strings.TrimSpace(litValue.value)
 			if sub[0] != '(' {
 				sub = "(" + sub + ")"
 			}
 			query = query + sub
-		} else {
+			break
+		case *SubQuery:
+			sub := c.Values[0].(*SubQuery)
+			subQuery, subArguments := sub.queryAndArguments(latestArgNum)
+			query = query + "(" + subQuery + ")"
+			if subArguments != nil {
+				latestArgNum = latestArgNum + len(subArguments)
+				args = append(args, subArguments...)
+			}
+			break
+		default:
 			sub := ""
 			for _, value := range c.Values {
 				latestArgNum++
@@ -83,6 +116,7 @@ func (c *Condition) queryAndArguments(latestArgNum int) (string, []interface{}) 
 				sub = sub[1:]
 			}
 			query = query + "(" + sub + ")"
+			break
 		}
 		break
 	case "@>":
@@ -161,6 +195,40 @@ func LTE(column string, value interface{}) *Condition {
 	}
 }
 
+func BetweenTime(column string, tr *times.TimeRange) *Condition {
+	if tr == nil {
+		tr = &times.TimeRange{}
+	}
+	if tr.IsZero() {
+		tr.End = time.Now().AddDate(0, 0, 1)
+	}
+	if tr.End.IsZero() {
+		tr.End = time.Now().AddDate(0, 0, 1)
+	}
+	return &Condition{
+		Column:    strings.TrimSpace(column),
+		Operation: "BETWEEN",
+		Values:    []interface{}{tr.Beg, tr.End},
+	}
+}
+
+func BetweenDate(column string, dr *times.DateRange) *Condition {
+	if dr == nil {
+		dr = &times.DateRange{}
+	}
+	if dr.IsZero() {
+		dr.End = json.NewDateFromTime(time.Now().AddDate(0, 0, 1))
+	}
+	if dr.End.IsZero() {
+		dr.End = json.NewDateFromTime(time.Now().AddDate(0, 0, 1))
+	}
+	return &Condition{
+		Column:    strings.TrimSpace(column),
+		Operation: "BETWEEN",
+		Values:    []interface{}{dr.Beg, dr.End},
+	}
+}
+
 func Between(column string, left interface{}, right interface{}) *Condition {
 	return &Condition{
 		Column:    strings.TrimSpace(column),
@@ -175,6 +243,13 @@ func IN(column string, value interface{}) *Condition {
 			Column:    strings.TrimSpace(column),
 			Operation: "IN",
 			Values:    []interface{}{litValue},
+		}
+	}
+	if sub, subOk := value.(*SubQuery); subOk {
+		return &Condition{
+			Column:    strings.TrimSpace(column),
+			Operation: "IN",
+			Values:    []interface{}{sub},
 		}
 	}
 	values := make([]interface{}, 0, 1)
@@ -195,6 +270,13 @@ func NotIn(column string, value interface{}) *Condition {
 			Column:    strings.TrimSpace(column),
 			Operation: "NOT IN",
 			Values:    []interface{}{litValue},
+		}
+	}
+	if sub, subOk := value.(*SubQuery); subOk {
+		return &Condition{
+			Column:    strings.TrimSpace(column),
+			Operation: "NOT IN",
+			Values:    []interface{}{sub},
 		}
 	}
 	values := make([]interface{}, 0, 1)
@@ -343,7 +425,8 @@ func NewConditions(cond *Condition) *Conditions {
 }
 
 type Conditions struct {
-	units []*conditionUnit
+	latestArgNum int
+	units        []*conditionUnit
 }
 
 func (c *Conditions) And(v *Condition) *Conditions {
@@ -390,7 +473,7 @@ func (c *Conditions) queryAndArguments() (query string, args []interface{}) {
 		switch unit.value.(type) {
 		case *Condition:
 			v := unit.value.(*Condition)
-			sub, subArgs := v.queryAndArguments(len(args))
+			sub, subArgs := v.queryAndArguments(len(args) + c.latestArgNum)
 			if unit.andOr != "" {
 				query = query + " " + unit.andOr + " " + sub
 			} else {

@@ -40,6 +40,11 @@ func TestTable(t *testing.T) {
 
 	q, _ := fooTable.generateQuerySQL(NewConditions(Eq("ID", LitValue("'1'"))), NewRange(0, 10), NewOrders().Asc("ID").values)
 	fmt.Println(q)
+
+	fmt.Println("--")
+	fmt.Println(fooTable.generateExistSQL(NewConditions(
+		Eq("ID", 1)).And(IN("ID", NewSubQuery(foo, "ID", NewConditions(Eq("ID", 1)))))))
+	fmt.Println("--")
 }
 
 type Sample struct {
@@ -65,7 +70,7 @@ type Foo struct {
 	BarNum   int       `col:"BAR_NUM,vc,SELECT COUNT(1) FROM \"METAVOOO\".\"BAR\" WHERE \"FOO_ID\" = \"METAVOOO\".\"FOO\".\"ID\""`
 }
 
-func (f Foo) TableName() (string, string) {
+func (f *Foo) TableName() (string, string) {
 	return "METAVOOO", "FOO"
 }
 
