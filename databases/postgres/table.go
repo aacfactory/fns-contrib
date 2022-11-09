@@ -29,17 +29,22 @@ func isImplementTable(typ reflect.Type) bool {
 	return typ.Implements(tableType)
 }
 
-func getTable(typ reflect.Type) (v *table, has bool) {
-	key := fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
-	if typ.Kind() == reflect.Ptr {
-		key = fmt.Sprintf("%s.%s", typ.Elem().PkgPath(), typ.Elem().Name())
-	}
-	stored, hasStored := tables.Load(key)
+func getTableByFullName(name string) (v *table, has bool) {
+	stored, hasStored := tables.Load(name)
 	if hasStored {
 		has = true
 		v = stored.(*table)
 		return
 	}
+	return
+}
+
+func getTable(typ reflect.Type) (v *table, has bool) {
+	key := fmt.Sprintf("%s.%s", typ.PkgPath(), typ.Name())
+	if typ.Kind() == reflect.Ptr {
+		key = fmt.Sprintf("%s.%s", typ.Elem().PkgPath(), typ.Elem().Name())
+	}
+	v, has = getTableByFullName(key)
 	return
 }
 
@@ -49,6 +54,37 @@ func setTable(typ reflect.Type, v *table) {
 		key = fmt.Sprintf("%s.%s", typ.Elem().PkgPath(), typ.Elem().Name())
 	}
 	tables.Store(key, v)
+}
+
+func RegisterTables(x ...interface{}) {
+	for _, v := range x {
+		_ = createOrLoadTable(v)
+	}
+}
+
+func RegisterTable(x interface{}) {
+	_ = createOrLoadTable(x)
+}
+
+func LoadTable(name string) (v Table) {
+	t, has := getTableByFullName(name)
+	if has {
+		v = reflect.New(t.Type).Interface().(Table)
+		return
+	}
+	tables.Range(func(key0 any, value0 any) bool {
+		key := key0.(string)
+		if strings.HasSuffix(key, name) {
+			t = value0.(*table)
+			return false
+		}
+		return true
+	})
+	if t == nil {
+		panic(fmt.Sprintf("postgres: %s table was not found", name))
+	}
+	v = reflect.New(t.Type).Interface().(Table)
+	return
 }
 
 func createOrLoadTable(x interface{}) (v *table) {
@@ -103,6 +139,7 @@ func createTable(x interface{}) (v *table) {
 		}
 
 		v = &table{
+			Type:    rt,
 			Schema:  schema,
 			Name:    tableName,
 			Columns: make([]*column, 0, 1),
@@ -185,6 +222,7 @@ type tableGenericQuery struct {
 }
 
 type table struct {
+	Type                      reflect.Type
 	Schema                    string
 	Name                      string
 	Columns                   []*column
