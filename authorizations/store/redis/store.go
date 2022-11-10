@@ -5,30 +5,37 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/builtin/authorizations"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"time"
 )
 
-func init() {
-	authorizations.RegisterTokenStore(&Store{})
-}
-
-type Store struct {
-	log logs.Logger
-}
-
-func (store *Store) Build(options authorizations.TokenStoreOptions) (err error) {
-	store.log = options.Log
+func Component() (component service.Component) {
+	component = &store{}
 	return
 }
 
-func (store *Store) Exist(ctx context.Context, tokenId string) (ok bool) {
+type store struct {
+	log logs.Logger
+}
+
+func (st *store) Name() (name string) {
+	name = "store"
+	return
+}
+
+func (st *store) Build(options service.ComponentOptions) (err error) {
+	st.log = options.Log
+	return
+}
+
+func (st *store) Exist(ctx context.Context, tokenId string) (ok bool) {
 	has, existErr := redis.Exist(ctx, makeKey(tokenId))
 	if existErr != nil {
-		if store.log.ErrorEnabled() {
-			store.log.Error().Caller().Cause(existErr).With("tokenId", tokenId).Message("authorizations redis store: check token exists failed")
+		if st.log.ErrorEnabled() {
+			st.log.Error().Caller().Cause(existErr).With("tokenId", tokenId).Message("authorizations redis store: check token exists failed")
 		}
 		return
 	}
@@ -36,7 +43,7 @@ func (store *Store) Exist(ctx context.Context, tokenId string) (ok bool) {
 	return
 }
 
-func (store *Store) Save(ctx context.Context, at authorizations.Token) (err error) {
+func (st *store) Save(ctx context.Context, at authorizations.Token) (err error) {
 	expirations := at.NotAfter().Sub(time.Now())
 	if expirations < 0 {
 		expirations = 0
@@ -70,7 +77,7 @@ func (store *Store) Save(ctx context.Context, at authorizations.Token) (err erro
 	return
 }
 
-func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
+func (st *store) Remove(ctx context.Context, tokenId string) (err error) {
 	key := makeKey(tokenId)
 	got, getErr := redis.Get(ctx, key)
 	if getErr != nil {
@@ -88,8 +95,8 @@ func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
 	}
 	removeTokenErr := redis.Remove(ctx, key)
 	if removeTokenErr != nil {
-		if store.log.ErrorEnabled() {
-			store.log.Error().Caller().Cause(removeTokenErr).With("tokenId", tokenId).Message("authorizations redis store: remove token failed")
+		if st.log.ErrorEnabled() {
+			st.log.Error().Caller().Cause(removeTokenErr).With("tokenId", tokenId).Message("authorizations redis store: remove token failed")
 		}
 	}
 	userKey := makeUserKey(token.UserId)
@@ -101,7 +108,7 @@ func (store *Store) Remove(ctx context.Context, tokenId string) (err error) {
 	return
 }
 
-func (store *Store) RemoveUserTokens(ctx context.Context, userId string) (err error) {
+func (st *store) RemoveUserTokens(ctx context.Context, userId string) (err error) {
 	userKey := makeUserKey(userId)
 	members, membersErr := redis.SMembers(ctx, userKey)
 	if membersErr != nil {
@@ -117,7 +124,7 @@ func (store *Store) RemoveUserTokens(ctx context.Context, userId string) (err er
 	return
 }
 
-func (store *Store) Close() (err error) {
+func (st *store) Close() {
 	return
 }
 
