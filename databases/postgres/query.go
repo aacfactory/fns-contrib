@@ -214,6 +214,7 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 			} else {
 				rv.FieldByName(field.Name).SetString(v)
 			}
+			break
 		case sql.BoolType:
 			v := false
 			decodeErr := c.Get(&v)
@@ -230,6 +231,7 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 			} else {
 				rv.FieldByName(field.Name).SetBool(v)
 			}
+			break
 		case sql.IntType:
 			v := int64(0)
 			decodeErr := c.Get(&v)
@@ -258,6 +260,7 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 			} else {
 				rv.FieldByName(field.Name).SetInt(v)
 			}
+			break
 		case sql.FloatType:
 			v := 0.0
 			decodeErr := c.Get(&v)
@@ -274,7 +277,8 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 			} else {
 				rv.FieldByName(field.Name).SetFloat(v)
 			}
-		case sql.TimeType:
+			break
+		case sql.DatetimeType:
 			v := time.Time{}
 			decodeErr := c.Get(&v)
 			if decodeErr != nil {
@@ -290,8 +294,19 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 			} else {
 				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
 			}
+			break
 		case sql.BytesType:
 			rv.FieldByName(field.Name).SetBytes(c.RawValue())
+			break
+		case sql.TimeType:
+			v := sql.Time{}
+			decodeErr := c.Get(&v)
+			if decodeErr != nil {
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
+				return
+			}
+			rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
+			break
 		case sql.JsonType:
 			if field.Type == sqlJsonType || field.Type == sqlSTDJsonType {
 				rv.FieldByName(field.Name).Set(reflect.ValueOf(c.RawValue()).Convert(field.Type))
@@ -304,6 +319,16 @@ func scanQueryResult(ctx context.Context, result sql.Row, row reflect.Value) (er
 				}
 				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Elem())
 			}
+			break
+		case sql.DateType:
+			v := sql.Date{}
+			decodeErr := c.Get(&v)
+			if decodeErr != nil {
+				err = fmt.Errorf("get %s failed, %v", cName, decodeErr)
+				return
+			}
+			rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
+			break
 		case sql.UnknownType:
 			if field.Type.AssignableTo(sqlBytesType) {
 				rv.FieldByName(field.Name).SetBytes(c.RawValue())

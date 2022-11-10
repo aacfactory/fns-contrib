@@ -6,8 +6,10 @@ Make sure that sql service has been deployed.
 
 ```go
 import (
-_ "github.com/aacfactory/fns-contrib/authorizations/store/mysql"
+	"github.com/aacfactory/fns-contrib/authorizations/store/mysql"
 )
+
+authorizations.Service(mysql.Component())
 ```
 
 Config setting

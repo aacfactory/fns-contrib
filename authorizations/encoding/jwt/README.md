@@ -11,6 +11,7 @@ go get github.com/aacfactory/fns-contrib/authorizations/encoding/jwt
 ## Usage
 
 ### Config
+
 ```yaml
 authorization:
   encoding:
@@ -18,7 +19,7 @@ authorization:
     publicKey: "path of public key"
     privateKey: "path of private key"
     issuer: ""
-    audience: 
+    audience:
       - foo
       - bar
     expirations: "720h0m0s"
@@ -28,13 +29,10 @@ authorization:
 
 ```go
 import (
-    _ "github.com/aacfactory/fns-contrib/authorizations/encoding/jwt"
+"github.com/aacfactory/fns-contrib/authorizations/encoding/jwt"
 )
 
+
+authorizations.Service(jwt.Component())
 ```
 
-### Deploy service
-
-```go
-app.Deploy(authorizations.Service())
-```

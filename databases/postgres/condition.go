@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"fmt"
+	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/times"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -393,6 +394,14 @@ func ContainsJsonObjectsOfArray(column string, all bool, elements ...interface{}
 			break
 		case json.Date:
 			ele := element.(json.Date)
+			values = append(values, LitValue("'"+ele.String()+"'"))
+			break
+		case sql.Date:
+			ele := element.(sql.Date)
+			values = append(values, LitValue("'"+ele.String()+"'"))
+			break
+		case sql.Time:
+			ele := element.(sql.Time)
 			values = append(values, LitValue("'"+ele.String()+"'"))
 			break
 		}

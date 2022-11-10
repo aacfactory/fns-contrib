@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+type Argument interface {
+	ToSQL() string
+}
+
 func NewTuple() *Tuple {
 	return &Tuple{
 		values: make([]string, 0, 1),
@@ -49,6 +53,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 		switch v.(type) {
 		case string:
 			t.values = append(t.values, fmt.Sprintf("sss:%s", v.(string)))
+			break
 		case sql.NullString:
 			x := v.(sql.NullString)
 			if x.Valid {
@@ -56,14 +61,19 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case []byte:
 			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.([]byte))))
+			break
 		case json.RawMessage:
 			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.(json.RawMessage))))
+			break
 		case stdJson.RawMessage:
 			t.values = append(t.values, fmt.Sprintf("bbb:%s", string(v.(stdJson.RawMessage))))
+			break
 		case int, int8, int16, int32, int64, uint, uint16, uint32, uint64:
 			t.values = append(t.values, fmt.Sprintf("int:%v", v))
+			break
 		case sql.NullInt16:
 			x := v.(sql.NullInt16)
 			if x.Valid {
@@ -71,6 +81,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case sql.NullInt32:
 			x := v.(sql.NullInt32)
 			if x.Valid {
@@ -78,6 +89,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case sql.NullInt64:
 			x := v.(sql.NullInt64)
 			if x.Valid {
@@ -85,6 +97,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case byte:
 			t.values = append(t.values, fmt.Sprintf("byt:%v", v.(uint8)))
 		case sql.NullByte:
@@ -94,10 +107,13 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case float32:
 			t.values = append(t.values, fmt.Sprintf("f64:%f", v.(float32)))
+			break
 		case float64:
 			t.values = append(t.values, fmt.Sprintf("f64:%f", v.(float64)))
+			break
 		case sql.NullFloat64:
 			x := v.(sql.NullFloat64)
 			if x.Valid {
@@ -105,6 +121,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case bool:
 			b := v.(bool)
 			if b {
@@ -112,6 +129,7 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "boo:false")
 			}
+			break
 		case sql.NullBool:
 			x := v.(sql.NullBool)
 			if x.Valid {
@@ -119,15 +137,19 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case time.Time:
 			x := v.(time.Time)
 			t.values = append(t.values, fmt.Sprintf("ttt:%s", x.Format(time.RFC3339)))
+			break
 		case json.Date:
 			x := v.(json.Date)
 			t.values = append(t.values, fmt.Sprintf("ttt:%s", x.ToTime().Format(time.RFC3339)))
+			break
 		case json.Time:
 			x := v.(json.Time)
 			t.values = append(t.values, fmt.Sprintf("ttt:%s", time.Time(x).Format(time.RFC3339)))
+			break
 		case sql.NullTime:
 			x := v.(sql.NullTime)
 			if x.Valid {
@@ -135,12 +157,18 @@ func (t *Tuple) Append(values ...interface{}) *Tuple {
 			} else {
 				t.values = append(t.values, "nil:<nil>")
 			}
+			break
 		case time.Duration:
 			x := v.(time.Duration)
 			t.values = append(t.values, fmt.Sprintf("int:%d", x.Milliseconds()))
+			break
 		default:
-			panic(fmt.Errorf("fns SQL Tuple: appended %d of values type(%s) is not supported", i, reflect.TypeOf(v).String()))
-			return t
+			arg, ok := v.(Argument)
+			if !ok {
+				panic(fmt.Errorf("fns SQL Tuple: appended %d of values type(%s) is not supported", i, reflect.TypeOf(v).String()))
+			}
+			t.values = append(t.values, arg.ToSQL())
+			break
 		}
 	}
 	return t
@@ -157,29 +185,38 @@ func (t *Tuple) MapToSQLArgs() (args []interface{}) {
 		switch kind {
 		case "nil":
 			args = append(args, nil)
+			break
 		case "sss":
 			args = append(args, value)
+			break
 		case "bbb":
 			args = append(args, []byte(value))
+			break
 		case "int":
 			x, _ := strconv.Atoi(value)
 			args = append(args, x)
+			break
 		case "byt":
 			args = append(args, value[0])
+			break
 		case "f64":
 			x, _ := strconv.ParseFloat(value, 10)
 			args = append(args, x)
+			break
 		case "boo":
 			if value == "true" {
 				args = append(args, true)
 			} else {
 				args = append(args, false)
 			}
+			break
 		case "ttt":
 			x, _ := time.Parse(time.RFC3339, value)
 			args = append(args, x)
+			break
 		default:
 			args = append(args, []byte(value))
+			break
 		}
 	}
 	return

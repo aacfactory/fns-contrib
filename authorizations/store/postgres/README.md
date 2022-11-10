@@ -6,8 +6,10 @@ Make sure that sql service has been deployed.
 
 ```go
 import (
-_ "github.com/aacfactory/fns-contrib/authorizations/store/postgres"
+    "github.com/aacfactory/fns-contrib/authorizations/store/postgres"
 )
+
+authorizations.Service(postgres.Component())
 ```
 
 Config setting

@@ -9,14 +9,16 @@ import (
 )
 
 const (
-	StringType  = ColumnType("string")
-	IntType     = ColumnType("int")
-	FloatType   = ColumnType("float")
-	BytesType   = ColumnType("bytes")
-	JsonType    = ColumnType("json")
-	BoolType    = ColumnType("bool")
-	TimeType    = ColumnType("time")
-	UnknownType = ColumnType("unknown")
+	StringType   = ColumnType("string")
+	IntType      = ColumnType("int")
+	FloatType    = ColumnType("float")
+	BytesType    = ColumnType("bytes")
+	JsonType     = ColumnType("json")
+	BoolType     = ColumnType("bool")
+	DatetimeType = ColumnType("datetime")
+	DateType     = ColumnType("date")
+	TimeType     = ColumnType("time")
+	UnknownType  = ColumnType("unknown")
 )
 
 type ColumnType string
@@ -79,6 +81,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
 	case IntType:
 		x := c.value.(*sql.NullInt64)
 		if x.Valid {
@@ -91,6 +94,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
 	case FloatType:
 		x := c.value.(*sql.NullFloat64)
 		if x.Valid {
@@ -103,6 +107,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
 	case BytesType, UnknownType:
 		x := c.value.(*NullSQLRaw)
 		if x.Valid {
@@ -115,6 +120,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
 	case JsonType:
 		x := c.value.(*NullJson)
 		if x.Valid {
@@ -123,6 +129,7 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
 	case BoolType:
 		x := c.value.(*sql.NullBool)
 		if x.Valid {
@@ -135,7 +142,8 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
-	case TimeType:
+		break
+	case DatetimeType:
 		x := c.value.(*sql.NullTime)
 		if x.Valid {
 			p, encodeErr := json.Marshal(x.Time)
@@ -147,6 +155,23 @@ func (c *ColumnScanner) Scan(src interface{}) error {
 			c.Value = []byte("null")
 			c.Nil = true
 		}
+		break
+	case DateType:
+		x := c.value.(*Date)
+		p, encodeErr := json.Marshal(x)
+		if encodeErr != nil {
+			return encodeErr
+		}
+		c.Value = p
+		break
+	case TimeType:
+		x := c.value.(*Time)
+		p, encodeErr := json.Marshal(x)
+		if encodeErr != nil {
+			return encodeErr
+		}
+		c.Value = p
+		break
 	}
 	return c.value.Scan(src)
 }
@@ -234,7 +259,33 @@ func NewColumnScanner(ct *sql.ColumnType) (scanner *ColumnScanner) {
 		return
 	}
 	// time
-	if strings.Contains(typeName, "TIMESTAMP") || strings.Contains(typeName, "DATE") || strings.Contains(typeName, "TIME") {
+	if strings.Contains(typeName, "TIMESTAMP") || strings.Contains(typeName, "DATETIME") {
+		scanner = &ColumnScanner{
+			column: &column{
+				Type_: DatetimeType,
+				Name_: colName,
+				Value: nil,
+				Nil:   false,
+			},
+			value: &sql.NullTime{},
+		}
+		return
+	}
+	// date
+	if strings.Contains(typeName, "DATE") {
+		scanner = &ColumnScanner{
+			column: &column{
+				Type_: DateType,
+				Name_: colName,
+				Value: nil,
+				Nil:   false,
+			},
+			value: &Date{},
+		}
+		return
+	}
+	// time
+	if strings.Contains(typeName, "TIME") {
 		scanner = &ColumnScanner{
 			column: &column{
 				Type_: TimeType,
@@ -242,7 +293,7 @@ func NewColumnScanner(ct *sql.ColumnType) (scanner *ColumnScanner) {
 				Value: nil,
 				Nil:   false,
 			},
-			value: &sql.NullTime{},
+			value: &Time{},
 		}
 		return
 	}

@@ -70,7 +70,7 @@ func (svc *_service_) Components() (components map[string]service.Component) {
 }
 
 func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
-	targetDB := &databaseArgument{}
+	targetDB := databaseArgument{}
 	targetDBErr := argument.As(&targetDB)
 	if targetDBErr != nil {
 		err = errors.BadRequest("sql: invalid query argument").WithCause(targetDBErr).WithMeta("service", name).WithMeta("fn", fn)
