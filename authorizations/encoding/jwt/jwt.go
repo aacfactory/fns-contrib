@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/uid"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/builtin/authorizations"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
@@ -17,8 +18,9 @@ var (
 	prefix = []byte("Bearer ")
 )
 
-func init() {
-	authorizations.RegisterTokenEncoding(&encoding{})
+func Component() (component service.Component) {
+	component = &encoding{}
+	return
 }
 
 type encoding struct {
@@ -31,7 +33,12 @@ type encoding struct {
 	expirations time.Duration
 }
 
-func (encoding *encoding) Build(options authorizations.TokenEncodingOptions) (err error) {
+func (encoding *encoding) Name() (name string) {
+	name = "encoding"
+	return
+}
+
+func (encoding *encoding) Build(options service.ComponentOptions) (err error) {
 	encoding.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -226,5 +233,9 @@ func (encoding *encoding) Decode(p []byte) (token authorizations.Token, err erro
 		Claims: claims,
 		raw:    p,
 	}
+	return
+}
+
+func (encoding *encoding) Close() {
 	return
 }
