@@ -6,8 +6,10 @@ Make sure that sql service has been deployed.
 
 ```go
 import (
-_ "github.com/aacfactory/fns-contrib/permissions/store/mysql"
+  "github.com/aacfactory/fns-contrib/permissions/store/mysql"
 )
+
+rbac.Service(mysql.Component())
 ```
 
 Config setting

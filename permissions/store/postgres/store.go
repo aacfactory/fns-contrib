@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/postgres"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/builtin/permissions"
 	"github.com/aacfactory/logs"
 	"strings"
 )
-
-func init() {
-	permissions.RegisterStore(&Store{})
-}
 
 type TableName struct {
 	Schema string
@@ -25,14 +22,23 @@ type Config struct {
 	Policy TableName
 }
 
-type Store struct {
+func Component() (component service.Component) {
+	component = &store{}
+	return
+}
+
+type store struct {
 	log    logs.Logger
 	Model  TableName
 	Policy TableName
 }
 
-func (store *Store) Build(options permissions.StoreOptions) (err error) {
-	store.log = options.Log
+func (st *store) Name() string {
+	return "store"
+}
+
+func (st *store) Build(options service.ComponentOptions) (err error) {
+	st.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
@@ -45,26 +51,26 @@ func (store *Store) Build(options permissions.StoreOptions) (err error) {
 		err = errors.Warning("permissions postgres store: build failed, model table in config is required")
 		return
 	}
-	store.Model.Schema = modelSchema
-	store.Model.Table = modelTable
+	st.Model.Schema = modelSchema
+	st.Model.Table = modelTable
 	policySchema := strings.TrimSpace(config.Policy.Schema)
 	policyTable := strings.TrimSpace(config.Policy.Table)
 	if modelTable == "" {
 		err = errors.Warning("permissions postgres store: build failed, policy table in config is required")
 		return
 	}
-	store.Policy.Schema = policySchema
-	store.Policy.Table = policyTable
+	st.Policy.Schema = policySchema
+	st.Policy.Table = policyTable
 	return
 }
 
-func (store *Store) Role(ctx context.Context, name string) (role *permissions.Role, err error) {
+func (st *store) Role(ctx context.Context, name string) (role *permissions.Role, err error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		err = errors.BadRequest("permissions postgres store: get role failed, name is empty")
 		return
 	}
-	roles, rolesErr := store.Roles(ctx)
+	roles, rolesErr := st.Roles(ctx)
 	if rolesErr != nil {
 		err = errors.BadRequest("permissions postgres store: get role failed").WithCause(rolesErr)
 		return
@@ -82,12 +88,12 @@ func (store *Store) Role(ctx context.Context, name string) (role *permissions.Ro
 	return
 }
 
-func (store *Store) Roles(ctx context.Context) (roles []*permissions.Role, err error) {
+func (st *store) Roles(ctx context.Context) (roles []*permissions.Role, err error) {
 	query := `SELECT "NAME", "PARENT", "RESOURCES", "VERSION" FROM `
-	if store.Model.Schema != "" {
-		query = query + `"` + store.Model.Schema + `".`
+	if st.Model.Schema != "" {
+		query = query + `"` + st.Model.Schema + `".`
 	}
-	query = query + `"` + store.Model.Table + `"`
+	query = query + `"` + st.Model.Table + `"`
 	rows, queryErr := postgres.QueryContext(ctx, query)
 	if queryErr != nil {
 		err = errors.ServiceError("permissions postgres store: get roles failed").WithCause(queryErr)
@@ -114,10 +120,10 @@ func (store *Store) Roles(ctx context.Context) (roles []*permissions.Role, err e
 	return
 }
 
-func (store *Store) SaveRole(ctx context.Context, role *permissions.Role) (err error) {
+func (st *store) SaveRole(ctx context.Context, role *permissions.Role) (err error) {
 	row := &ModelRow{
-		schema: store.Model.Schema,
-		table:  store.Model.Table,
+		schema: st.Model.Schema,
+		table:  st.Model.Table,
 	}
 	fetched, queryErr := postgres.QueryOne(ctx, postgres.NewConditions(postgres.Eq("NAME", role.Name)), row)
 	if queryErr != nil {
@@ -143,10 +149,10 @@ func (store *Store) SaveRole(ctx context.Context, role *permissions.Role) (err e
 	return
 }
 
-func (store *Store) RemoveRole(ctx context.Context, name string) (err error) {
+func (st *store) RemoveRole(ctx context.Context, name string) (err error) {
 	row := &ModelRow{
-		schema: store.Model.Schema,
-		table:  store.Model.Table,
+		schema: st.Model.Schema,
+		table:  st.Model.Table,
 	}
 	fetched, queryErr := postgres.QueryOne(ctx, postgres.NewConditions(postgres.Eq("NAME", name)), row)
 	if queryErr != nil {
@@ -164,10 +170,10 @@ func (store *Store) RemoveRole(ctx context.Context, name string) (err error) {
 	return
 }
 
-func (store *Store) UserRoles(ctx context.Context, userId string) (roles []*permissions.Role, err error) {
+func (st *store) UserRoles(ctx context.Context, userId string) (roles []*permissions.Role, err error) {
 	policy := &PolicyRow{
-		schema: store.Policy.Schema,
-		table:  store.Policy.Table,
+		schema: st.Policy.Schema,
+		table:  st.Policy.Table,
 	}
 	fetched, queryErr := postgres.QueryOne(ctx, postgres.NewConditions(postgres.Eq("USER_ID", userId)), policy)
 	if queryErr != nil {
@@ -180,7 +186,7 @@ func (store *Store) UserRoles(ctx context.Context, userId string) (roles []*perm
 	if policy.Roles == nil || len(policy.Roles) == 0 {
 		return
 	}
-	allRoles, rolesErr := store.Roles(ctx)
+	allRoles, rolesErr := st.Roles(ctx)
 	if rolesErr != nil {
 		err = errors.BadRequest("permissions postgres store: get user roles failed").WithCause(rolesErr)
 		return
@@ -199,10 +205,10 @@ func (store *Store) UserRoles(ctx context.Context, userId string) (roles []*perm
 	return
 }
 
-func (store *Store) UserBindRoles(ctx context.Context, userId string, roleNames ...string) (err error) {
+func (st *store) UserBindRoles(ctx context.Context, userId string, roleNames ...string) (err error) {
 	policy := &PolicyRow{
-		schema: store.Policy.Schema,
-		table:  store.Policy.Table,
+		schema: st.Policy.Schema,
+		table:  st.Policy.Table,
 	}
 	fetched, queryErr := postgres.QueryOne(ctx, postgres.NewConditions(postgres.Eq("USER_ID", userId)), policy)
 	if queryErr != nil {
@@ -248,10 +254,10 @@ func (store *Store) UserBindRoles(ctx context.Context, userId string, roleNames 
 	return
 }
 
-func (store *Store) UserUnbindRoles(ctx context.Context, userId string, roleNames ...string) (err error) {
+func (st *store) UserUnbindRoles(ctx context.Context, userId string, roleNames ...string) (err error) {
 	policy := &PolicyRow{
-		schema: store.Policy.Schema,
-		table:  store.Policy.Table,
+		schema: st.Policy.Schema,
+		table:  st.Policy.Table,
 	}
 	fetched, queryErr := postgres.QueryOne(ctx, postgres.NewConditions(postgres.Eq("USER_ID", userId)), policy)
 	if queryErr != nil {
@@ -287,6 +293,6 @@ func (store *Store) UserUnbindRoles(ctx context.Context, userId string, roleName
 	return
 }
 
-func (store *Store) Close() (err error) {
+func (st *store) Close() {
 	return
 }
