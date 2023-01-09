@@ -26,6 +26,9 @@ type Tuple struct {
 }
 
 func (t *Tuple) Size() (n int) {
+	if t.values == nil {
+		return
+	}
 	n = len(t.values)
 	return
 }
