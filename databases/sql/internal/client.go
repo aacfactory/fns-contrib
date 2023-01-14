@@ -41,7 +41,6 @@ func newClient(config DatabaseConfig) (client Client, err error) {
 	if maxOpens < 1 {
 		maxOpens = runtime.NumCPU() * 2
 	}
-
 	if config.MasterSlaverMode {
 		if len(config.DSN) < 2 {
 			err = fmt.Errorf("sql: masterSlaverMode is enabled but num of dsn is not gt 1")
@@ -64,9 +63,7 @@ func newClient(config DatabaseConfig) (client Client, err error) {
 			err = fmt.Errorf("sql: ping %s failed, %v", masterDSN, pingErr)
 			return
 		}
-
 		slavers := make([]*sql.DB, 0, 1)
-
 		slaverDSNs := config.DSN[1:]
 		for _, slaverDSN := range slaverDSNs {
 			slaverDSN = strings.TrimSpace(slaverDSN)
