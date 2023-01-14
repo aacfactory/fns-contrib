@@ -108,7 +108,7 @@ func query0(ctx context.Context, cond *Conditions, orders *Orders, rng *Range, r
 	if orders != nil {
 		orderValues = orders.values
 	}
-	query, args := tab.generateQuerySQL(cond, rng, orderValues)
+	query, args := tab.generateQuerySQL(ctx, cond, rng, orderValues)
 	// query
 	results, queryErr := sql.Query(ctx, query, args...)
 	if queryErr != nil {
