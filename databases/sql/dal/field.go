@@ -1,6 +1,8 @@
 package dal
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	tag = "col"
@@ -153,6 +155,7 @@ type ReferenceField struct {
 	name          string
 	targetModel   *ModelStructure
 	targetColumns []string
+	abstracted    bool
 }
 
 func (r *ReferenceField) Name() (name string) {
@@ -165,11 +168,30 @@ func (r *ReferenceField) Target() (targetModel *ModelStructure, columns []string
 	return
 }
 
+func (r *ReferenceField) Abstracted() (ok bool) {
+	ok = r.abstracted
+	return
+}
+
+func (r *ReferenceField) scanAbstracted(rp *ModelStructureReferencePath) {
+	if r.abstracted {
+		return
+	}
+	nrp := rp.mount(r.targetModel)
+	r.abstracted = nrp.hasParent(r.targetModel)
+	if r.abstracted {
+		return
+	}
+	r.targetModel.scanAbstractedFields(nrp)
+	return
+}
+
 type LinkField struct {
 	name          string
 	arrayed       bool
 	targetModel   *ModelStructure
 	targetColumns []string
+	abstracted    bool
 	orders        *Orders
 	rng           *Range
 }
@@ -181,6 +203,24 @@ func (l *LinkField) Name() (name string) {
 
 func (l *LinkField) Target() (targetModel *ModelStructure, columns []string, orders *Orders, rng *Range) {
 	targetModel, columns, orders, rng = l.targetModel, l.targetColumns, l.orders, l.rng
+	return
+}
+
+func (l *LinkField) Abstracted() (ok bool) {
+	ok = l.abstracted
+	return
+}
+
+func (l *LinkField) scanAbstracted(rp *ModelStructureReferencePath) {
+	if l.abstracted {
+		return
+	}
+	nrp := rp.mount(l.targetModel)
+	l.abstracted = nrp.hasParent(l.targetModel)
+	if l.abstracted {
+		return
+	}
+	l.targetModel.scanAbstractedFields(nrp)
 	return
 }
 

@@ -4,29 +4,33 @@ import "fmt"
 
 type Dialect string
 
-func RegisterDialectQueryGenerator(dialect Dialect, generator QueryGenerator) {
-	dialectQueryGenerators[dialect] = generator
+func RegisterDialectQueryGeneratorBuilder(dialect Dialect, builder DialectQueryGeneratorBuilder) {
+	dialectQueryGeneratorBuilders[dialect] = builder
 }
 
-func getDialectQueryGenerator(dialect Dialect) (generator QueryGenerator, has bool) {
-	generator, has = dialectQueryGenerators[dialect]
+func getDialectQueryGeneratorBuilder(dialect Dialect) (builder DialectQueryGeneratorBuilder, has bool) {
+	if dialect == "" {
+		builder, has = getDefaultDialectQueryGenerator()
+		return
+	}
+	builder, has = dialectQueryGeneratorBuilders[dialect]
 	return
 }
 
-func getDefaultDialectQueryGenerator() (generator QueryGenerator, has bool) {
-	if defaultQueryGenerator != nil {
-		generator = defaultQueryGenerator
+func getDefaultDialectQueryGenerator() (builder DialectQueryGeneratorBuilder, has bool) {
+	if defaultQueryGeneratorBuilder != nil {
+		builder = defaultQueryGeneratorBuilder
 		has = true
 		return
 	}
 	v, err, _ := gettingBarrier.Do(defaultQueryGeneratorGettingKey, func() (gen interface{}, err error) {
-		if len(dialectQueryGenerators) != 1 {
-			err = fmt.Errorf("empty or too many query generators")
+		if len(dialectQueryGeneratorBuilders) != 1 {
+			err = fmt.Errorf("empty or too many query generator builders")
 			return
 		}
-		for _, queryGenerator := range dialectQueryGenerators {
-			defaultQueryGenerator = queryGenerator
-			gen = defaultQueryGenerator
+		for _, queryGeneratorBuilder := range dialectQueryGeneratorBuilders {
+			defaultQueryGeneratorBuilder = queryGeneratorBuilder
+			gen = defaultQueryGeneratorBuilder
 			return
 		}
 		return
@@ -34,13 +38,13 @@ func getDefaultDialectQueryGenerator() (generator QueryGenerator, has bool) {
 	if err != nil {
 		return
 	}
-	generator = v.(QueryGenerator)
+	builder = v.(DialectQueryGeneratorBuilder)
 	return
 }
 
 var (
-	dialectQueryGenerators                = make(map[Dialect]QueryGenerator)
-	defaultQueryGenerator  QueryGenerator = nil
+	dialectQueryGeneratorBuilders                              = make(map[Dialect]DialectQueryGeneratorBuilder)
+	defaultQueryGeneratorBuilder  DialectQueryGeneratorBuilder = nil
 )
 
 const (
@@ -55,16 +59,20 @@ const (
 type QueryMethod string
 
 type QueryGenerator interface {
-	Insert(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertOrUpdate(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenExist(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenNotExist(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Update(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Delete(structure *ModelStructure, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Exist(structure *ModelStructure, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Count(structure *ModelStructure, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Get(structure *ModelStructure, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Query(structure *ModelStructure, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	QueryWithRange(structure *ModelStructure, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
-	Page(structure *ModelStructure, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+	Insert(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertOrUpdate(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenExist(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenNotExist(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Update(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Delete(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Exist(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	Count(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	Get(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	Query(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	QueryWithRange(cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+	Page(cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+}
+
+type DialectQueryGeneratorBuilder interface {
+	Build(structure *ModelStructure) (generator QueryGenerator, err error)
 }

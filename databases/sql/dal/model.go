@@ -65,12 +65,14 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 	}
 	result, executeErr, _ := gettingBarrier.Do(key, func() (v interface{}, doErr error) {
 		v = &ModelStructure{
-			schema: schema,
-			name:   name,
-			fields: make([]*Field, 0, 1),
+			schema:          schema,
+			name:            name,
+			fields:          make([]*Field, 0, 1),
+			queryGenerators: new(sync.Map),
 		}
 		modelStructures.Store(key, v)
 		doErr = structure.scanReflectType(rt)
+		structure.scanAbstractedFields(newModelStructureReferencePath(structure))
 		return
 	})
 	gettingBarrier.Forget(key)
@@ -83,9 +85,53 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 }
 
 type ModelStructure struct {
-	schema string
-	name   string
-	fields []*Field
+	schema          string
+	name            string
+	fields          []*Field
+	queryGenerators *sync.Map
+}
+
+func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGenerator QueryGenerator, has bool, err error) {
+	stored, loaded := structure.queryGenerators.Load(dialect)
+	if loaded {
+		queryGenerator, has = stored.(QueryGenerator)
+		if !has {
+			err = fmt.Errorf("%s query generator of %s.%s is not type of QueryGenerator", dialect, structure.schema, structure.name)
+		}
+		return
+	}
+	barrierKey := fmt.Sprintf("dialect_%s_%s_%s", dialect, structure.schema, structure.name)
+	result, getErr, _ := gettingBarrier.Do(barrierKey, func() (v interface{}, doErr error) {
+		builder, hasBuilder := getDialectQueryGeneratorBuilder(dialect)
+		if !hasBuilder {
+			doErr = fmt.Errorf("%s query generator builder of %s.%s is found", dialect, structure.schema, structure.name)
+			return
+		}
+		generator, buildErr := builder.Build(structure)
+		if buildErr != nil {
+			doErr = buildErr
+			return
+		}
+		structure.queryGenerators.Store(dialect, generator)
+		v = generator
+		return
+	})
+	gettingBarrier.Forget(barrierKey)
+	if getErr != nil {
+		err = getErr
+		return
+	}
+	queryGenerator, has = result.(QueryGenerator)
+	return
+}
+
+func (structure *ModelStructure) Copy() (v *ModelStructure) {
+	orv := reflect.ValueOf(structure)
+	ort := orv.Type()
+	nv := reflect.NewAt(ort.Elem(), orv.UnsafePointer()).Elem().Interface().(ModelStructure)
+	v = &nv
+	v.queryGenerators = new(sync.Map)
+	return
 }
 
 func (structure *ModelStructure) Name() (schema string, name string) {
@@ -456,8 +502,9 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			columns:  scanReferenceOrLinkColumns(refs[0]),
 			reference: &ReferenceField{
 				name:          columnName,
-				targetModel:   ref,
+				targetModel:   ref.Copy(),
 				targetColumns: scanReferenceOrLinkColumns(refs[1]),
+				abstracted:    false,
 			},
 			link:    nil,
 			virtual: nil,
@@ -503,8 +550,9 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			link: &LinkField{
 				name:          columnName,
 				arrayed:       arrayed,
-				targetModel:   link,
+				targetModel:   link.Copy(),
 				targetColumns: scanReferenceOrLinkColumns(refs[1]),
+				abstracted:    false,
 				orders:        nil,
 				rng:           nil,
 			},
@@ -560,6 +608,17 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 	default:
 		err = fmt.Errorf("%s has col tag but kind is unknown", fieldName)
 		return
+	}
+	return
+}
+
+func (structure *ModelStructure) scanAbstractedFields(rp *ModelStructureReferencePath) {
+	for _, field := range structure.fields {
+		if field.IsReference() {
+			field.Reference().scanAbstracted(rp)
+		} else if field.IsLink() {
+			field.Link().scanAbstracted(rp)
+		}
 	}
 	return
 }

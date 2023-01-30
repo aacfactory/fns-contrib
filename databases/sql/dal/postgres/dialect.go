@@ -8,65 +8,74 @@ func Dialect() dal.Option {
 	return dal.WithDialect(dialect)
 }
 
-func newQueryGenerator() (generator *QueryGenerator) {
+type QueryGeneratorBuilder struct {
+}
+
+func (builder *QueryGeneratorBuilder) Build(structure *dal.ModelStructure) (generator dal.QueryGenerator, err error) {
+	generator, err = newQueryGenerator(structure)
+	return
+}
+
+func newQueryGenerator(structure *dal.ModelStructure) (generator *QueryGenerator, err error) {
 
 	return
 }
 
 type QueryGenerator struct {
+	structure *dal.ModelStructure
 }
 
-func (generator *QueryGenerator) InsertOrUpdate(structure *dal.ModelStructure, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) InsertOrUpdate(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenExist(structure *dal.ModelStructure, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) InsertWhenExist(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenNotExist(structure *dal.ModelStructure, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) InsertWhenNotExist(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Update(structure *dal.ModelStructure, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Update(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Delete(structure *dal.ModelStructure, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Delete(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Exist(structure *dal.ModelStructure, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Exist(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Count(structure *dal.ModelStructure, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Count(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Get(structure *dal.ModelStructure, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Get(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Query(structure *dal.ModelStructure, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Query(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) QueryWithRange(structure *dal.ModelStructure, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) QueryWithRange(cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }
 
-func (generator *QueryGenerator) Page(structure *dal.ModelStructure, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) Page(cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 
 	return
 }

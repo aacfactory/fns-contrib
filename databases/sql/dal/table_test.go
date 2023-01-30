@@ -34,3 +34,14 @@ func TestReflect(t *testing.T) {
 	fmt.Println(bt, bt == nil)
 	fmt.Println("---")
 }
+
+func TestCopy(t *testing.T) {
+	a := &Bar{}
+	rv := reflect.ValueOf(a)
+	rt := rv.Type().Elem()
+	bt := reflect.NewAt(rt, rv.UnsafePointer())
+	b0 := bt.Elem().Interface().(Bar)
+	b := &b0
+	fmt.Println(a, reflect.ValueOf(a).UnsafePointer(), reflect.ValueOf(a).Pointer())
+	fmt.Println(b, reflect.ValueOf(b).UnsafePointer(), reflect.ValueOf(b).Pointer())
+}
