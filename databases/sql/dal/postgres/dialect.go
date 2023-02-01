@@ -12,17 +12,27 @@ type QueryGeneratorBuilder struct {
 }
 
 func (builder *QueryGeneratorBuilder) Build(structure *dal.ModelStructure) (generator dal.QueryGenerator, err error) {
-	generator, err = newQueryGenerator(structure)
-	return
-}
-
-func newQueryGenerator(structure *dal.ModelStructure) (generator *QueryGenerator, err error) {
 
 	return
 }
 
 type QueryGenerator struct {
-	structure *dal.ModelStructure
+	insertQuery             *GenericQuery
+	insertOrUpdateQuery     *GenericQuery
+	insertWhenExistQuery    *GenericQuery
+	insertWhenNotExistQuery *GenericQuery
+	updateQuery             *GenericQuery
+	deleteQuery             *GenericQuery
+	existQuery              *GenericQuery
+	countQuery              *GenericQuery
+	getQuery                *GenericQuery
+	query                   *GenericQuery
+	pageQuery               *GenericQuery
+}
+
+func (generator *QueryGenerator) Insert(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+
+	return
 }
 
 func (generator *QueryGenerator) InsertOrUpdate(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {

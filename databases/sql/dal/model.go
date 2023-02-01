@@ -125,6 +125,21 @@ func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGe
 	return
 }
 
+func (structure *ModelStructure) FindFieldByColumn(column string) (field *Field, has bool) {
+	column = strings.ToUpper(strings.TrimSpace(column))
+	for _, f := range structure.fields {
+		for _, col := range f.columns {
+			col = strings.ToUpper(strings.TrimSpace(col))
+			if col == column {
+				field = f
+				has = true
+				return
+			}
+		}
+	}
+	return
+}
+
 func (structure *ModelStructure) Copy() (v *ModelStructure) {
 	orv := reflect.ValueOf(structure)
 	ort := orv.Type()
@@ -494,16 +509,33 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			err = errors.Warning(fmt.Sprintf("%s has ref tag but get model structure failed", fieldName)).WithCause(refErr)
 			return
 		}
+		srcColumns := scanReferenceOrLinkColumns(refs[0])
+		targetModel := ref.Copy()
+		targetFields := make([]*Field, 0, 1)
+		targetColumns := scanReferenceOrLinkColumns(refs[1])
+		if len(srcColumns) != len(targetColumns) {
+			err = errors.Warning(fmt.Sprintf("%s has ref tag but definition of refenerce is not matched", fieldName))
+			return
+		}
+		for _, column := range targetColumns {
+			targetField, hasTargetField := targetModel.FindFieldByColumn(column)
+			if !hasTargetField {
+				err = errors.Warning(fmt.Sprintf("%s has ref tag can not find target field in model structure failed", fieldName))
+				return
+			}
+			targetFields = append(targetFields, targetField)
+		}
 		field := &Field{
 			kind:     virtualKindField,
 			conflict: false,
 			name:     fieldName,
 			model:    structure,
-			columns:  scanReferenceOrLinkColumns(refs[0]),
+			columns:  srcColumns,
 			reference: &ReferenceField{
 				name:          columnName,
-				targetModel:   ref.Copy(),
-				targetColumns: scanReferenceOrLinkColumns(refs[1]),
+				targetModel:   targetModel,
+				targetFields:  targetFields,
+				targetColumns: targetColumns,
 				abstracted:    false,
 			},
 			link:    nil,
@@ -534,6 +566,12 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			err = fmt.Errorf("%s has link(s) tag but definition of refenerce is not matched", fieldName)
 			return
 		}
+		srcColumns := scanReferenceOrLinkColumns(refs[0])
+		targetColumns := scanReferenceOrLinkColumns(refs[1])
+		if len(srcColumns) != len(targetColumns) {
+			err = errors.Warning(fmt.Sprintf("%s has link(s) tag but definition of refenerce is not matched", fieldName))
+			return
+		}
 		instance := newModelInstance(sf.Type)
 		link, linkErr := getModelStructure(instance)
 		if linkErr != nil {
@@ -545,13 +583,13 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			conflict:  false,
 			name:      fieldName,
 			model:     structure,
-			columns:   scanReferenceOrLinkColumns(refs[0]),
+			columns:   srcColumns,
 			reference: nil,
 			link: &LinkField{
 				name:          columnName,
 				arrayed:       arrayed,
 				targetModel:   link.Copy(),
-				targetColumns: scanReferenceOrLinkColumns(refs[1]),
+				targetColumns: targetColumns,
 				abstracted:    false,
 				orders:        nil,
 				rng:           nil,

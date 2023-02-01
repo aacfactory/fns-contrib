@@ -154,6 +154,7 @@ func (field *Field) IsLink() (ok bool) {
 type ReferenceField struct {
 	name          string
 	targetModel   *ModelStructure
+	targetFields  []*Field
 	targetColumns []string
 	abstracted    bool
 }
@@ -163,8 +164,8 @@ func (r *ReferenceField) Name() (name string) {
 	return
 }
 
-func (r *ReferenceField) Target() (targetModel *ModelStructure, columns []string) {
-	targetModel, columns = r.targetModel, r.targetColumns
+func (r *ReferenceField) Target() (targetModel *ModelStructure, targetFields []*Field, columns []string) {
+	targetModel, targetFields, columns = r.targetModel, r.targetFields, r.targetColumns
 	return
 }
 
@@ -190,6 +191,7 @@ type LinkField struct {
 	name          string
 	arrayed       bool
 	targetModel   *ModelStructure
+	targetFields  []*Field
 	targetColumns []string
 	abstracted    bool
 	orders        *Orders
@@ -208,6 +210,11 @@ func (l *LinkField) Target() (targetModel *ModelStructure, columns []string, ord
 
 func (l *LinkField) Abstracted() (ok bool) {
 	ok = l.abstracted
+	return
+}
+
+func (l *LinkField) Arrayed() (ok bool) {
+	ok = l.arrayed
 	return
 }
 
