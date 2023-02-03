@@ -22,6 +22,19 @@ type Bar struct {
 	Age int
 }
 
+func TestRV(t *testing.T) {
+	foo := &Foo{}
+	rt := reflect.ValueOf(foo)
+	rv(rt)
+	fmt.Println(rt.Elem().Interface())
+	rt.Elem().FieldByName("Id").SetString("foo")
+	fmt.Println(rt.Elem().Interface())
+}
+
+func rv(value reflect.Value) {
+	value.Elem().FieldByName("Id").SetString("foo")
+}
+
 func TestReflect(t *testing.T) {
 	foo := Foo{}
 	rt := reflect.TypeOf(foo)
