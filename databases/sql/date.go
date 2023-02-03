@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"github.com/aacfactory/json"
 	"reflect"
 	"time"
 )
@@ -20,6 +21,10 @@ func NewDate(year int, month time.Month, day int) Date {
 
 func NewDateFromTime(t time.Time) Date {
 	return NewDate(t.Year(), t.Month(), t.Day())
+}
+
+func NewDateFromJsonDate(d json.Date) Date {
+	return NewDate(d.Year, d.Month, d.Day)
 }
 
 type Date struct {
