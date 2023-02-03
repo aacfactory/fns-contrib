@@ -55,8 +55,8 @@ const (
 )
 
 const (
-	Query   = QueryMethod("query")
-	Execute = QueryMethod("execute")
+	QueryMode   = QueryMethod("query")
+	ExecuteMode = QueryMethod("execute")
 )
 
 type QueryMethod string
