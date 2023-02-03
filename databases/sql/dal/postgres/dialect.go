@@ -3,13 +3,10 @@ package postgres
 import (
 	"context"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
+	"strings"
 )
 
 var dialect = dal.Dialect("postgres")
-
-func Dialect() dal.Option {
-	return dal.WithDialect(dialect)
-}
 
 type QueryGeneratorBuilder struct {
 }
@@ -53,13 +50,15 @@ func (generator *QueryGenerator) InsertOrUpdate(ctx context.Context, model dal.M
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenExist(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) InsertWhenExist(ctx context.Context, model dal.Model, source string) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 	method, query, arguments, err = generator.insertWhenExistQuery.WeaveExecute(ctx, model)
+	query = strings.Replace(query, "$$SOURCE_QUERY$$", source, 1)
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenNotExist(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+func (generator *QueryGenerator) InsertWhenNotExist(ctx context.Context, model dal.Model, source string) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 	method, query, arguments, err = generator.insertWhenNotExistQuery.WeaveExecute(ctx, model)
+	query = strings.Replace(query, "$$SOURCE_QUERY$$", source, 1)
 	return
 }
 
