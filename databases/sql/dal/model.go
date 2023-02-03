@@ -17,6 +17,11 @@ type Model interface {
 	TableName() (schema string, name string)
 }
 
+type TreeModel interface {
+	Model
+	NodeReferenceFields() (current string, parent string, children string)
+}
+
 var (
 	modelType       = reflect.TypeOf((*Model)(nil)).Elem()
 	modelStructures = new(sync.Map)
