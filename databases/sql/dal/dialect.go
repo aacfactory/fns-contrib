@@ -64,8 +64,8 @@ type QueryMethod string
 type QueryGenerator interface {
 	Insert(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
 	InsertOrUpdate(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenExist(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenNotExist(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenExist(ctx context.Context, model Model, source string) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenNotExist(ctx context.Context, model Model, source string) (method QueryMethod, query string, arguments []interface{}, err error)
 	Update(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
 	Delete(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
 	Exist(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
