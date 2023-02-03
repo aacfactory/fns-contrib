@@ -1,6 +1,9 @@
 package postgres
 
-import "github.com/aacfactory/fns-contrib/databases/sql/dal"
+import (
+	"context"
+	"github.com/aacfactory/fns-contrib/databases/sql/dal"
+)
 
 var dialect = dal.Dialect("postgres")
 
@@ -12,7 +15,18 @@ type QueryGeneratorBuilder struct {
 }
 
 func (builder *QueryGeneratorBuilder) Build(structure *dal.ModelStructure) (generator dal.QueryGenerator, err error) {
-
+	generator = &QueryGenerator{
+		insertQuery:             newInsertGenericQuery(structure),
+		insertOrUpdateQuery:     newInsertOrUpdateGenericQuery(structure),
+		insertWhenExistQuery:    newInsertWhenExistGenericQuery(structure),
+		insertWhenNotExistQuery: newInsertWhenNotExistGenericQuery(structure),
+		updateQuery:             newUpdateGenericQuery(structure),
+		deleteQuery:             newDeleteGenericQuery(structure),
+		existQuery:              newExistGenericQuery(structure),
+		countQuery:              newCountGenericQuery(structure),
+		getQuery:                newSelectGenericQuery(structure),
+		pageQuery:               newPageGenericQuery(structure),
+	}
 	return
 }
 
@@ -26,66 +40,55 @@ type QueryGenerator struct {
 	existQuery              *GenericQuery
 	countQuery              *GenericQuery
 	getQuery                *GenericQuery
-	query                   *GenericQuery
 	pageQuery               *GenericQuery
 }
 
-func (generator *QueryGenerator) Insert(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Insert(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.insertQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) InsertOrUpdate(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) InsertOrUpdate(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.insertOrUpdateQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenExist(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) InsertWhenExist(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.insertWhenExistQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) InsertWhenNotExist(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) InsertWhenNotExist(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.insertWhenNotExistQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) Update(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Update(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.updateQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) Delete(model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Delete(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.deleteQuery.WeaveExecute(ctx, model)
 	return
 }
 
-func (generator *QueryGenerator) Exist(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Exist(ctx context.Context, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.existQuery.WeaveQuery(ctx, cond, nil, nil)
 	return
 }
 
-func (generator *QueryGenerator) Count(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Count(ctx context.Context, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.countQuery.WeaveQuery(ctx, cond, nil, nil)
 	return
 }
 
-func (generator *QueryGenerator) Get(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Query(ctx context.Context, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.getQuery.WeaveQuery(ctx, cond, orders, rng)
 	return
 }
 
-func (generator *QueryGenerator) Query(cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
-	return
-}
-
-func (generator *QueryGenerator) QueryWithRange(cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
-	return
-}
-
-func (generator *QueryGenerator) Page(cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-
+func (generator *QueryGenerator) Page(ctx context.Context, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query, arguments, err = generator.pageQuery.WeaveQuery(ctx, cond, orders, rng)
 	return
 }
