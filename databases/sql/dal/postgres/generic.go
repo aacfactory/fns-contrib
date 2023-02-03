@@ -20,7 +20,7 @@ func formatIdents(s ...string) (v string) {
 }
 
 func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
-	method := dal.Execute
+	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
@@ -32,7 +32,7 @@ func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	fields := structure.Fields()
 	for _, field := range fields {
 		if field.IsIncrPk() {
-			method = dal.Query
+			method = dal.QueryMode
 			incrPk = field.Column()
 			continue
 		}
@@ -79,7 +79,7 @@ func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 }
 
 func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
-	method := dal.Execute
+	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
@@ -91,7 +91,7 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 	fields := structure.Fields()
 	for _, field := range fields {
 		if field.IsIncrPk() {
-			method = dal.Query
+			method = dal.QueryMode
 			incrPk = field.Column()
 			continue
 		}
@@ -172,7 +172,7 @@ func newInsertWhenNotExistGenericQuery(structure *dal.ModelStructure) (query *Ge
 }
 
 func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bool) (query *GenericQuery) {
-	method := dal.Execute
+	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
@@ -184,7 +184,7 @@ func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bo
 	fields := structure.Fields()
 	for _, field := range fields {
 		if field.IsIncrPk() {
-			method = dal.Query
+			method = dal.QueryMode
 			incrPk = field.Column()
 			continue
 		}
@@ -283,7 +283,7 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	condFragment = condFragment[5:]
 	ql := `UPDATE ` + tableName + ` SET ` + updateFragment + ` WHERE ` + condFragment
 	query = &GenericQuery{
-		method:      dal.Execute,
+		method:      dal.ExecuteMode,
 		value:       ql,
 		modelFields: targetFields,
 	}
@@ -353,7 +353,7 @@ func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 		ql = `DELETE FROM ` + tableName + ` WHERE ` + condFragment
 	}
 	query = &GenericQuery{
-		method:      dal.Execute,
+		method:      dal.ExecuteMode,
 		value:       ql,
 		modelFields: targetFields,
 	}
@@ -365,7 +365,7 @@ func newExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	tableName := formatIdents(schema, name)
 	ql := `SELECT 1 AS "_EXIST_" FROM ` + tableName
 	query = &GenericQuery{
-		method:      dal.Query,
+		method:      dal.QueryMode,
 		value:       ql,
 		modelFields: nil,
 	}
@@ -377,7 +377,7 @@ func newCountGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	tableName := formatIdents(schema, name)
 	ql := `SELECT count(1) AS "_COUNT_" FROM ` + tableName
 	query = &GenericQuery{
-		method:      dal.Query,
+		method:      dal.QueryMode,
 		value:       ql,
 		modelFields: nil,
 	}
@@ -505,7 +505,7 @@ func newSelectGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	tableName := formatIdents(schema, name)
 	ql := `SELECT ` + newSelectColumnsFragment(structure) + ` FROM ` + tableName
 	query = &GenericQuery{
-		method:      dal.Query,
+		method:      dal.QueryMode,
 		value:       ql,
 		modelFields: nil,
 	}
