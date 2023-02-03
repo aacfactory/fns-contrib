@@ -2,7 +2,9 @@ package dal_test
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -44,4 +46,21 @@ func TestCopy(t *testing.T) {
 	b := &b0
 	fmt.Println(a, reflect.ValueOf(a).UnsafePointer(), reflect.ValueOf(a).Pointer())
 	fmt.Println(b, reflect.ValueOf(b).UnsafePointer(), reflect.ValueOf(b).Pointer())
+}
+
+func TestAsc(t *testing.T) {
+	query := "SELECT XX, FDASFASF, ASWER FROM AAA"
+	fromIdx := strings.LastIndex(query, " FROM ")
+	query = "SELECT x" + query[fromIdx:]
+	fmt.Println(query)
+}
+
+func TestBetween(t *testing.T) {
+	dsn := "oracle://user:pass@server/service_name"
+	u, parserErr := url.Parse(dsn)
+	if parserErr != nil {
+		t.Error(parserErr)
+		return
+	}
+	fmt.Println(u.Scheme, u.Host)
 }

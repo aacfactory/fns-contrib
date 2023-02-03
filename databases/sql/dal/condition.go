@@ -1,18 +1,25 @@
 package dal
 
 import (
+	"context"
 	"strings"
 )
 
-func NewLitArgument(argument string) *LitArgument {
-	return &LitArgument{
-		value: strings.TrimSpace(argument),
-	}
-}
-
-type LitArgument struct {
-	value string
-}
+//type Null struct {
+//}
+//
+//func NewLitArgument(argument interface{}) *LitArgument {
+//	if argument == nil {
+//		argument = &Null{}
+//	}
+//	return &LitArgument{
+//		value: argument,
+//	}
+//}
+//
+//type LitArgument struct {
+//	value interface{}
+//}
 
 func NewSubQueryArgument(model Model, column string, conditions *Conditions) *SubQueryArgument {
 	return &SubQueryArgument{
@@ -26,6 +33,21 @@ type SubQueryArgument struct {
 	model      Model
 	column     string
 	conditions *Conditions
+}
+
+func (sub *SubQueryArgument) GenerateQueryFragment(ctx context.Context, dialect Dialect) (fragment string, arguments []interface{}, err error) {
+	structure, getStructureErr := getModelStructure(sub.model)
+	if getStructureErr != nil {
+		err = getStructureErr
+		return
+	}
+	generator, _, getGeneratorErr := structure.DialectQueryGenerator(dialect)
+	if getGeneratorErr != nil {
+		err = getGeneratorErr
+		return
+	}
+	_, fragment, arguments, err = generator.Query(DefineSelectColumns(ctx, sub.column), sub.conditions, nil, nil)
+	return
 }
 
 func NewCondition(column string, operation string, arguments ...interface{}) *Condition {

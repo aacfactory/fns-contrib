@@ -3,7 +3,8 @@ package dal
 type Option func(*Options)
 
 type Options struct {
-	dialect Dialect
+	dialect  Dialect
+	database string
 }
 
 func defaultOptions() *Options {
@@ -15,5 +16,11 @@ func defaultOptions() *Options {
 func WithDialect(dialect Dialect) Option {
 	return func(options *Options) {
 		options.dialect = dialect
+	}
+}
+
+func WithDatabase(database string) Option {
+	return func(options *Options) {
+		options.database = database
 	}
 }

@@ -63,7 +63,7 @@ func Between(column string, left interface{}, right interface{}) *Condition {
 
 func IN(column string, value interface{}) *Condition {
 	switch value.(type) {
-	case *LitArgument, *SubQueryArgument:
+	case *SubQueryArgument:
 		return NewCondition(column, "IN", value)
 	default:
 		values := make([]interface{}, 0, 1)
@@ -77,7 +77,7 @@ func IN(column string, value interface{}) *Condition {
 
 func NotIn(column string, value interface{}) *Condition {
 	switch value.(type) {
-	case *LitArgument, *SubQueryArgument:
+	case *SubQueryArgument:
 		return NewCondition(column, "NOT IN", value)
 	default:
 		values := make([]interface{}, 0, 1)
@@ -90,14 +90,13 @@ func NotIn(column string, value interface{}) *Condition {
 }
 
 func Like(column string, value string) *Condition {
-	return NewCondition(column, "LIKE", NewLitArgument("'%"+value+"%'"))
+	return NewCondition(column, "LIKE", "'%"+value+"%'")
 }
 
 func LikeLeft(column string, value string) *Condition {
-	return NewCondition(column, "LIKE", NewLitArgument("'"+value+"%'"))
+	return NewCondition(column, "LIKE", "'"+value+"%'")
 }
 
 func LikeRight(column string, value string) *Condition {
-	return NewCondition(column, "LIKE", NewLitArgument("'%"+value+"'"))
-
+	return NewCondition(column, "LIKE", "'%"+value+"'")
 }

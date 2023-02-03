@@ -1,6 +1,9 @@
 package dal
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type Dialect string
 
@@ -59,18 +62,16 @@ const (
 type QueryMethod string
 
 type QueryGenerator interface {
-	Insert(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertOrUpdate(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenExist(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	InsertWhenNotExist(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Update(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Delete(model Model) (method QueryMethod, query string, arguments []interface{}, err error)
-	Exist(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Count(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Get(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Query(cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	QueryWithRange(cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
-	Page(cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+	Insert(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertOrUpdate(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenExist(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	InsertWhenNotExist(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Update(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Delete(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	Exist(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	Count(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
+	Query(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+	Page(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
 }
 
 type DialectQueryGeneratorBuilder interface {
