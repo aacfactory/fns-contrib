@@ -1,26 +1,10 @@
 package dal
 
-type Option func(*Options)
+import (
+	"context"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+)
 
-type Options struct {
-	dialect  Dialect
-	database string
-}
-
-func defaultOptions() *Options {
-	return &Options{
-		dialect: "",
-	}
-}
-
-func WithDialect(dialect Dialect) Option {
-	return func(options *Options) {
-		options.dialect = dialect
-	}
-}
-
-func WithDatabase(database string) Option {
-	return func(options *Options) {
-		options.database = database
-	}
+func WithDatabase(ctx context.Context, database string) context.Context {
+	return sql.WithOptions(ctx, sql.Database(database))
 }
