@@ -5,22 +5,6 @@ import (
 	"strings"
 )
 
-//type Null struct {
-//}
-//
-//func NewLitArgument(argument interface{}) *LitArgument {
-//	if argument == nil {
-//		argument = &Null{}
-//	}
-//	return &LitArgument{
-//		value: argument,
-//	}
-//}
-//
-//type LitArgument struct {
-//	value interface{}
-//}
-
 func NewSubQueryArgument(model Model, column string, conditions *Conditions) *SubQueryArgument {
 	return &SubQueryArgument{
 		model:      model,
@@ -41,7 +25,7 @@ func (sub *SubQueryArgument) GenerateQueryFragment(ctx context.Context, dialect 
 		err = getStructureErr
 		return
 	}
-	generator, _, getGeneratorErr := structure.DialectQueryGenerator(dialect)
+	generator, getGeneratorErr := structure.DialectQueryGenerator(dialect)
 	if getGeneratorErr != nil {
 		err = getGeneratorErr
 		return
