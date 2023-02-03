@@ -39,6 +39,7 @@ sql:
   enableDebugLog: true
   gtmCleanUpSecond: 120
   isolation: 2
+  dialect: "postgres"
 ```
 
 ### Import driver
@@ -64,6 +65,33 @@ sql.Query(ctx, querySQL, ...)
 sql.Execute(ctx, executeSQL, ...)
 ```
 ### ORM usage
-* [postgres](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/postgres)
-* [mysql](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/mysql)
+* [database access layer](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dal)
 
+### Multi database source
+
+use multi database service to implements
+
+Config:
+```yaml
+postgres1:
+  masterSlaverMode: false,
+  driver: "postgres",
+  dsn:
+    - "username:password@tcp(ip:port)/databases"
+
+mysql1:
+  masterSlaverMode: false,
+  driver: "mysql",
+  dsn:
+    - "username:password@tcp(ip:port)/databases"
+```
+Deploy:
+```yaml
+app.Deploy(sql.Service(sql.Name("postgres1")))
+app.Deploy(sql.Service(sql.Name("mysql1")))
+```
+Proxy
+```go
+sql.Query(sql.WithOptions(ctx, sql.Database("postgres1")), querySQL, ...)
+sql.Query(sql.WithOptions(ctx, sql.Database("mysql1")), querySQL, ...)
+```

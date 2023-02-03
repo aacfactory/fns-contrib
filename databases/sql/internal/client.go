@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/fns/commons/container/ring"
+	"net/url"
 	"runtime"
 	"strings"
 )
 
 type Client interface {
+	SchemaOfDSN() (schema string)
 	Reader() (v *sql.DB)
 	Writer() (v *sql.DB)
 	Close() (err error)
@@ -23,11 +25,17 @@ type Executor interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (result sql.Result, err error)
 }
 
-func newClient(config DatabaseConfig) (client Client, err error) {
+func newClient(config *Config) (client Client, err error) {
 	if config.DSN == nil || len(config.DSN) < 1 {
 		err = fmt.Errorf("sql: dsn is invalid")
 		return
 	}
+	dsnURL, parseDSNErr := url.Parse(config.DSN[0])
+	if parseDSNErr != nil {
+		err = fmt.Errorf("sql: parse dsn failed, %v", parseDSNErr)
+		return
+	}
+	schemaOfDSN := dsnURL.Scheme
 	driver := strings.TrimSpace(config.Driver)
 	if driver == "" {
 		err = fmt.Errorf("sql: driver is invalid")
@@ -86,7 +94,7 @@ func newClient(config DatabaseConfig) (client Client, err error) {
 			slavers = append(slavers, slaver)
 		}
 
-		client = newMasterSlaver(master, slavers)
+		client = newMasterSlaver(schemaOfDSN, master, slavers)
 
 	} else {
 		if len(config.DSN) == 1 {
@@ -107,7 +115,7 @@ func newClient(config DatabaseConfig) (client Client, err error) {
 				err = fmt.Errorf("sql: ping %s failed, %v", dsn, pingErr)
 				return
 			}
-			client = newStandalone(d)
+			client = newStandalone(schemaOfDSN, d)
 		} else {
 			v := make([]*sql.DB, 0, 1)
 			for _, dsn := range config.DSN {
@@ -130,21 +138,28 @@ func newClient(config DatabaseConfig) (client Client, err error) {
 				}
 				v = append(v, d)
 			}
-			client = newCluster(v)
+			client = newCluster(schemaOfDSN, v)
 		}
 	}
 	return
 }
 
-func newStandalone(v *sql.DB) (client Client) {
+func newStandalone(schemaOfDSN string, v *sql.DB) (client Client) {
 	client = &standalone{
-		v: v,
+		v:           v,
+		schemaOfDSN: schemaOfDSN,
 	}
 	return
 }
 
 type standalone struct {
-	v *sql.DB
+	v           *sql.DB
+	schemaOfDSN string
+}
+
+func (client *standalone) SchemaOfDSN() (schema string) {
+	schema = client.schemaOfDSN
+	return
 }
 
 func (client *standalone) Reader() (v *sql.DB) {
@@ -171,7 +186,7 @@ func (k *keyedClient) Key() string {
 	return k.key
 }
 
-func newMasterSlaver(master *sql.DB, slavers []*sql.DB) (client Client) {
+func newMasterSlaver(schemaOfDSN string, master *sql.DB, slavers []*sql.DB) (client Client) {
 	slaversRing := ring.New()
 	for i, d := range slavers {
 		slaversRing.Append(&keyedClient{
@@ -180,15 +195,22 @@ func newMasterSlaver(master *sql.DB, slavers []*sql.DB) (client Client) {
 		})
 	}
 	client = &masterSlavered{
-		master:  master,
-		slavers: slaversRing,
+		master:      master,
+		slavers:     slaversRing,
+		schemaOfDSN: schemaOfDSN,
 	}
 	return
 }
 
 type masterSlavered struct {
-	master  *sql.DB
-	slavers *ring.Ring
+	master      *sql.DB
+	slavers     *ring.Ring
+	schemaOfDSN string
+}
+
+func (client *masterSlavered) SchemaOfDSN() (schema string) {
+	schema = client.schemaOfDSN
+	return
 }
 
 func (client *masterSlavered) Reader() (v *sql.DB) {
@@ -229,7 +251,7 @@ func (client *masterSlavered) Close() (err error) {
 	return
 }
 
-func newCluster(databases []*sql.DB) (client Client) {
+func newCluster(schemaOfDSN string, databases []*sql.DB) (client Client) {
 	dbs := ring.New()
 	for i, d := range databases {
 		dbs.Append(&keyedClient{
@@ -238,13 +260,20 @@ func newCluster(databases []*sql.DB) (client Client) {
 		})
 	}
 	client = &cluster{
-		dbs: dbs,
+		dbs:         dbs,
+		schemaOfDSN: schemaOfDSN,
 	}
 	return
 }
 
 type cluster struct {
-	dbs *ring.Ring
+	dbs         *ring.Ring
+	schemaOfDSN string
+}
+
+func (client *cluster) SchemaOfDSN() (schema string) {
+	schema = client.schemaOfDSN
+	return
 }
 
 func (client *cluster) Reader() (v *sql.DB) {

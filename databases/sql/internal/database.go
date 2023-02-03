@@ -15,6 +15,7 @@ import (
 )
 
 type Database interface {
+	Dialect() (name string)
 	BeginTransaction(ctx context.Context) (err errors.CodeError)
 	CommitTransaction(ctx context.Context) (finished bool, err errors.CodeError)
 	RollbackTransaction(ctx context.Context) (err errors.CodeError)
@@ -23,9 +24,7 @@ type Database interface {
 	Close()
 }
 
-type Config map[string]DatabaseConfig
-
-type DatabaseConfig struct {
+type Config struct {
 	Driver           string   `json:"driver"`
 	MasterSlaverMode bool     `json:"masterSlaverMode"`
 	DSN              []string `json:"dsn"`
@@ -34,43 +33,42 @@ type DatabaseConfig struct {
 	EnableDebugLog   bool     `json:"enableDebugLog"`
 	GTMCleanUpSecond int      `json:"gtmCleanUpSecond"`
 	Isolation        int      `json:"isolation"`
+	Dialect          string   `json:"dialect"`
 }
 
 type Options struct {
 	Log     logs.Logger
-	Config  Config
+	Config  *Config
 	Barrier service.Barrier
 }
 
-func New(options Options) (v map[string]Database, err error) {
-	v = make(map[string]Database)
-	hasDefault := false
-	for name, config := range options.Config {
-		name = strings.TrimSpace(name)
-		if !hasDefault {
-			hasDefault = strings.ToLower(name) == "default"
-		}
-		client, clientErr := newClient(config)
-		if clientErr != nil {
-			err = clientErr
-			return
-		}
-		isolation := sql.IsolationLevel(config.Isolation)
-		if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
-			isolation = sql.LevelReadCommitted
-		}
-		v[name] = &db{
-			running:           1,
-			log:               options.Log.With("sql", "db"),
-			enableSQLDebugLog: config.EnableDebugLog,
-			isolation:         isolation,
-			client:            client,
-			gtm: newGlobalTransactionManagement(globalTransactionManagementOptions{
-				log:             options.Log,
-				checkupInterval: time.Duration(config.GTMCleanUpSecond) * time.Second,
-			}),
-			barrier: options.Barrier,
-		}
+func New(options Options) (v Database, err error) {
+	config := options.Config
+	client, clientErr := newClient(config)
+	if clientErr != nil {
+		err = clientErr
+		return
+	}
+	isolation := sql.IsolationLevel(config.Isolation)
+	if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
+		isolation = sql.LevelReadCommitted
+	}
+	dialect := strings.TrimSpace(config.Dialect)
+	if dialect == "" {
+		dialect = client.SchemaOfDSN()
+	}
+	v = &db{
+		running:           1,
+		log:               options.Log.With("sql", "db"),
+		enableSQLDebugLog: config.EnableDebugLog,
+		isolation:         isolation,
+		client:            client,
+		gtm: newGlobalTransactionManagement(globalTransactionManagementOptions{
+			log:             options.Log,
+			checkupInterval: time.Duration(config.GTMCleanUpSecond) * time.Second,
+		}),
+		barrier: options.Barrier,
+		dialect: config.Dialect,
 	}
 	return
 }
@@ -83,6 +81,12 @@ type db struct {
 	client            Client
 	gtm               *globalTransactionManagement
 	barrier           service.Barrier
+	dialect           string
+}
+
+func (db *db) Dialect() (name string) {
+	name = db.dialect
+	return
 }
 
 func (db *db) Close() {

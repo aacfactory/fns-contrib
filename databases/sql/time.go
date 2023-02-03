@@ -29,7 +29,6 @@ type Time struct {
 }
 
 func (t *Time) UnmarshalJSON(p []byte) error {
-
 	if p == nil || len(p) < 3 {
 		return nil
 	}
