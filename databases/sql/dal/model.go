@@ -1,8 +1,10 @@
 package dal
 
 import (
+	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql"
 	"golang.org/x/sync/singleflight"
 	"reflect"
 	"strconv"
@@ -41,6 +43,27 @@ func newModelInstance(rt reflect.Type) (model Model) {
 		rt = rt.Elem()
 	}
 	model = reflect.New(rt).Interface().(Model)
+	return
+}
+
+func getModelQueryGenerator(ctx context.Context, model Model) (structure *ModelStructure, generator QueryGenerator, err errors.CodeError) {
+	dialectName, getDialectErr := sql.Dialect(ctx)
+	if getDialectErr != nil {
+		err = errors.Warning("dal: get dialect failed").WithCause(getDialectErr)
+		return
+	}
+	var getStructureErr error
+	structure, getStructureErr = getModelStructure(model)
+	if getStructureErr != nil {
+		err = errors.Warning("dal: get model structure failed").WithCause(getStructureErr)
+		return
+	}
+	var generatorErr error
+	generator, generatorErr = structure.DialectQueryGenerator(Dialect(dialectName))
+	if generatorErr != nil {
+		err = errors.Warning("dal: get model query generator failed").WithCause(generatorErr)
+		return
+	}
 	return
 }
 
@@ -91,13 +114,14 @@ type ModelStructure struct {
 	queryGenerators *sync.Map
 }
 
-func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGenerator QueryGenerator, has bool, err error) {
+func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGenerator QueryGenerator, err error) {
 	stored, loaded := structure.queryGenerators.Load(dialect)
 	if loaded {
-		queryGenerator, has = stored.(QueryGenerator)
+		cached, has := stored.(QueryGenerator)
 		if !has {
 			err = fmt.Errorf("%s query generator of %s.%s is not type of QueryGenerator", dialect, structure.schema, structure.name)
 		}
+		queryGenerator = cached
 		return
 	}
 	barrierKey := fmt.Sprintf("dialect_%s_%s_%s", dialect, structure.schema, structure.name)
@@ -121,7 +145,7 @@ func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGe
 		err = getErr
 		return
 	}
-	queryGenerator, has = result.(QueryGenerator)
+	queryGenerator = result.(QueryGenerator)
 	return
 }
 
@@ -156,6 +180,20 @@ func (structure *ModelStructure) Name() (schema string, name string) {
 
 func (structure *ModelStructure) Fields() (fields []*Field) {
 	fields = structure.fields
+	return
+}
+
+func (structure *ModelStructure) IncrPk() (v *Field, has bool) {
+	if structure.fields == nil || len(structure.fields) == 0 {
+		return
+	}
+	for _, field := range structure.fields {
+		if field.IsIncrPk() {
+			v = field
+			has = true
+			return
+		}
+	}
 	return
 }
 
