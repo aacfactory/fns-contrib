@@ -33,7 +33,7 @@ func Insert(ctx context.Context, model Model) (err errors.CodeError) {
 		err = errors.Warning("dal: insert failed").WithCause(generateErr)
 		return
 	}
-	if method == Query {
+	if method == QueryMode {
 		rows, queryErr := sql.Query(ctx, query, arguments...)
 		if queryErr != nil {
 			err = errors.ServiceError("dal: insert failed").WithCause(queryErr)
@@ -110,7 +110,7 @@ func InsertOrUpdate(ctx context.Context, model Model) (err errors.CodeError) {
 		err = errors.Warning("dal: insert or update failed").WithCause(generateErr)
 		return
 	}
-	if method == Query {
+	if method == QueryMode {
 		rows, queryErr := sql.Query(ctx, query, arguments...)
 		if queryErr != nil {
 			err = errors.ServiceError("dal: insert or update failed").WithCause(queryErr)
@@ -182,7 +182,7 @@ func InsertWhenExist(ctx context.Context, model Model, source string) (err error
 		err = errors.Warning("dal: insert when exist failed").WithCause(generateErr)
 		return
 	}
-	if method == Query {
+	if method == QueryMode {
 		rows, queryErr := sql.Query(ctx, query, arguments...)
 		if queryErr != nil {
 			err = errors.ServiceError("dal: insert when exist failed").WithCause(queryErr)
@@ -254,7 +254,7 @@ func InsertWhenNotExist(ctx context.Context, model Model, source string) (err er
 		err = errors.Warning("dal: insert when exist not failed").WithCause(generateErr)
 		return
 	}
-	if method == Query {
+	if method == QueryMode {
 		rows, queryErr := sql.Query(ctx, query, arguments...)
 		if queryErr != nil {
 			err = errors.ServiceError("dal: insert when not exist failed").WithCause(queryErr)
