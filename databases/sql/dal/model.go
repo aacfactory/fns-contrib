@@ -22,6 +22,12 @@ type TreeModel interface {
 	NodeReferenceFields() (current string, parent string, children string)
 }
 
+func newModel[T Model]() (v T) {
+	m := new(T)
+	v = *m
+	return
+}
+
 var (
 	modelType       = reflect.TypeOf((*Model)(nil)).Elem()
 	modelStructures = new(sync.Map)
@@ -43,7 +49,7 @@ func implementsModel(v interface{}) (ok bool) {
 	return
 }
 
-func newModelInstance(rt reflect.Type) (model Model) {
+func newModelByType(rt reflect.Type) (model Model) {
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
@@ -546,7 +552,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			err = fmt.Errorf("%s has ref tag but definition of refenerce is not matched", fieldName)
 			return
 		}
-		instance := newModelInstance(sf.Type)
+		instance := newModelByType(sf.Type)
 		ref, refErr := getModelStructure(instance)
 		if refErr != nil {
 			err = errors.Warning(fmt.Sprintf("%s has ref tag but get model structure failed", fieldName)).WithCause(refErr)
@@ -615,7 +621,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			err = errors.Warning(fmt.Sprintf("%s has link(s) tag but definition of refenerce is not matched", fieldName))
 			return
 		}
-		instance := newModelInstance(sf.Type)
+		instance := newModelByType(sf.Type)
 		link, linkErr := getModelStructure(instance)
 		if linkErr != nil {
 			err = errors.Warning(fmt.Sprintf("%s has link(s) tag but get model structure failed", fieldName)).WithCause(linkErr)
