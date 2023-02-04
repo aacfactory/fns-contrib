@@ -1,7 +1,10 @@
 package dal_test
 
 import (
+	"context"
 	"fmt"
+	"github.com/aacfactory/copier"
+	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"net/url"
 	"reflect"
 	"strings"
@@ -76,4 +79,56 @@ func TestBetween(t *testing.T) {
 		return
 	}
 	fmt.Println(u.Scheme, u.Host)
+}
+
+func TestRange_MapToPager(t *testing.T) {
+	r := dal.NewRange(0, 10)
+	fmt.Println(r.MapToPager(), 1)
+	r = dal.NewRange(1, 10)
+	fmt.Println(r.MapToPager(), 1)
+	r = dal.NewRange(10, 10)
+	fmt.Println(r.MapToPager(), 2)
+	r = dal.NewRange(11, 10)
+	fmt.Println(r.MapToPager(), 2)
+	r = dal.NewRange(20, 10)
+	fmt.Println(r.MapToPager(), 3)
+}
+
+func TestPager_MapToRange(t *testing.T) {
+	p := dal.NewPager(1, 10)
+	fmt.Println(p.MapToRange(), 0)
+	p = dal.NewPager(2, 10)
+	fmt.Println(p.MapToRange(), 10)
+	p = dal.NewPager(3, 10)
+	fmt.Println(p.MapToRange(), 20)
+}
+
+type FooModel struct {
+	Id string `col:"ID,pk" json:"ID,pk"`
+}
+
+func (model *FooModel) TableName() (schema string, name string) {
+	schema = "sss"
+	name = "foo"
+	return
+}
+
+func TestCount(t *testing.T) {
+	_, _ = dal.Count[*FooModel](context.TODO(), nil)
+}
+
+func TestCp(t *testing.T) {
+	ss := make([]*Foo, 0, 1)
+	ss = append(ss, &Foo{
+		Bar:  Bar{},
+		Id:   "1",
+		Name: "",
+	})
+	fmt.Println(reflect.ValueOf(ss[0]).Pointer(), ss[0])
+	fmt.Println(copier.Copy(ss[0], &Foo{
+		Bar:  Bar{},
+		Id:   "1",
+		Name: "2",
+	}))
+	fmt.Println(reflect.ValueOf(ss[0]).Pointer(), ss[0])
 }
