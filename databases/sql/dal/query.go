@@ -5,6 +5,7 @@ import (
 	db "database/sql"
 	stdJson "encoding/json"
 	"fmt"
+	"github.com/aacfactory/copier"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/json"
@@ -14,17 +15,66 @@ import (
 )
 
 func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err errors.CodeError) {
-
+	results, queryErr := query0[T](ctx, conditions, nil, nil)
+	if queryErr != nil {
+		err = errors.ServiceError("dal: query one failed").WithCause(queryErr)
+		return
+	}
+	if results == nil || len(results) == 0 {
+		return
+	}
+	result = results[0]
 	return
 }
 
 func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, err errors.CodeError) {
-
+	results, err = query0[T](ctx, conditions, nil, nil)
+	if err != nil {
+		err = errors.ServiceError("dal: query one failed").WithCause(err)
+		return
+	}
 	return
 }
 
 func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
+	results, err = query0[T](ctx, conditions, orders, rng)
+	if err != nil {
+		err = errors.ServiceError("dal: query one failed").WithCause(err)
+		return
+	}
+	return
+}
 
+func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}) (results []T, err errors.CodeError) {
+	rows, queryErr := sql.Query(ctx, query, args...)
+	if queryErr != nil {
+		err = errors.ServiceError("dal: query direct failed").WithCause(queryErr)
+		return
+	}
+	if rows.Empty() {
+		return
+	}
+	results, err = scanQueryResults[T](ctx, rows)
+	if err != nil {
+		err = errors.ServiceError("dal: query direct failed").WithCause(err)
+		return
+	}
+	if results == nil || len(results) == 0 {
+		return
+	}
+	structure, _, getGeneratorErr := getModelQueryGenerator(ctx, newModel[T]())
+	if getGeneratorErr != nil {
+		err = errors.ServiceError("dal: query direct failed").WithCause(err).WithCause(getGeneratorErr)
+		return
+	}
+	handled, handledResult, tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, results)
+	if tryHandleEagerLoadErr != nil {
+		err = tryHandleEagerLoadErr
+		return
+	}
+	if handled {
+		results = handledResult
+	}
 	return
 }
 
@@ -57,26 +107,133 @@ func query0[T Model](ctx context.Context, conditions *Conditions, orders *Orders
 	if results == nil || len(results) == 0 {
 		return
 	}
-	// todo eager load mode
-	/*
-		for results -> 取出[]{[]querys（IN）}
-		然后 for list，查数据库，结果在set进去
-	*/
-	if isEagerLoadMode(ctx) {
+	handled, handledResult, tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, results)
+	if tryHandleEagerLoadErr != nil {
+		err = tryHandleEagerLoadErr
+		return
+	}
+	if handled {
+		results = handledResult
+	}
+	return
+}
 
-		for _, result := range results {
-
-		}
+func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure, results []T) (handled bool, v []T, err errors.CodeError) {
+	if !isEagerLoadMode(ctx) {
+		return
+	}
+	eagerLoaders := make(map[string]*EagerLoader)
+	for _, result := range results {
 		fields := structure.Fields()
 		for _, field := range fields {
-			if field.IsReference() {
-				reference := field.Reference()
-				if reference.Abstracted() {
-					reference.targetModel
+			if field.IsReference() && field.reference != nil && field.reference.abstracted {
+				eagerLoader, hasEagerLoader := eagerLoaders[field.Name()]
+				if !hasEagerLoader {
+					eagerLoader0, newEagerLoaderErr := newEagerLoader(field.reference.targetModel)
+					if newEagerLoaderErr != nil {
+						err = newEagerLoaderErr
+						return
+					}
+					eagerLoader = eagerLoader0
+					eagerLoaders[field.Name()] = eagerLoader
+				}
+				refField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+				if refField.IsNil() {
+					continue
+				}
+				refPkValue := refField.Elem().FieldByName(eagerLoader.pk.Name()).Interface()
+				eagerLoader.AppendKey(refPkValue)
+				continue
+			}
+			if field.IsLink() && field.link != nil && field.link.abstracted {
+				eagerLoader, hasEagerLoader := eagerLoaders[field.Name()]
+				if !hasEagerLoader {
+					eagerLoader0, newEagerLoaderErr := newEagerLoader(field.link.targetModel)
+					if newEagerLoaderErr != nil {
+						err = newEagerLoaderErr
+						return
+					}
+					eagerLoader = eagerLoader0
+					eagerLoaders[field.Name()] = eagerLoader
+				}
+				if field.link.arrayed {
+					linkField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+					if linkField.IsNil() {
+						continue
+					}
+					linkFieldValueLen := linkField.Len()
+					if linkFieldValueLen == 0 {
+						continue
+					}
+
+					for i := 0; i < linkFieldValueLen; i++ {
+						linkPkValue := linkField.Index(i).Elem().FieldByName(eagerLoader.pk.Name()).Interface()
+						eagerLoader.AppendKey(linkPkValue)
+					}
+				} else {
+					linkField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+					if linkField.IsNil() {
+						continue
+					}
+					linkPkValue := linkField.Elem().FieldByName(eagerLoader.pk.Name()).Interface()
+					eagerLoader.AppendKey(linkPkValue)
 				}
 			}
 		}
 	}
+	if len(eagerLoaders) == 0 {
+		return
+	}
+	for fieldName, loader := range eagerLoaders {
+		loaded, eagerLoadValues, loadErr := loader.Load(ctx)
+		if loadErr != nil {
+			err = errors.ServiceError("eager load failed").WithCause(loadErr).WithMeta("field", fieldName)
+			return
+		}
+		if !loaded {
+			continue
+		}
+		for _, result := range results {
+			rf := reflect.ValueOf(result).Elem().FieldByName(fieldName)
+			if rf.Kind() == reflect.Ptr {
+				if rf.IsNil() {
+					continue
+				}
+				pkv := rf.Elem().FieldByName(loader.pk.Name()).Interface()
+				eagerLoadValue, hasEagerLoadValue := eagerLoadValues[pkv]
+				if !hasEagerLoadValue {
+					continue
+				}
+				cpErr := copier.Copy(rf.Interface(), eagerLoadValue)
+				if cpErr != nil {
+					err = errors.ServiceError("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
+				}
+			} else {
+				// slice
+				if rf.IsNil() {
+					continue
+				}
+				rfLen := rf.Len()
+				if rfLen == 0 {
+					continue
+				}
+				for i := 0; i < rfLen; i++ {
+					rfe := rf.Index(i)
+					pkv := rfe.Elem().FieldByName(loader.pk.Name()).Interface()
+					eagerLoadValue, hasEagerLoadValue := eagerLoadValues[pkv]
+					if !hasEagerLoadValue {
+						continue
+					}
+					cpErr := copier.Copy(rfe.Interface(), eagerLoadValue)
+					if cpErr != nil {
+						err = errors.ServiceError("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
+					}
+				}
+			}
+		}
+	}
+	handled = true
+	v = results
 	return
 }
 
