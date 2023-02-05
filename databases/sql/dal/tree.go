@@ -40,7 +40,6 @@ func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 		return
 	}
 	ctx = NotEagerLoad(ctx)
-	// todo query
 	list, queryErr := QueryWithRange[T](ctx, conditions, orders, rng)
 	if queryErr != nil {
 		err = queryErr
