@@ -30,6 +30,7 @@ func newModel[T Model]() (v T) {
 
 var (
 	modelType       = reflect.TypeOf((*Model)(nil)).Elem()
+	treeModelType   = reflect.TypeOf((*TreeModel)(nil)).Elem()
 	modelStructures = new(sync.Map)
 	gettingBarrier  = new(singleflight.Group)
 )
@@ -46,6 +47,11 @@ func getModelStructReflectType(model Model) (rt reflect.Type) {
 
 func implementsModel(v interface{}) (ok bool) {
 	ok = reflect.TypeOf(v).Implements(modelType)
+	return
+}
+
+func implementsTreeModel(v interface{}) (ok bool) {
+	ok = reflect.TypeOf(v).Implements(treeModelType)
 	return
 }
 
@@ -107,6 +113,9 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 		}
 		modelStructures.Store(key, v)
 		doErr = structure.scanReflectType(rt)
+		if doErr != nil {
+			return
+		}
 		structure.scanAbstractedFields(newModelStructureReferencePath(structure))
 		return
 	})
