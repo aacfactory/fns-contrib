@@ -17,11 +17,6 @@ type Model interface {
 	TableName() (schema string, name string)
 }
 
-type TreeModel interface {
-	Model
-	NodeReferenceFields() (current string, parent string, children string)
-}
-
 func newModel[T Model]() (v T) {
 	m := new(T)
 	v = *m
@@ -30,7 +25,6 @@ func newModel[T Model]() (v T) {
 
 var (
 	modelType       = reflect.TypeOf((*Model)(nil)).Elem()
-	treeModelType   = reflect.TypeOf((*TreeModel)(nil)).Elem()
 	modelStructures = new(sync.Map)
 	gettingBarrier  = new(singleflight.Group)
 )
@@ -47,11 +41,6 @@ func getModelStructReflectType(model Model) (rt reflect.Type) {
 
 func implementsModel(v interface{}) (ok bool) {
 	ok = reflect.TypeOf(v).Implements(modelType)
-	return
-}
-
-func implementsTreeModel(v interface{}) (ok bool) {
-	ok = reflect.TypeOf(v).Implements(treeModelType)
 	return
 }
 
@@ -344,6 +333,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		return
@@ -368,6 +358,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -385,6 +376,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -398,6 +390,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -411,6 +404,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -428,6 +422,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -445,6 +440,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -462,6 +458,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -479,6 +476,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -496,6 +494,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -513,6 +512,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -530,6 +530,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			reference: nil,
 			link:      nil,
 			virtual:   nil,
+			tree:      nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -551,6 +552,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 				name:  columnName,
 				query: sourceSQL,
 			},
+			tree: nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -591,7 +593,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			targetFields = append(targetFields, targetField)
 		}
 		field := &Field{
-			kind:     virtualKindField,
+			kind:     referenceKindField,
 			conflict: false,
 			name:     fieldName,
 			model:    structure,
@@ -605,6 +607,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			},
 			link:    nil,
 			virtual: nil,
+			tree:    nil,
 		}
 		structure.fields = append(structure.fields, field)
 		break
@@ -644,7 +647,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			return
 		}
 		field := &Field{
-			kind:      virtualKindField,
+			kind:      kind,
 			conflict:  false,
 			name:      fieldName,
 			model:     structure,
@@ -660,6 +663,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 				rng:           nil,
 			},
 			virtual: nil,
+			tree:    nil,
 		}
 		if len(tagItems) > 3 {
 			settings := tagItems[2:]
@@ -705,6 +709,52 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 					}
 				}
 			}
+		}
+		structure.fields = append(structure.fields, field)
+		break
+	case treeField:
+		childrenFieldType := sf.Type
+		if !(childrenFieldType.Kind() == reflect.Slice || childrenFieldType.Kind() == reflect.Array) {
+			err = fmt.Errorf("%s has tree tag but field type is not slice", fieldName)
+			return
+		}
+		childType := childrenFieldType.Elem()
+		if fmt.Sprintf("%s.%s", structure.typ.PkgPath(), structure.typ.Name()) != fmt.Sprintf("%s.%s", childType.PkgPath(), childType.Name()) {
+			err = fmt.Errorf("%s has tree tag but type of field or element of field is not same type", fieldName)
+			return
+		}
+		if !implementsModel(childrenFieldType.Elem()) {
+			err = fmt.Errorf("%s has tree tag but type of field or element of field does not implement model", fieldName)
+			return
+		}
+		if len(tagItems) != 2 {
+			err = fmt.Errorf("%s has tree tag but definition is not defined", fieldName)
+			return
+		}
+		refs := strings.Split(tagItems[2], "+")
+		if len(refs) != 2 {
+			err = fmt.Errorf("%s has tree tag but definition of refenerce is not matched", fieldName)
+			return
+		}
+		nodeColumnName := strings.TrimSpace(refs[0])
+		parentColumnName := strings.TrimSpace(refs[1])
+		if parentColumnName == "" || nodeColumnName == "" {
+			err = errors.Warning(fmt.Sprintf("%s has tree tag but definition of refenerce is not matched", fieldName))
+			return
+		}
+		field := &Field{
+			kind:      treeField,
+			conflict:  false,
+			name:      fieldName,
+			model:     structure,
+			columns:   []string{},
+			reference: nil,
+			link:      nil,
+			virtual:   nil,
+			tree: &TreeNodeField{
+				nodeColumnName:   nodeColumnName,
+				parentColumnName: parentColumnName,
+			},
 		}
 		structure.fields = append(structure.fields, field)
 		break

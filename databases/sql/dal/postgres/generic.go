@@ -388,6 +388,9 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 	schema, name := structure.Name()
 	fields := structure.Fields()
 	for _, field := range fields {
+		if !field.HasColumns() {
+			continue
+		}
 		if field.IsReference() {
 			/*
 				SELECT row_to_json("ref_table".*) FROM (
@@ -492,6 +495,9 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 		}
 		if field.IsVirtual() {
 			fragment = fragment + ", (" + field.Virtual().Query() + ") AS " + formatIdents(field.Virtual().Name())
+			continue
+		}
+		if field.IsTreeType() {
 			continue
 		}
 		fragment = fragment + ", " + formatIdents(schema, name, field.Column())

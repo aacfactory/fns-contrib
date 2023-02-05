@@ -24,7 +24,8 @@ const (
 	virtualKindField    = "VC"
 	referenceKindField  = "REF"
 	linkKindField       = "LINK"
-	linksKindField      = "LINKS"
+	linksKindField      = "LINKS" // linksColumnName,links,[node_column]+[parent_column]
+	treeField           = "TREE"  // -,tree,node_column+parent_column
 )
 
 type Field struct {
@@ -36,6 +37,7 @@ type Field struct {
 	reference *ReferenceField
 	link      *LinkField
 	virtual   *VirtualField
+	tree      *TreeNodeField
 }
 
 func (field *Field) Model() (model *ModelStructure) {
@@ -61,6 +63,11 @@ func (field *Field) Columns() (columns []string) {
 	return
 }
 
+func (field *Field) HasColumns() (has bool) {
+	has = field.columns != nil && len(field.columns) > 0
+	return
+}
+
 func (field *Field) Conflict() (ok bool) {
 	ok = field.conflict
 	return
@@ -78,6 +85,11 @@ func (field *Field) Link() (link *LinkField) {
 
 func (field *Field) Virtual() (virtual *VirtualField) {
 	virtual = field.virtual
+	return
+}
+
+func (field *Field) Tree() (tree *TreeNodeField) {
+	tree = field.tree
 	return
 }
 
@@ -148,6 +160,22 @@ func (field *Field) IsReference() (ok bool) {
 
 func (field *Field) IsLink() (ok bool) {
 	ok = field.kind == linkKindField || field.kind == linksKindField
+	return
+}
+
+func (field *Field) IsTreeType() (ok bool) {
+	ok = field.kind == treeField
+	return
+}
+
+type TreeNodeField struct {
+	nodeColumnName   string
+	parentColumnName string
+}
+
+func (t *TreeNodeField) RefColumnName() (node string, parent string) {
+	node = t.nodeColumnName
+	parent = t.parentColumnName
 	return
 }
 

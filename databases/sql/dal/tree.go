@@ -12,7 +12,7 @@ type keyable interface {
 		~float32 | ~float64 | ~string
 }
 
-func QueryTree[T TreeModel, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValue N) (result T, err errors.CodeError) {
+func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValue N) (result T, err errors.CodeError) {
 	results, queryErr := queryTrees[T, N](ctx, conditions, orders, rng, rootNodeValue)
 	if queryErr != nil {
 		err = errors.ServiceError("dal: query tree failed").WithCause(queryErr)
@@ -25,7 +25,7 @@ func QueryTree[T TreeModel, N keyable](ctx context.Context, conditions *Conditio
 	return
 }
 
-func QueryTrees[T TreeModel, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
+func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
 	results, err = queryTrees[T, N](ctx, conditions, orders, rng, rootNodeValues...)
 	if err != nil {
 		err = errors.ServiceError("dal: query trees failed").WithCause(err)
@@ -34,7 +34,7 @@ func QueryTrees[T TreeModel, N keyable](ctx context.Context, conditions *Conditi
 	return
 }
 
-func queryTrees[T TreeModel, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
+func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
 	if rootNodeValues == nil || len(rootNodeValues) == 0 {
 		err = errors.Warning("root node values are required")
 		return
@@ -50,9 +50,8 @@ func queryTrees[T TreeModel, N keyable](ctx context.Context, conditions *Conditi
 	return
 }
 
-func mapListToTrees[T TreeModel, N keyable](list []T, rootNodeValues []N) (nodes map[N]T, err errors.CodeError) {
+func mapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes map[N]T, err errors.CodeError) {
 	nodes = make(map[N]T)
-
 	for _, rootNodeValue := range rootNodeValues {
 		node, mapErr := mapListToTree[T, N](list, rootNodeValue)
 		if mapErr != nil {
@@ -67,23 +66,75 @@ func mapListToTrees[T TreeModel, N keyable](list []T, rootNodeValues []N) (nodes
 	return
 }
 
-func mapListToTree[T TreeModel, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
+func mapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
 	if list == nil || len(list) == 0 {
 		return
 	}
-	currentFieldName, parentFieldName, childrenFieldName := list[0].NodeReferenceFields()
+	structure, getStructureErr := getModelStructure(list[0])
+	if getStructureErr != nil {
+		err = errors.Warning("get model structure failed").WithCause(getStructureErr)
+		return
+	}
+	var field *Field
+	for _, f := range structure.fields {
+		if f.IsTreeType() {
+			field = f
+			break
+		}
+	}
+	if field == nil {
+		err = errors.Warning("tree field was not found")
+		return
+	}
+	nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)
+	if !hasNodeField {
+		err = errors.Warning("node field was not found").WithMeta("node_column", field.tree.nodeColumnName)
+		return
+	}
+	parentField, hasParentField := structure.FindFieldByColumn(field.tree.parentColumnName)
+	if !hasParentField {
+		err = errors.Warning("parent field was not found").WithMeta("node_column", field.tree.parentColumnName)
+		return
+	}
+
 	for _, model := range list {
 		rv := reflect.ValueOf(model).Elem()
-		currentFieldValue, currentFieldValueTypeOk := rv.FieldByName(currentFieldName).Interface().(N)
-		if !currentFieldValueTypeOk {
-			err = errors.Warning("tree reference field value type is not matched").WithMeta("field", currentFieldName)
+		nodeFieldValue, nodeFieldValueTypeOk := rv.FieldByName(nodeField.name).Interface().(N)
+		if !nodeFieldValueTypeOk {
+			err = errors.Warning("tree node field value type is not matched").WithMeta("field", nodeField.name)
 			return
 		}
-		if rootNodeValue != currentFieldValue {
+		if rootNodeValue != nodeFieldValue {
 			continue
 		}
-		// parent
-
+		// children
+		childrenField := rv.FieldByName(field.name)
+		children := make([]T, 0, 1)
+		for _, child := range list {
+			childValue := reflect.ValueOf(child)
+			childFieldValue, childFieldValueTypeOk := childValue.Elem().FieldByName(nodeField.name).Interface().(N)
+			if !childFieldValueTypeOk {
+				err = errors.Warning("tree node field value type is not matched").WithMeta("field", nodeField.name)
+				return
+			}
+			parentFieldValue, parentFieldValueTypeOk := childValue.Elem().FieldByName(parentField.name).Interface().(N)
+			if !parentFieldValueTypeOk {
+				err = errors.Warning("tree node field value type is not matched").WithMeta("field", parentField.name)
+				return
+			}
+			if parentFieldValue != nodeFieldValue {
+				continue
+			}
+			childNode, mapErr := mapListToTree[T, N](list, childFieldValue)
+			if mapErr != nil {
+				err = mapErr
+				return
+			}
+			children = append(children, childNode)
+		}
+		childrenField.Set(reflect.ValueOf(children))
+		node = model
+		break
 	}
 	return
 }
