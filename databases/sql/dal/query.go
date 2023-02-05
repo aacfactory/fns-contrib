@@ -32,7 +32,7 @@ func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, e
 	results = make([]T, 0, 1)
 	err = query0[T](ctx, conditions, nil, nil, &results)
 	if err != nil {
-		err = errors.ServiceError("dal: query one failed").WithCause(err)
+		err = errors.ServiceError("dal: query failed").WithCause(err)
 		return
 	}
 	return
@@ -42,7 +42,7 @@ func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders
 	results = make([]T, 0, 1)
 	err = query0[T](ctx, conditions, orders, rng, &results)
 	if err != nil {
-		err = errors.ServiceError("dal: query one failed").WithCause(err)
+		err = errors.ServiceError("dal: query with range failed").WithCause(err)
 		return
 	}
 	return
