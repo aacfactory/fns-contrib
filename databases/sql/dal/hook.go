@@ -12,11 +12,11 @@ type ModelLoadHook interface {
 
 var modelLoadHookType = reflect.TypeOf((*ModelLoadHook)(nil)).Elem()
 
-func executeModelLoadHook(ctx context.Context, row reflect.Value) (err errors.CodeError) {
-	if !row.Type().Implements(modelLoadHookType) {
+func executeModelLoadHook(ctx context.Context, resultPtrValue reflect.Value) (err errors.CodeError) {
+	if !resultPtrValue.Type().Implements(modelLoadHookType) {
 		return
 	}
-	hookFn := row.MethodByName("AfterLoaded")
+	hookFn := resultPtrValue.MethodByName("AfterLoaded")
 	results := hookFn.Call([]reflect.Value{reflect.ValueOf(ctx)})
 	if results == nil || len(results) == 0 {
 		return

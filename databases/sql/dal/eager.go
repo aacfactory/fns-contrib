@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"github.com/aacfactory/errors"
+	"reflect"
 )
 
 func newEagerLoader(model *ModelStructure) (loader *EagerLoader, err errors.CodeError) {
@@ -35,7 +36,20 @@ func (el *EagerLoader) AppendKey(key interface{}) {
 }
 
 func (el *EagerLoader) Load(ctx context.Context) (has bool, values map[interface{}]interface{}, err errors.CodeError) {
-	//result, queryErr := query0(ctx, nil, nil, nil)
-	// 把 query0 改成老版的，exported 的 还是泛型
+	conditions := NewConditions(IN(el.pk.Column(), el.keys))
+	resultsValue := reflect.MakeSlice(reflect.SliceOf(el.model.Type()), 0, 1)
+	results := resultsValue.Interface()
+	queryErr := query0(ctx, conditions, nil, nil, &results)
+	if queryErr != nil {
+		err = errors.ServiceError("eager load failed").WithCause(queryErr)
+		return
+	}
+	values = make(map[interface{}]interface{})
+	resultsValueLen := resultsValue.Len()
+	for i := 0; i < resultsValueLen; i++ {
+		resultValue := resultsValue.Index(i)
+		pk := resultValue.Elem().FieldByName(el.pk.Name()).Interface()
+		values[pk] = resultValue.Interface()
+	}
 	return
 }

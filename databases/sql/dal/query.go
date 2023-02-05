@@ -15,12 +15,13 @@ import (
 )
 
 func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err errors.CodeError) {
-	results, queryErr := query0[T](ctx, conditions, nil, nil)
+	results := make([]T, 0, 1)
+	queryErr := query0[T](ctx, conditions, nil, nil, &result)
 	if queryErr != nil {
 		err = errors.ServiceError("dal: query one failed").WithCause(queryErr)
 		return
 	}
-	if results == nil || len(results) == 0 {
+	if len(results) == 0 {
 		return
 	}
 	result = results[0]
@@ -28,7 +29,8 @@ func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, e
 }
 
 func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, err errors.CodeError) {
-	results, err = query0[T](ctx, conditions, nil, nil)
+	results = make([]T, 0, 1)
+	err = query0[T](ctx, conditions, nil, nil, &results)
 	if err != nil {
 		err = errors.ServiceError("dal: query one failed").WithCause(err)
 		return
@@ -37,7 +39,8 @@ func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, e
 }
 
 func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
-	results, err = query0[T](ctx, conditions, orders, rng)
+	results = make([]T, 0, 1)
+	err = query0[T](ctx, conditions, orders, rng, &results)
 	if err != nil {
 		err = errors.ServiceError("dal: query one failed").WithCause(err)
 		return
@@ -54,7 +57,9 @@ func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}
 	if rows.Empty() {
 		return
 	}
-	results, err = scanQueryResults[T](ctx, rows)
+	results = make([]T, 0, 1)
+	resultsPtrValue := reflect.ValueOf(&results)
+	err = scanQueryResults(ctx, rows, resultsPtrValue)
 	if err != nil {
 		err = errors.ServiceError("dal: query direct failed").WithCause(err)
 		return
@@ -67,19 +72,18 @@ func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}
 		err = errors.ServiceError("dal: query direct failed").WithCause(err).WithCause(getGeneratorErr)
 		return
 	}
-	handled, handledResult, tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, results)
+	tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, resultsPtrValue)
 	if tryHandleEagerLoadErr != nil {
 		err = tryHandleEagerLoadErr
 		return
 	}
-	if handled {
-		results = handledResult
-	}
 	return
 }
 
-func query0[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
-	model := newModel[T]()
+func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, resultsPtr interface{}) (err errors.CodeError) {
+	resultsPtrValue := reflect.ValueOf(resultsPtr)
+	resultPtrValue := reflect.New(resultsPtrValue.Type().Elem().Elem())
+	model := resultPtrValue.Interface().(Model)
 	structure, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
 	if getGeneratorErr != nil {
 		err = getGeneratorErr
@@ -100,30 +104,35 @@ func query0[T Model](ctx context.Context, conditions *Conditions, orders *Orders
 	if rows.Empty() {
 		return
 	}
-	results, err = scanQueryResults[T](ctx, rows)
-	if err != nil {
+	scanErr := scanQueryResults(ctx, rows, resultsPtrValue)
+	if scanErr != nil {
+		err = scanErr
 		return
 	}
-	if results == nil || len(results) == 0 {
+
+	if resultsPtrValue.Elem().Len() == 0 {
 		return
 	}
-	handled, handledResult, tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, results)
+	tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, resultsPtrValue)
 	if tryHandleEagerLoadErr != nil {
 		err = tryHandleEagerLoadErr
 		return
 	}
-	if handled {
-		results = handledResult
-	}
 	return
 }
 
-func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure, results []T) (handled bool, v []T, err errors.CodeError) {
+func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsPtrValue reflect.Value) (err errors.CodeError) {
 	if !isEagerLoadMode(ctx) {
 		return
 	}
+	resultsValue := resultsPtrValue.Elem()
+	resultsValueLen := resultsValue.Len()
+	for i := 0; i < resultsValueLen; i++ {
+
+	}
 	eagerLoaders := make(map[string]*EagerLoader)
-	for _, result := range results {
+	for i := 0; i < resultsValueLen; i++ {
+		resultValue := resultsValue.Index(i)
 		fields := structure.Fields()
 		for _, field := range fields {
 			if field.IsReference() && field.reference != nil && field.reference.abstracted {
@@ -137,7 +146,7 @@ func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure,
 					eagerLoader = eagerLoader0
 					eagerLoaders[field.Name()] = eagerLoader
 				}
-				refField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+				refField := resultValue.Elem().FieldByName(field.Name())
 				if refField.IsNil() {
 					continue
 				}
@@ -157,7 +166,7 @@ func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure,
 					eagerLoaders[field.Name()] = eagerLoader
 				}
 				if field.link.arrayed {
-					linkField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+					linkField := resultValue.Elem().FieldByName(field.Name())
 					if linkField.IsNil() {
 						continue
 					}
@@ -171,7 +180,7 @@ func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure,
 						eagerLoader.AppendKey(linkPkValue)
 					}
 				} else {
-					linkField := reflect.ValueOf(result).Elem().FieldByName(field.Name())
+					linkField := resultValue.Elem().FieldByName(field.Name())
 					if linkField.IsNil() {
 						continue
 					}
@@ -193,8 +202,9 @@ func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure,
 		if !loaded {
 			continue
 		}
-		for _, result := range results {
-			rf := reflect.ValueOf(result).Elem().FieldByName(fieldName)
+		for i := 0; i < resultsValueLen; i++ {
+			resultValue := resultsValue.Index(i)
+			rf := resultValue.Elem().FieldByName(fieldName)
 			if rf.Kind() == reflect.Ptr {
 				if rf.IsNil() {
 					continue
@@ -232,25 +242,6 @@ func tryHandleEagerLoad[T Model](ctx context.Context, structure *ModelStructure,
 			}
 		}
 	}
-	handled = true
-	v = results
-	return
-}
-
-func scanQueryResults[T Model](ctx context.Context, rows sql.Rows) (results []T, err errors.CodeError) {
-	results = make([]T, 0, 1)
-	for {
-		row, has := rows.Next()
-		if !has {
-			break
-		}
-		result, scanErr := scanQueryResult[T](ctx, row)
-		if err != nil {
-			err = scanErr
-			return
-		}
-		results = append(results, result)
-	}
 	return
 }
 
@@ -267,10 +258,26 @@ var (
 	sqlSTDJsonType     = reflect.TypeOf(stdJson.RawMessage{})
 )
 
-func scanQueryResult[T Model](ctx context.Context, row sql.Row) (result T, err errors.CodeError) {
-	result = newModel[T]()
-	prv := reflect.ValueOf(result)
-	rv := prv.Elem()
+func scanQueryResults(ctx context.Context, rows sql.Rows, resultsPtrValue reflect.Value) (err errors.CodeError) {
+	resultsValue := resultsPtrValue.Elem()
+	for {
+		row, has := rows.Next()
+		if !has {
+			break
+		}
+		resultPtrValue := reflect.New(resultsValue.Type().Elem().Elem())
+		scanErr := scanQueryResult(ctx, row, resultPtrValue)
+		if err != nil {
+			err = scanErr
+			return
+		}
+		resultsValue = reflect.Append(resultsValue, resultPtrValue)
+	}
+	return
+}
+
+func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Value) (err errors.CodeError) {
+	rv := resultPtrValue.Elem()
 	rt := rv.Type()
 	fieldNum := rt.NumField()
 	columns := row.Columns()
@@ -446,7 +453,7 @@ func scanQueryResult[T Model](ctx context.Context, row sql.Row) (result T, err e
 		}
 	}
 	// load hook
-	hookErr := executeModelLoadHook(ctx, prv)
+	hookErr := executeModelLoadHook(ctx, resultPtrValue)
 	if hookErr != nil {
 		err = hookErr
 	}

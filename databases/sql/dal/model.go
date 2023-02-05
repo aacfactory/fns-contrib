@@ -99,6 +99,7 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 	}
 	result, executeErr, _ := gettingBarrier.Do(key, func() (v interface{}, doErr error) {
 		v = &ModelStructure{
+			typ:             rt,
 			schema:          schema,
 			name:            name,
 			fields:          make([]*Field, 0, 1),
@@ -119,6 +120,7 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 }
 
 type ModelStructure struct {
+	typ             reflect.Type
 	schema          string
 	name            string
 	fields          []*Field
@@ -157,6 +159,11 @@ func (structure *ModelStructure) DialectQueryGenerator(dialect Dialect) (queryGe
 		return
 	}
 	queryGenerator = result.(QueryGenerator)
+	return
+}
+
+func (structure *ModelStructure) Type() (typ reflect.Type) {
+	typ = structure.typ
 	return
 }
 
