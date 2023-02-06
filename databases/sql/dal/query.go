@@ -16,7 +16,7 @@ import (
 
 func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err errors.CodeError) {
 	results := make([]T, 0, 1)
-	queryErr := query0[T](ctx, conditions, nil, nil, &result)
+	queryErr := query0(ctx, conditions, nil, nil, &result)
 	if queryErr != nil {
 		err = errors.ServiceError("dal: query one failed").WithCause(queryErr)
 		return
@@ -30,7 +30,7 @@ func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, e
 
 func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, err errors.CodeError) {
 	results = make([]T, 0, 1)
-	err = query0[T](ctx, conditions, nil, nil, &results)
+	err = query0(ctx, conditions, nil, nil, &results)
 	if err != nil {
 		err = errors.ServiceError("dal: query failed").WithCause(err)
 		return
@@ -40,7 +40,7 @@ func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, e
 
 func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
 	results = make([]T, 0, 1)
-	err = query0[T](ctx, conditions, orders, rng, &results)
+	err = query0(ctx, conditions, orders, rng, &results)
 	if err != nil {
 		err = errors.ServiceError("dal: query with range failed").WithCause(err)
 		return

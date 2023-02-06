@@ -44,6 +44,11 @@ func implementsModel(v interface{}) (ok bool) {
 	return
 }
 
+func isModelType(typ reflect.Type) (ok bool) {
+	ok = typ.Implements(modelType)
+	return
+}
+
 func newModelByType(rt reflect.Type) (model Model) {
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
@@ -93,19 +98,20 @@ func getModelStructure(model Model) (structure *ModelStructure, err error) {
 		return
 	}
 	result, executeErr, _ := gettingBarrier.Do(key, func() (v interface{}, doErr error) {
-		v = &ModelStructure{
+		structure = &ModelStructure{
 			typ:             rt,
 			schema:          schema,
 			name:            name,
 			fields:          make([]*Field, 0, 1),
 			queryGenerators: new(sync.Map),
 		}
-		modelStructures.Store(key, v)
+		modelStructures.Store(key, structure)
 		doErr = structure.scanReflectType(rt)
 		if doErr != nil {
 			return
 		}
 		structure.scanAbstractedFields(newModelStructureReferencePath(structure))
+		v = structure
 		return
 	})
 	gettingBarrier.Forget(key)
@@ -557,7 +563,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 		structure.fields = append(structure.fields, field)
 		break
 	case referenceKindField:
-		if !implementsModel(sf.Type) {
+		if !isModelType(sf.Type) {
 			err = fmt.Errorf("%s has ref tag but type of field does not implement model", fieldName)
 			return
 		}
@@ -621,11 +627,11 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			}
 			linkType = linkType.Elem()
 		}
-		if !implementsModel(linkType) {
+		if !isModelType(linkType) {
 			err = fmt.Errorf("%s has link(s) tag but type of field or element of field does not implement model", fieldName)
 			return
 		}
-		if len(tagItems) != 3 {
+		if len(tagItems) < 3 {
 			err = fmt.Errorf("%s has link(s) tag but definition is not defined", fieldName)
 			return
 		}
@@ -640,7 +646,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			err = errors.Warning(fmt.Sprintf("%s has link(s) tag but definition of refenerce is not matched", fieldName))
 			return
 		}
-		instance := newModelByType(sf.Type)
+		instance := newModelByType(linkType)
 		link, linkErr := getModelStructure(instance)
 		if linkErr != nil {
 			err = errors.Warning(fmt.Sprintf("%s has link(s) tag but get model structure failed", fieldName)).WithCause(linkErr)
@@ -719,15 +725,15 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			return
 		}
 		childType := childrenFieldType.Elem()
-		if fmt.Sprintf("%s.%s", structure.typ.PkgPath(), structure.typ.Name()) != fmt.Sprintf("%s.%s", childType.PkgPath(), childType.Name()) {
+		if fmt.Sprintf("%s.%s", structure.typ.PkgPath(), structure.typ.Name()) != fmt.Sprintf("%s.%s", childType.Elem().PkgPath(), childType.Elem().Name()) {
 			err = fmt.Errorf("%s has tree tag but type of field or element of field is not same type", fieldName)
 			return
 		}
-		if !implementsModel(childrenFieldType.Elem()) {
+		if !isModelType(childrenFieldType.Elem()) {
 			err = fmt.Errorf("%s has tree tag but type of field or element of field does not implement model", fieldName)
 			return
 		}
-		if len(tagItems) != 2 {
+		if len(tagItems) != 3 {
 			err = fmt.Errorf("%s has tree tag but definition is not defined", fieldName)
 			return
 		}

@@ -24,8 +24,8 @@ const (
 	virtualKindField    = "VC"
 	referenceKindField  = "REF"
 	linkKindField       = "LINK"
-	linksKindField      = "LINKS" // linksColumnName,links,[node_column]+[parent_column]
-	treeField           = "TREE"  // -,tree,node_column+parent_column
+	linksKindField      = "LINKS"
+	treeField           = "TREE"
 )
 
 type Field struct {

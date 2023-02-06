@@ -57,7 +57,7 @@ func mapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes map
 			err = mapErr
 			return
 		}
-		if node == nil {
+		if reflect.ValueOf(node).IsNil() {
 			continue
 		}
 		nodes[rootNodeValue] = node
