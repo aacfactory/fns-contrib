@@ -71,11 +71,13 @@ func TestQueryGeneratorBuilder(t *testing.T) {
 	fmt.Println(generator.Query(context.TODO(), dal.NewConditions(dal.Eq("NAME", "NAME")), dal.NewOrders().Desc("AGE"), dal.NewRange(0, 12)))
 	fmt.Println(generator.Count(context.TODO(), dal.NewConditions(dal.Between("AGE", 10, 12))))
 	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(dal.IN("NAME", []string{"foo", "bar"}))))
-	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(dal.IN("NAME", dal.NewSubQueryArgument(&User{}, "NAME", dal.NewConditions(dal.Eq("GROUP_ID", "g1")))))))
+	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(
+		dal.Eq("GROUP_ID", "G2")).And(dal.IN("NAME", dal.NewSubQueryArgument(&User{}, "NAME", dal.NewConditions(dal.Eq("GROUP_ID", "g1")))))))
 	fmt.Println(generator.Insert(context.TODO(), &User{}))
 	fmt.Println(generator.Update(context.TODO(), &User{}))
 	fmt.Println(generator.Delete(context.TODO(), &User{}))
 	fmt.Println(generator.InsertOrUpdate(context.TODO(), &User{}))
 	fmt.Println(generator.InsertWhenExist(context.TODO(), &User{}, "{source}"))
 	fmt.Println(generator.InsertWhenNotExist(context.TODO(), &User{}, "{source}"))
+
 }
