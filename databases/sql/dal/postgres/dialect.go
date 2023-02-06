@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"strings"
 )
@@ -44,6 +45,10 @@ func (generator *QueryGenerator) Insert(ctx context.Context, model dal.Model) (m
 }
 
 func (generator *QueryGenerator) InsertOrUpdate(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	if generator.insertOrUpdateQuery == nil {
+		err = fmt.Errorf("can not do insert or update cause there is no conflict column")
+		return
+	}
 	method, query, arguments, err = generator.insertOrUpdateQuery.WeaveExecute(ctx, model)
 	return
 }

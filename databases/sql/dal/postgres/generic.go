@@ -232,7 +232,6 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	columnsFragments := ""
-	valuesFragments := ""
 	valuesIdx := 0
 	pkFields := make([]*dal.Field, 0, 1)
 	var aolField *dal.Field
@@ -259,8 +258,6 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			columnIdent := formatIdents(column)
 			updateFragment = updateFragment + ", " + columnIdent + ` = ` + fmt.Sprintf("$%d", valuesIdx)
 			columnsFragments = columnsFragments + ", " + formatIdents(column)
-			valuesIdx++
-			valuesFragments = valuesFragments + `, ` + fmt.Sprintf("$%d", valuesIdx)
 		}
 		targetFields = append(targetFields, newGenericQueryModelFields(field)...)
 	}
@@ -490,7 +487,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			offset, limit := linkRange.Value()
 			sq = sq + ` OFFSET ` + strconv.Itoa(offset) + ` LIMIT ` + strconv.Itoa(limit)
 			sq = sq + `) AS ` + formatIdents(targetSchema, targetName)
-			fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + formatIdents(field.Reference().Name())
+			fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + formatIdents(field.Link().Name())
 			continue
 		}
 		if field.IsVirtual() {
@@ -553,7 +550,7 @@ func (field *GenericQueryModelField) Value(modelValue reflect.Value) (v interfac
 		v = fv.Interface()
 		return
 	}
-	fv = fv.FieldByName(field.p)
+	fv = modelValue.FieldByName(field.p)
 	if !fv.IsValid() {
 		return
 	}
@@ -572,7 +569,7 @@ func (generic *GenericQuery) WeaveExecute(_ context.Context, model dal.Model) (m
 	arguments = make([]interface{}, 0, 1)
 	rv := reflect.ValueOf(model)
 	for _, field := range generic.modelFields {
-		arg := field.Value(rv)
+		arg := field.Value(rv.Elem())
 		arguments = append(arguments, arg)
 	}
 	return
@@ -592,41 +589,19 @@ func (generic *GenericQuery) WeaveQuery(ctx context.Context, cond *dal.Condition
 	}
 	arguments = make([]interface{}, 0, 1)
 	if cond != nil {
-		query = query + " WHERE"
-		cond.Unfold(
-			func(condition *dal.Condition) {
-				fragment, fragmentArgs, genErr := generateCondition(ctx, condition)
-				if genErr != nil {
-					err = genErr
-					return
-				}
-				query = query + " " + fragment
-				arguments = append(arguments, fragmentArgs...)
-			}, func(operator string, condition *dal.Condition) {
-				fragment, fragmentArgs, genErr := generateCondition(ctx, condition)
-				if genErr != nil {
-					err = genErr
-					return
-				}
-				query = query + " " + operator + " " + fragment
-				arguments = append(arguments, fragmentArgs...)
-			},
-			func(operator string, conditions *dal.Conditions) {
-				fragment, fragmentArgs, genErr := generateConditions(ctx, conditions)
-				if genErr != nil {
-					err = genErr
-					return
-				}
-				query = query + " " + operator + " (" + fragment + ")"
-				arguments = append(arguments, fragmentArgs...)
-			},
-		)
+		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
+		if genCondErr != nil {
+			err = genCondErr
+			return
+		}
+		query = query + " WHERE" + fragment
+		arguments = append(arguments, condArgs...)
 	}
 	if orders != nil {
 		query = query + " " + generateOrder(orders)
 	}
 	if rng != nil {
-		query = query + " " + generateOrder(orders)
+		query = query + " " + generateRange(rng)
 
 	}
 	return
@@ -636,7 +611,7 @@ func generateCondition(ctx context.Context, cond *dal.Condition) (fragment strin
 	arguments = make([]interface{}, 0, 1)
 	argsNum := getGenericConditionsArgumentNum(ctx)
 	op := cond.Operator()
-	fragment = formatIdents(cond.Column()) + op
+	fragment = formatIdents(cond.Column()) + " " + op
 	args := cond.Arguments()
 	sub := tryGetSubQueryArgument(args)
 	switch op {
@@ -702,17 +677,37 @@ func tryGetSubQueryArgument(args []interface{}) (sub *dal.SubQueryArgument) {
 	return
 }
 
-func handleSubQueryArgument(ctx context.Context, sub *dal.SubQueryArgument) (handled bool, fragment string, argument []interface{}, err error) {
-	fragment, argument, err = sub.GenerateQueryFragment(ctx, dialect)
-	if err != nil {
-		return
-	}
-	handled = true
-	return
-}
-
-func generateConditions(ctx context.Context, conds *dal.Conditions) (fragment string, argument []interface{}, err error) {
-
+func generateConditions(ctx context.Context, conditions *dal.Conditions) (fragment string, arguments []interface{}, err error) {
+	fragment = ""
+	arguments = make([]interface{}, 0, 1)
+	conditions.Unfold(
+		func(condition *dal.Condition) {
+			fragment0, fragmentArgs, genErr := generateCondition(ctx, condition)
+			if genErr != nil {
+				err = genErr
+				return
+			}
+			fragment = fragment + " " + fragment0
+			arguments = append(arguments, fragmentArgs...)
+		}, func(operator string, condition *dal.Condition) {
+			fragment0, fragmentArgs, genErr := generateCondition(ctx, condition)
+			if genErr != nil {
+				err = genErr
+				return
+			}
+			fragment = fragment + " " + operator + " " + fragment0
+			arguments = append(arguments, fragmentArgs...)
+		},
+		func(operator string, conditions *dal.Conditions) {
+			fragment0, fragmentArgs, genErr := generateConditions(ctx, conditions)
+			if genErr != nil {
+				err = genErr
+				return
+			}
+			fragment = fragment + " " + operator + " (" + fragment0 + ")"
+			arguments = append(arguments, fragmentArgs...)
+		},
+	)
 	return
 }
 
