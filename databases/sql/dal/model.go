@@ -78,6 +78,11 @@ func getModelQueryGenerator(ctx context.Context, model Model) (structure *ModelS
 	return
 }
 
+func StructureOfModel(model Model) (structure *ModelStructure, err error) {
+	structure, err = getModelStructure(model)
+	return
+}
+
 func getModelStructure(model Model) (structure *ModelStructure, err error) {
 	if model == nil {
 		err = errors.Warning("get model structure failed cause model is nil")
