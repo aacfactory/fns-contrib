@@ -518,11 +518,6 @@ func newSelectGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newPageGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
-	// todo use one query via json
-	return
-}
-
 func newGenericQueryModelFields(field *dal.Field) (v []*GenericQueryModelField) {
 	v = make([]*GenericQueryModelField, 0, 1)
 	if field.IsVirtual() || field.IsLink() {

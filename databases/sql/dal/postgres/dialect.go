@@ -22,7 +22,6 @@ func (builder *QueryGeneratorBuilder) Build(structure *dal.ModelStructure) (gene
 		existQuery:              newExistGenericQuery(structure),
 		countQuery:              newCountGenericQuery(structure),
 		getQuery:                newSelectGenericQuery(structure),
-		pageQuery:               newPageGenericQuery(structure),
 	}
 	return
 }
@@ -37,7 +36,6 @@ type QueryGenerator struct {
 	existQuery              *GenericQuery
 	countQuery              *GenericQuery
 	getQuery                *GenericQuery
-	pageQuery               *GenericQuery
 }
 
 func (generator *QueryGenerator) Insert(ctx context.Context, model dal.Model) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
@@ -84,10 +82,5 @@ func (generator *QueryGenerator) Count(ctx context.Context, cond *dal.Conditions
 
 func (generator *QueryGenerator) Query(ctx context.Context, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
 	method, query, arguments, err = generator.getQuery.WeaveQuery(ctx, cond, orders, rng)
-	return
-}
-
-func (generator *QueryGenerator) Page(ctx context.Context, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-	method, query, arguments, err = generator.pageQuery.WeaveQuery(ctx, cond, orders, rng)
 	return
 }

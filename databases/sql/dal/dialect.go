@@ -71,7 +71,6 @@ type QueryGenerator interface {
 	Exist(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
 	Count(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
 	Query(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
-	Page(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
 }
 
 type DialectQueryGeneratorBuilder interface {
