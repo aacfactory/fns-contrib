@@ -36,7 +36,7 @@ func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			incrPk = field.Column()
 			continue
 		}
-		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() {
+		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -95,7 +95,7 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 			incrPk = field.Column()
 			continue
 		}
-		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() {
+		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -129,7 +129,7 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 	ql = ql + ` ON CONFLICT (` + conflicts + `) DO `
 	updateFragment := ""
 	for _, field := range fields {
-		if field.IsPk() || field.IsIncrPk() || field.IsACB() || field.IsACT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() {
+		if field.IsPk() || field.IsIncrPk() || field.IsACB() || field.IsACT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -142,9 +142,9 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 			valuesIdx++
 			columnIdent := formatIdents(column)
 			updateFragment = updateFragment + ", " + columnIdent + ` = ` + fmt.Sprintf("$%d", valuesIdx)
-			columnsFragments = columnsFragments + ", " + formatIdents(column)
-			valuesIdx++
-			valuesFragments = valuesFragments + `, ` + fmt.Sprintf("$%d", valuesIdx)
+			//columnsFragments = columnsFragments + ", " + formatIdents(column)
+			//valuesIdx++
+			//valuesFragments = valuesFragments + `, ` + fmt.Sprintf("$%d", valuesIdx)
 		}
 		targetFields = append(targetFields, newGenericQueryModelFields(field)...)
 	}
@@ -188,7 +188,7 @@ func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bo
 			incrPk = field.Column()
 			continue
 		}
-		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() {
+		if field.IsAMB() || field.IsAMT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -231,7 +231,6 @@ func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bo
 func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
-	columnsFragments := ""
 	valuesIdx := 0
 	pkFields := make([]*dal.Field, 0, 1)
 	var aolField *dal.Field
@@ -243,7 +242,7 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			pkFields = append(pkFields, field)
 			continue
 		}
-		if field.IsACB() || field.IsACT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() {
+		if field.IsACB() || field.IsACT() || field.IsADB() || field.IsADT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -257,7 +256,6 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			valuesIdx++
 			columnIdent := formatIdents(column)
 			updateFragment = updateFragment + ", " + columnIdent + ` = ` + fmt.Sprintf("$%d", valuesIdx)
-			columnsFragments = columnsFragments + ", " + formatIdents(column)
 		}
 		targetFields = append(targetFields, newGenericQueryModelFields(field)...)
 	}
@@ -290,8 +288,6 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
-	columnsFragments := ""
-	valuesFragments := ""
 	valuesIdx := 0
 	pkFields := make([]*dal.Field, 0, 1)
 	var aolField *dal.Field
@@ -304,7 +300,7 @@ func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			pkFields = append(pkFields, field)
 			continue
 		}
-		if field.IsACB() || field.IsACT() || field.IsAMB() || field.IsAMT() || field.IsVirtual() || field.IsLink() {
+		if field.IsACB() || field.IsACT() || field.IsAMB() || field.IsAMT() || field.IsVirtual() || field.IsLink() || field.IsTreeType() {
 			continue
 		}
 		if field.IsAOL() {
@@ -319,10 +315,6 @@ func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 			column := field.Column()
 			columnIdent := formatIdents(column)
 			updateFragment = updateFragment + ", " + columnIdent + ` = ` + fmt.Sprintf("$%d", valuesIdx)
-			columnsFragments = columnsFragments + ", " + formatIdents(column)
-			valuesIdx++
-			valuesFragments = valuesFragments + `, ` + fmt.Sprintf("$%d", valuesIdx)
-			targetFields = append(targetFields, newGenericQueryModelFields(field)...)
 		}
 	}
 	if len(pkFields) == 0 {
@@ -713,7 +705,7 @@ func generateConditions(ctx context.Context, conditions *dal.Conditions) (fragme
 
 func generateOrder(orders *dal.Orders) (fragment string) {
 	orders.Unfold(func(order *dal.Order) {
-		fragment = fragment + ", " + order.Column
+		fragment = fragment + ", " + formatIdents(order.Column)
 		if order.Desc {
 			fragment = fragment + " DESC"
 		}
