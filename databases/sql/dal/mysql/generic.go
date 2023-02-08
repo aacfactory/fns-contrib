@@ -456,9 +456,16 @@ func generateLinkQuery(field *dal.Field) (query string) {
 	conditionsFragment = conditionsFragment[5:]
 	query = query + " WHERE " + conditionsFragment
 	// orders
-	ordersFragment := generateOrder(orders)
+	ordersFragment := ""
+	if orders != nil {
+		ordersFragment = generateOrder(orders)
+
+	}
 	// ranges
-	rangeFragment := generateRange(rng)
+	rangeFragment := ""
+	if rng != nil {
+		rangeFragment = generateRange(rng)
+	}
 	// query
 	query = `SELECT ` + selectsFragment + ` FROM ` + targetTableName + ` WHERE ` + conditionsFragment + " " + ordersFragment + " " + rangeFragment
 	return
