@@ -63,9 +63,8 @@ func (svc *_service_) Build(options service.Options) (err error) {
 		return
 	}
 	svc.db, err = internal.New(internal.Options{
-		Log:     options.Log,
-		Config:  config,
-		Barrier: options.Barrier,
+		Log:    options.Log,
+		Config: config,
 	})
 	if err != nil {
 		err = errors.Warning("sql: build service failed").WithCause(err).WithMeta("database", svc.name)

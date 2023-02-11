@@ -5,10 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
-	"github.com/cespare/xxhash/v2"
-	"github.com/valyala/bytebufferpool"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -37,9 +34,8 @@ type Config struct {
 }
 
 type Options struct {
-	Log     logs.Logger
-	Config  *Config
-	Barrier service.Barrier
+	Log    logs.Logger
+	Config *Config
 }
 
 func New(options Options) (v Database, err error) {
@@ -67,7 +63,6 @@ func New(options Options) (v Database, err error) {
 			log:             options.Log,
 			checkupInterval: time.Duration(config.GTMCleanUpSecond) * time.Second,
 		}),
-		barrier: options.Barrier,
 		dialect: config.Dialect,
 	}
 	return
@@ -80,7 +75,6 @@ type db struct {
 	isolation         sql.IsolationLevel
 	client            Client
 	gtm               *globalTransactionManagement
-	barrier           service.Barrier
 	dialect           string
 }
 
@@ -149,59 +143,28 @@ func (db *db) Query(ctx context.Context, query string, args []interface{}) (rows
 	if db.enableSQLDebugLog && db.log.DebugEnabled() {
 		begin = time.Now()
 	}
+	var reader QueryAble
 	tx, hasTx := db.gtm.Get(ctx)
 	if hasTx {
-		rows, err = db.queryWithTransaction(ctx, tx, query, args)
+		reader = tx
 	} else {
-		reader := db.client.Reader()
-		buf := bytebufferpool.Get()
-		_, _ = buf.WriteString(query)
-		if args != nil && len(args) > 0 {
-			for _, arg := range args {
-				_, _ = buf.WriteString(fmt.Sprintf("%v", arg))
-			}
+		reader = db.client.Reader()
+	}
+	var queryErr error
+	if args == nil || len(args) == 0 {
+		rows, queryErr = reader.QueryContext(ctx, query)
+	} else {
+		rows, queryErr = reader.QueryContext(ctx, query, args...)
+	}
+	if queryErr != nil {
+		if hasTx {
+			db.gtm.Rollback(ctx)
 		}
-		key := fmt.Sprintf("sql:query:%d", xxhash.Sum64(buf.Bytes()))
-		bytebufferpool.Put(buf)
-		result, doErr, _ := db.barrier.Do(ctx, key, func() (result interface{}, err errors.CodeError) {
-			var queryResult *sql.Rows
-			var queryErr error
-			if args == nil || len(args) == 0 {
-				queryResult, queryErr = reader.QueryContext(ctx, query)
-			} else {
-				queryResult, queryErr = reader.QueryContext(ctx, query, args...)
-			}
-			if queryErr != nil {
-				err = errors.ServiceError("sql: query failed").WithCause(queryErr)
-				return
-			}
-			result = queryResult
-			return
-		})
-		if doErr != nil {
-			err = doErr
-		} else {
-			rows = result.(*sql.Rows)
-		}
-		db.barrier.Forget(ctx, key)
+		err = errors.ServiceError("sql: query failed").WithCause(queryErr)
+		return
 	}
 	if db.enableSQLDebugLog && db.log.DebugEnabled() {
 		db.log.Debug().Caller().With("succeed", err != nil).With("latency", time.Now().Sub(begin)).Message(fmt.Sprintf("\n%s\n", query))
-	}
-	return
-}
-
-func (db *db) queryWithTransaction(ctx context.Context, tx *sql.Tx, query string, args []interface{}) (rows *sql.Rows, err errors.CodeError) {
-	var queryErr error
-	if args == nil || len(args) == 0 {
-		rows, queryErr = tx.QueryContext(ctx, query)
-	} else {
-		rows, queryErr = tx.QueryContext(ctx, query, args...)
-	}
-	if queryErr != nil {
-		db.gtm.Rollback(ctx)
-		err = errors.ServiceError("sql: query failed").WithCause(queryErr)
-		return
 	}
 	return
 }
