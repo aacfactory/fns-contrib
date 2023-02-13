@@ -75,7 +75,7 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	hasEndpoint := false
 	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
 	if hasRid {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
@@ -112,7 +112,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	hasEndpoint := false
 	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
 	if hasRid {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
@@ -158,7 +158,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, string(rid))
+	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	if !hasEndpoint {
 		request.Trunk().Remove(requestLocalTransactionHostId)
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
@@ -192,7 +192,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, string(rid))
+	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	if !hasEndpoint {
 		request.Trunk().Remove(requestLocalTransactionHostId)
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
@@ -226,7 +226,7 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 
 	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
 	if hasRid {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
@@ -276,7 +276,7 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 
 	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
 	if hasRid {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
