@@ -73,26 +73,22 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if hasRid {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
 	} else {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, rid)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
-		if rid != "" {
-			err = err.WithMeta("endpointId", rid)
-			request.Local().Remove(requestLocalTransactionHostId)
+		if hasRid {
+			err = err.WithMeta("endpointId", string(rid))
+			request.Trunk().Remove(requestLocalTransactionHostId)
 		}
 		return
 	}
-	fr := endpoint.Request(ctx, databaseDialectFn, service.EmptyArgument())
+
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, databaseDialectFn, service.EmptyArgument()))
 	r := databaseInfo{}
 	_, getResultErr := fr.Get(ctx, &r)
 	if getResultErr != nil {
@@ -114,26 +110,22 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if hasRid {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
 	} else {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, rid)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
-		if rid != "" {
-			err = err.WithMeta("endpointId", rid)
-			request.Local().Remove(requestLocalTransactionHostId)
+		if hasRid {
+			err = err.WithMeta("endpointId", string(rid))
+			request.Trunk().Remove(requestLocalTransactionHostId)
 		}
 		return
 	}
-	fr := endpoint.Request(ctx, beginTransactionFn, service.EmptyArgument())
+
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, beginTransactionFn, service.EmptyArgument()))
 	r := transactionRegistration{}
 	_, getResultErr := fr.Get(ctx, &r)
 	if getResultErr != nil {
@@ -142,11 +134,11 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	}
 	if r.Id == "" {
 		err = errors.ServiceError("sql: begin transaction failed").WithMeta("database", database)
-		request.Local().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(requestLocalTransactionHostId)
 		return
 	}
-	if rid == "" {
-		request.Local().Put(requestLocalTransactionHostId, r.Id)
+	if hasRid {
+		request.Trunk().Put(requestLocalTransactionHostId, []byte(r.Id))
 	}
 	return
 }
@@ -159,23 +151,20 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.Warning("sql: can not get request in context").WithMeta("database", database)
 		return
 	}
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
+
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if !hasRid {
 		err = errors.ServiceError("sql: there is no transaction in context")
 		return
 	}
-	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, rid)
+
+	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, string(rid))
 	if !hasEndpoint {
-		request.Local().Remove(requestLocalTransactionHostId)
-		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid).WithMeta("database", database)
+		request.Trunk().Remove(requestLocalTransactionHostId)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
 		return
 	}
-	fr := endpoint.Request(ctx, commitTransactionFn, service.EmptyArgument())
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, commitTransactionFn, service.EmptyArgument()))
 	status := transactionStatus{}
 	_, getResultErr := fr.Get(ctx, &status)
 	if getResultErr != nil {
@@ -183,7 +172,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 	if status.Finished {
-		request.Local().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(requestLocalTransactionHostId)
 	}
 	return
 }
@@ -196,30 +185,27 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.Warning("sql: can not get request in context").WithMeta("database", database)
 		return
 	}
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
+
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if !hasRid {
 		err = errors.ServiceError("sql: there is no transaction in context").WithMeta("database", database)
 		return
 	}
-	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, rid)
+
+	endpoint, hasEndpoint := service.GetExactEndpoint(ctx, database, string(rid))
 	if !hasEndpoint {
-		request.Local().Remove(requestLocalTransactionHostId)
-		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", rid).WithMeta("database", database)
+		request.Trunk().Remove(requestLocalTransactionHostId)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
 		return
 	}
 
-	fr := endpoint.Request(ctx, rollbackTransactionFn, service.EmptyArgument())
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, rollbackTransactionFn, service.EmptyArgument()))
 	_, getResultErr := fr.Get(ctx, &service.Empty{})
 	if getResultErr != nil {
 		err = getResultErr
 		return
 	}
-	request.Local().Remove(requestLocalTransactionHostId)
+	request.Trunk().Remove(requestLocalTransactionHostId)
 	return
 }
 
@@ -237,22 +223,19 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if hasRid {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
 	} else {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, rid)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
+
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
-		if rid != "" {
-			err = err.WithMeta("endpointId", rid)
-			request.Local().Remove(requestLocalTransactionHostId)
+		if hasRid {
+			err = err.WithMeta("endpointId", string(rid))
+			request.Trunk().Remove(requestLocalTransactionHostId)
 		}
 		return
 	}
@@ -260,10 +243,12 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 	if args != nil && len(args) > 0 {
 		tuple = internal.NewTuple().Append(args...)
 	}
-	fr := endpoint.Request(ctx, queryFn, service.NewArgument(&queryArgument{
+
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, queryFn, service.NewArgument(&queryArgument{
 		Query: query,
 		Args:  tuple,
-	}))
+	})))
+
 	rows0 := &rows{}
 	_, getResultErr := fr.Get(ctx, rows0)
 	if getResultErr != nil {
@@ -288,22 +273,19 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid := ""
-	_, ridErr := request.Local().Scan(requestLocalTransactionHostId, &rid)
-	if ridErr != nil {
-		err = errors.Warning("sql: can not get transaction host registration id in request context").WithCause(ridErr).WithMeta("database", database)
-		return
-	}
-	if rid == "" {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+
+	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	if hasRid {
+		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, string(rid))
 	} else {
-		endpoint, hasEndpoint = service.GetExactEndpoint(ctx, database, rid)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
 	}
+
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
-		if rid != "" {
-			err = err.WithMeta("endpointId", rid)
-			request.Local().Remove(requestLocalTransactionHostId)
+		if hasRid {
+			err = err.WithMeta("endpointId", string(rid))
+			request.Trunk().Remove(requestLocalTransactionHostId)
 		}
 		return
 	}
@@ -311,10 +293,12 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 	if args != nil && len(args) > 0 {
 		tuple = internal.NewTuple().Append(args...)
 	}
-	fr := endpoint.Request(ctx, executeFn, service.NewArgument(&executeArgument{
+
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, executeFn, service.NewArgument(&queryArgument{
 		Query: query,
 		Args:  tuple,
-	}))
+	})))
+
 	result := &executeResult{}
 	_, getResultErr := fr.Get(ctx, result)
 	if getResultErr != nil {
