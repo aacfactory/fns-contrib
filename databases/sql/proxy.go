@@ -2,6 +2,7 @@ package sql
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/internal"
 	"github.com/aacfactory/fns/service"
@@ -73,7 +74,8 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
+
 	if hasRid {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
@@ -83,7 +85,7 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
 			err = err.WithMeta("endpointId", string(rid))
-			request.Trunk().Remove(requestLocalTransactionHostId)
+			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
@@ -110,7 +112,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	}
 	var endpoint service.Endpoint
 	hasEndpoint := false
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
@@ -120,7 +122,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
 			err = err.WithMeta("endpointId", string(rid))
-			request.Trunk().Remove(requestLocalTransactionHostId)
+			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
@@ -134,11 +136,11 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	}
 	if r.Id == "" {
 		err = errors.ServiceError("sql: begin transaction failed").WithMeta("database", database)
-		request.Trunk().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		return
 	}
 	if hasRid {
-		request.Trunk().Put(requestLocalTransactionHostId, []byte(r.Id))
+		request.Trunk().Put(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database), []byte(r.Id))
 	}
 	return
 }
@@ -152,7 +154,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if !hasRid {
 		err = errors.ServiceError("sql: there is no transaction in context")
 		return
@@ -160,7 +162,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 
 	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	if !hasEndpoint {
-		request.Trunk().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
 		return
 	}
@@ -172,7 +174,7 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 	if status.Finished {
-		request.Trunk().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	}
 	return
 }
@@ -186,7 +188,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if !hasRid {
 		err = errors.ServiceError("sql: there is no transaction in context").WithMeta("database", database)
 		return
@@ -194,7 +196,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 
 	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	if !hasEndpoint {
-		request.Trunk().Remove(requestLocalTransactionHostId)
+		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
 		return
 	}
@@ -205,7 +207,7 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		err = getResultErr
 		return
 	}
-	request.Trunk().Remove(requestLocalTransactionHostId)
+	request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	return
 }
 
@@ -224,7 +226,7 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 	var endpoint service.Endpoint
 	hasEndpoint := false
 
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
@@ -235,7 +237,7 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
 			err = err.WithMeta("endpointId", string(rid))
-			request.Trunk().Remove(requestLocalTransactionHostId)
+			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
@@ -274,7 +276,7 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 	var endpoint service.Endpoint
 	hasEndpoint := false
 
-	rid, hasRid := request.Trunk().Get(requestLocalTransactionHostId)
+	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
 		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
 	} else {
@@ -285,7 +287,7 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
 			err = err.WithMeta("endpointId", string(rid))
-			request.Trunk().Remove(requestLocalTransactionHostId)
+			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
