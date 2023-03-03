@@ -7,14 +7,14 @@ import (
 	"math"
 )
 
-type PageData[T Model] struct {
+type PageResult[T Model] struct {
 	Items []T
 	No    int64
 	Num   int64
 	Total int64
 }
 
-func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, pager *Pager) (result *PageData[T], err errors.CodeError) {
+func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, pager *Pager) (result *PageResult[T], err errors.CodeError) {
 	if pager == nil {
 		err = errors.Warning("dal: query page failed").WithCause(fmt.Errorf("pager is required"))
 		return
@@ -25,7 +25,7 @@ func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, 
 		return
 	}
 	if results == nil || len(results) == 0 {
-		result = &PageData[T]{
+		result = &PageResult[T]{
 			Items: results,
 			No:    0,
 			Num:   0,
@@ -37,7 +37,7 @@ func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, 
 		err = errors.ServiceError("dal: query page failed").WithCause(countErr)
 		return
 	}
-	result = &PageData[T]{
+	result = &PageResult[T]{
 		Items: results,
 		No:    int64(pager.no),
 		Num:   int64(math.Ceil(float64(count) / float64(pager.size))),
