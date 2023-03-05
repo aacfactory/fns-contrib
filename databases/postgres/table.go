@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"golang.org/x/sync/singleflight"
@@ -205,7 +206,7 @@ func createTable(x interface{}) (v *table) {
 				columns:  insertWhenExistOrNotColumns,
 			}
 		}
-		v.querySelects = v.generateQuerySelects()
+		v.generateQuerySelects(setEdgeChain(context.TODO(), newEdgeChain(v)))
 		r = v
 		return
 	})
@@ -221,6 +222,11 @@ type tableGenericQuery struct {
 	columns  []*column
 }
 
+type tableSubQuery struct {
+	query     string
+	argFields []string
+}
+
 type table struct {
 	Type                      reflect.Type
 	Schema                    string
@@ -233,6 +239,17 @@ type table struct {
 	deleteQuery               *tableGenericQuery
 	softDeleteQuery           *tableGenericQuery
 	querySelects              string
+	subs                      map[string]*tableSubQuery
+}
+
+func (t *table) addSubQuery(path string, query string, argFields []string) {
+	if t.subs == nil {
+		t.subs = make(map[string]*tableSubQuery)
+	}
+	t.subs[path] = &tableSubQuery{
+		query:     query,
+		argFields: argFields,
+	}
 }
 
 func (t *table) addColumn(field reflect.StructField) (err error) {
@@ -641,16 +658,6 @@ func (t *table) generateInsertSQL() (useQuery bool, query string, columns []*col
 	query = query + `(` + cols + `)` + ` VALUES (` + values + `)`
 	//conflicts
 	conflicts := ""
-	//pks := t.findPk()
-	//if len(pks) > 0 {
-	//	for _, pk := range pks {
-	//		if pk.isIncrPk() {
-	//			continue
-	//		}
-	//		conflicts = conflicts + ", " + pk.queryName()
-	//	}
-	//}
-
 	conflictColumns := t.findConflicts()
 	if len(conflictColumns) > 0 {
 		for _, conflictColumn := range conflictColumns {
@@ -808,15 +815,6 @@ func (t *table) generateSoftDeleteSQL() (query string, columns []*column) {
 func (t *table) generateInsertOrUpdateSQL() (useQuery bool, query string, columns []*column) {
 	//conflicts
 	conflicts := ""
-	//pks := t.findPk()
-	//if len(pks) > 0 {
-	//	for _, pk := range pks {
-	//		if pk.isIncrPk() {
-	//			continue
-	//		}
-	//		conflicts = conflicts + ", " + pk.queryName()
-	//	}
-	//}
 	conflictColumns := t.findConflicts()
 	if len(conflictColumns) > 0 {
 		for _, conflictColumn := range conflictColumns {
@@ -882,6 +880,7 @@ func (t *table) generateInsertOrUpdateSQL() (useQuery bool, query string, column
 func (t *table) generateExistSQL(conditions *Conditions) (query string, args []interface{}) {
 	cc := ""
 	pks := t.findPk()
+	// todo 改成支持多个pk
 	if len(pks) > 0 {
 		cc = pks[0].queryName()
 	} else {
@@ -899,6 +898,7 @@ func (t *table) generateExistSQL(conditions *Conditions) (query string, args []i
 func (t *table) generateCountSQL(conditions *Conditions) (query string, args []interface{}) {
 	cc := ""
 	pks := t.findPk()
+	// todo 改成支持多个pk
 	if len(pks) > 0 {
 		cc = pks[0].queryName()
 	} else {
@@ -913,17 +913,69 @@ func (t *table) generateCountSQL(conditions *Conditions) (query string, args []i
 	return
 }
 
-func (t *table) generateQuerySelects() (selects string) {
+func (t *table) generateQuerySelects(ctx context.Context) {
+	selects := ""
 	for _, c := range t.Columns {
-		selects = selects + ", " + c.generateSelect()
+		selects = selects + ", " + c.generateSelect(ctx)
 	}
 	selects = selects[2:]
+	t.querySelects = selects
 	return
 }
 
-func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*Order) (query string, args []interface{}) {
+func (t *table) generateQueryColumnSQL(column string, conditions *Conditions, rng *Range, orders []*Order) (query string, args []interface{}) {
+	query = `SELECT "` + column + `" FROM ` + t.fullName()
+	if conditions != nil {
+		conditionQuery, conditionArgs := conditions.QueryAndArguments()
+		query = query + " WHERE " + conditionQuery
+		args = conditionArgs
+	}
+	if orders != nil && len(orders) > 0 {
+		orderQuery := ""
+		for _, order := range orders {
+			orderKind := "ASC"
+			if order.Desc {
+				orderKind = "DESC"
+			}
+			orderQuery = orderQuery + `, ` + `"` + order.Column + `" ` + orderKind
+		}
+		orderQuery = orderQuery[1:]
+		query = query + ` ORDER BY` + orderQuery
+	}
+	if rng != nil {
+		query = query + ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
+	}
+	return
+}
+
+func (t *table) generateCurrentSelects(ctx context.Context) (selects string) {
+	edge, hasEdge := getEdgeChain(ctx)
+	if hasEdge {
+		if edge.Contains(t) {
+			n, _, to := edge.Tail()
+			if n == t {
+
+			} else {
+				selects = t.querySelects
+			}
+			selects = to.generateSelect(ctx)
+			head := edge.Head()
+			// todo sub query, 修改ref link links，支持多个PK，然后这里selects为当前table的pk，如果没有pk，则用to，edge element的from和to也改成array来支持多个pk的情况
+			head.addSubQuery()
+		} else {
+			selects = t.querySelects
+		}
+	} else {
+		selects = t.querySelects
+	}
+	return
+}
+
+func (t *table) generateQuerySQL(ctx context.Context, conditions *Conditions, rng *Range, orders []*Order) (query string, args []interface{}) {
+	querySelects := t.generateCurrentSelects(ctx)
 	pks := t.findPk()
 	if len(pks) > 0 {
+		// todo 改成支持多个pk
 		pk := pks[0].queryName()
 		alias := fmt.Sprintf("\"_%s_\"", t.Name)
 		orderQuery := ""
@@ -949,16 +1001,13 @@ func (t *table) generateQuerySQL(conditions *Conditions, rng *Range, orders []*O
 			rngQuery = ` OFFSET ` + strconv.Itoa(rng.Offset) + ` LIMIT ` + strconv.Itoa(rng.Limit)
 			innerQuery = innerQuery + rngQuery
 		}
-		query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
+		query = `SELECT ` + querySelects + ` FROM ` + t.fullName()
 		query = query + ` INNER JOIN (` + innerQuery + `) AS ` + alias + ` ON ` + t.fullName() + `.` + pk + ` = ` + alias + `.` + pk
 		if orderQuery != "" {
 			query = query + ` ORDER BY` + orderQuery
 		}
-		//if rngQuery != "" {
-		//	query = query + rngQuery
-		//}
 	} else {
-		query = `SELECT ` + t.querySelects + ` FROM ` + t.fullName()
+		query = `SELECT ` + querySelects + ` FROM ` + t.fullName()
 		if conditions != nil {
 			conditionQuery, conditionArgs := conditions.QueryAndArguments()
 			query = query + " WHERE " + conditionQuery

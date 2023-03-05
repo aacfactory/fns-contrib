@@ -650,7 +650,7 @@ func (t *table) generateInsertWhenExistOrNotSQL() (query string, columns []*colu
 	values = values[2:]
 	query = query + `(` + cols + `)` + ` SELECT ` + values + ` FROM __TMP__ WHERE `
 	query = query + `$$EXISTS$$`
-	query = query + ` (SELECT 1 FROM (` + "$$SOURCE_QUERY$$" + `) AS "__SRC__")`
+	query = query + ` (SELECT 1 FROM (` + "$$SOURCE_QUERY$$" + `) AS __SRC__)`
 
 	return
 }

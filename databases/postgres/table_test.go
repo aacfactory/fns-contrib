@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"container/list"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -38,7 +40,7 @@ func TestTable(t *testing.T) {
 	fmt.Println(fooTable.generateExistSQL(NewConditions(Eq("ID", 1))))
 	fmt.Println(fooTable.generateCountSQL(NewConditions(Eq("ID", 1))))
 
-	q, _ := fooTable.generateQuerySQL(NewConditions(Eq("ID", LitValue("'1'"))), NewRange(0, 10), NewOrders().Asc("ID").values)
+	q, _ := fooTable.generateQuerySQL(context.TODO(), NewConditions(Eq("ID", LitValue("'1'"))), NewRange(0, 10), NewOrders().Asc("ID").values)
 	fmt.Println(q)
 
 	fmt.Println("--")
@@ -99,4 +101,23 @@ type Baz struct {
 
 func (f Baz) TableName() (string, string) {
 	return "METAVOOO", "BAZ"
+}
+
+func TestList(t *testing.T) {
+	l1 := list.New()
+	l1.PushBack(1)
+	l2 := list.New()
+	l2.PushBackList(l1)
+	l2.PushBack(2)
+	l2.PushBack(3)
+	fmt.Println(l1.Len())
+	fmt.Println(l2.Len())
+	e := l2.Front()
+	fmt.Println("***")
+	for i := 1; i < l2.Len(); i++ {
+		fmt.Println(e.Value)
+		e = e.Next()
+	}
+	fmt.Println(l2.Front().Value)
+	fmt.Println(l2)
 }
