@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/aacfactory/fns/commons/container/ring"
+	"github.com/aacfactory/errors"
+	"github.com/aacfactory/rings"
 	"net/url"
 	"runtime"
 	"strings"
@@ -187,9 +188,9 @@ func (k *keyedClient) Key() string {
 }
 
 func newMasterSlaver(schemaOfDSN string, master *sql.DB, slavers []*sql.DB) (client Client) {
-	slaversRing := ring.New()
+	slaversRing := rings.New[*keyedClient]("slavers")
 	for i, d := range slavers {
-		slaversRing.Append(&keyedClient{
+		slaversRing.Push(&keyedClient{
 			key: fmt.Sprintf("%d", i),
 			v:   d,
 		})
@@ -204,7 +205,7 @@ func newMasterSlaver(schemaOfDSN string, master *sql.DB, slavers []*sql.DB) (cli
 
 type masterSlavered struct {
 	master      *sql.DB
-	slavers     *ring.Ring
+	slavers     *rings.Ring[*keyedClient]
 	schemaOfDSN string
 }
 
@@ -214,11 +215,10 @@ func (client *masterSlavered) SchemaOfDSN() (schema string) {
 }
 
 func (client *masterSlavered) Reader() (v *sql.DB) {
-	x := client.slavers.Next()
-	if x == nil {
+	kdb := client.slavers.Next()
+	if kdb == nil {
 		return
 	}
-	kdb, _ := x.(*keyedClient)
 	v = kdb.v
 	return
 }
@@ -229,32 +229,26 @@ func (client *masterSlavered) Writer() (v *sql.DB) {
 }
 
 func (client *masterSlavered) Close() (err error) {
+	errs := errors.MakeErrors()
 	masterErr := client.master.Close()
 	if masterErr != nil {
-		err = masterErr
+		errs.Append(masterErr)
 	}
-	for i := 0; i < client.slavers.Size(); i++ {
-		x := client.slavers.Next()
-		if x == nil {
-			return
-		}
-		kdb, _ := x.(*keyedClient)
-		slaverErr := kdb.v.Close()
-		if slaverErr != nil {
-			if err == nil {
-				err = slaverErr
-			} else {
-				err = fmt.Errorf("%v, %v", err, slaverErr)
-			}
+	for i := 0; i < client.slavers.Len(); i++ {
+		kdb := client.slavers.Next()
+		closeErr := kdb.v.Close()
+		if closeErr != nil {
+			errs.Append(closeErr)
 		}
 	}
+	err = errs.Error()
 	return
 }
 
 func newCluster(schemaOfDSN string, databases []*sql.DB) (client Client) {
-	dbs := ring.New()
+	dbs := rings.New[*keyedClient]("cluster")
 	for i, d := range databases {
-		dbs.Append(&keyedClient{
+		dbs.Push(&keyedClient{
 			key: fmt.Sprintf("%d", i),
 			v:   d,
 		})
@@ -267,7 +261,7 @@ func newCluster(schemaOfDSN string, databases []*sql.DB) (client Client) {
 }
 
 type cluster struct {
-	dbs         *ring.Ring
+	dbs         *rings.Ring[*keyedClient]
 	schemaOfDSN string
 }
 
@@ -277,40 +271,32 @@ func (client *cluster) SchemaOfDSN() (schema string) {
 }
 
 func (client *cluster) Reader() (v *sql.DB) {
-	x := client.dbs.Next()
-	if x == nil {
+	kdb := client.dbs.Next()
+	if kdb == nil {
 		return
 	}
-	kdb, _ := x.(*keyedClient)
 	v = kdb.v
 	return
 }
 
 func (client *cluster) Writer() (v *sql.DB) {
-	x := client.dbs.Next()
-	if x == nil {
+	kdb := client.dbs.Next()
+	if kdb == nil {
 		return
 	}
-	kdb, _ := x.(*keyedClient)
 	v = kdb.v
 	return
 }
 
 func (client *cluster) Close() (err error) {
-	for i := 0; i < client.dbs.Size(); i++ {
-		x := client.dbs.Next()
-		if x == nil {
-			return
-		}
-		kdb, _ := x.(*keyedClient)
-		slaverErr := kdb.v.Close()
-		if slaverErr != nil {
-			if err == nil {
-				err = slaverErr
-			} else {
-				err = fmt.Errorf("%v, %v", err, slaverErr)
-			}
+	errs := errors.MakeErrors()
+	for i := 0; i < client.dbs.Len(); i++ {
+		kdb := client.dbs.Next()
+		closeErr := kdb.v.Close()
+		if closeErr != nil {
+			errs.Append(closeErr)
 		}
 	}
+	err = errs.Error()
 	return
 }

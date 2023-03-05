@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -58,51 +59,63 @@ func (c *column) queryName() string {
 	return fmt.Sprintf("\"%s\"", c.Name)
 }
 
-func (c *column) generateSelect() (query string) {
+func (c *column) generateSelect(ctx context.Context) (query string) {
 	switch c.Kind {
 	case virtualCol:
 		query = fmt.Sprintf("(%s) AS %s", c.VirtualQuery, c.queryName())
 	case refCol:
-		query = fmt.Sprintf("(%s) AS %s", c.generateRefSelect(), `"`+c.RefName+`"`)
+		query = fmt.Sprintf("(%s) AS %s", c.generateRefSelect(ctx), `"`+c.RefName+`"`)
 	case linkCol:
-		query = fmt.Sprintf("(%s) AS %s", c.generateLinkSelect(), c.queryName())
+		query = fmt.Sprintf("(%s) AS %s", c.generateLinkSelect(ctx), c.queryName())
 	case linksCol:
-		query = fmt.Sprintf("(%s) AS %s", c.generateLinksSelect(), c.queryName())
+		query = fmt.Sprintf("(%s) AS %s", c.generateLinksSelect(ctx), c.queryName())
 	default:
 		query = c.Host.fullName() + "." + c.queryName()
 	}
 	return
 }
 
-func (c *column) generateRefSelect() (query string) {
+func (c *column) generateRefSelect(ctx context.Context) (query string) {
 	/*
 		SELECT row_to_json("ref_table".*) FROM (
 		SELECT ... FROM "schema"."ref_table" WHERE "pk" = "host_full_table_name"."ref_column" OFFSET 0 LIMIT 1
 		) AS "ref_table"
 	*/
+	edge, hasEdge := getEdgeChain(ctx)
+	if hasEdge {
+		edge = edge.Fork()
+		edge.Push(c.Ref, c, c.RefTargetColumn)
+		ctx = setEdgeChain(ctx, edge)
+	}
 	hostTableName := c.Host.fullName()
 	query = `SELECT row_to_json(` + c.Ref.TableName() + `.*) FROM (`
-	refQuery, _ := c.Ref.generateQuerySQL(NewConditions(Eq(c.RefTargetColumn.Name, LitValue(hostTableName+"."+c.queryName()))), NewRange(0, 1), nil)
+	refQuery, _ := c.Ref.generateQuerySQL(ctx, NewConditions(Eq(c.RefTargetColumn.Name, LitValue(hostTableName+"."+c.queryName()))), NewRange(0, 1), nil)
 	query = query + refQuery
 	query = query + `) AS ` + c.Ref.TableName()
 	return
 }
 
-func (c *column) generateLinkSelect() (query string) {
+func (c *column) generateLinkSelect(ctx context.Context) (query string) {
 	/*
 		SELECT row_to_json("ref_table".*) FROM (
 		SELECT ... FROM "schema"."ref_table" WHERE "link" = "host_full_table_name"."pk" OFFSET 0 LIMIT 1
 		) AS "ref_table"
 	*/
+	edge, hasEdge := getEdgeChain(ctx)
+	if hasEdge {
+		edge = edge.Fork()
+		edge.Push(c.Link, c, c.LinkTargetColumn)
+		ctx = setEdgeChain(ctx, edge)
+	}
 	hostTableName := c.Host.fullName()
 	query = `SELECT row_to_json(` + c.Link.TableName() + `.*) FROM (`
-	linkQuery, _ := c.Link.generateQuerySQL(NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), NewRange(0, 1), nil)
+	linkQuery, _ := c.Link.generateQuerySQL(ctx, NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), NewRange(0, 1), nil)
 	query = query + linkQuery
 	query = query + `) AS ` + c.Link.TableName()
 	return
 }
 
-func (c *column) generateLinksSelect() (query string) {
+func (c *column) generateLinksSelect(ctx context.Context) (query string) {
 	/*
 		SELECT to_json(ARRAY(
 			SELECT row_to_json("ref_table".*) FROM (
@@ -110,9 +123,15 @@ func (c *column) generateLinksSelect() (query string) {
 			) AS "ref_table"
 		))
 	*/
+	edge, hasEdge := getEdgeChain(ctx)
+	if hasEdge {
+		edge = edge.Fork()
+		edge.Push(c.Link, c, c.LinkTargetColumn)
+		ctx = setEdgeChain(ctx, edge)
+	}
 	hostTableName := c.Host.fullName()
 	query = `SELECT to_json(ARRAY(` + `SELECT row_to_json(` + c.Link.TableName() + `.*) FROM (`
-	linksQuery, _ := c.Link.generateQuerySQL(NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), c.LinkRange, c.LinkOrders)
+	linksQuery, _ := c.Link.generateQuerySQL(ctx, NewConditions(Eq(c.LinkTargetColumn.Name, LitValue(hostTableName+"."+c.LinkHostColumn.queryName()))), c.LinkRange, c.LinkOrders)
 	query = query + linksQuery
 	query = query + `) AS ` + c.Link.TableName() + "))"
 	return

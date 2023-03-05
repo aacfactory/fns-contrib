@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/internal"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
 	"sync"
 )
@@ -17,7 +18,7 @@ const (
 var (
 	cachedDialect       = new(sync.Map)
 	defaultProxyOptions = &ProxyOptions{
-		database: name,
+		database: "",
 	}
 )
 
@@ -29,7 +30,7 @@ type ProxyOptions struct {
 
 func newDefaultProxyOptions() *ProxyOptions {
 	return &ProxyOptions{
-		database: name,
+		database: "",
 	}
 }
 
@@ -75,23 +76,23 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	var endpoint service.Endpoint
 	hasEndpoint := false
 	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
-
 	if hasRid {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	} else {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
 	}
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
-			err = err.WithMeta("endpointId", string(rid))
+			err = err.WithMeta("endpointId", bytex.ToString(rid))
 			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
-
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, databaseDialectFn, service.EmptyArgument()))
-	r := databaseInfo{}
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, databaseDialectFn, service.NewArgument(&dialectArgument{
+		Database: database,
+	})))
+	r := dialectResult{}
 	_, getResultErr := fr.Get(ctx, &r)
 	if getResultErr != nil {
 		err = getResultErr
@@ -114,20 +115,22 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	hasEndpoint := false
 	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	} else {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
 	}
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
-			err = err.WithMeta("endpointId", string(rid))
+			err = err.WithMeta("endpointId", bytex.ToString(rid))
 			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, beginTransactionFn, service.EmptyArgument()))
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, beginTransactionFn, service.NewArgument(&transactionBeginArgument{
+		Database: database,
+	})))
 	r := transactionRegistration{}
 	_, getResultErr := fr.Get(ctx, &r)
 	if getResultErr != nil {
@@ -140,7 +143,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 	if hasRid {
-		request.Trunk().Put(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database), []byte(r.Id))
+		request.Trunk().Put(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database), bytex.FromString(r.Id))
 	}
 	return
 }
@@ -160,13 +163,15 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+	endpoint, hasEndpoint := service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	if !hasEndpoint {
 		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
-		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", bytex.ToString(rid)).WithMeta("database", database)
 		return
 	}
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, commitTransactionFn, service.EmptyArgument()))
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, commitTransactionFn, service.NewArgument(&transactionCommitArgument{
+		Database: database,
+	})))
 	status := transactionStatus{}
 	_, getResultErr := fr.Get(ctx, &status)
 	if getResultErr != nil {
@@ -194,14 +199,16 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	endpoint, hasEndpoint := service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+	endpoint, hasEndpoint := service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	if !hasEndpoint {
 		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
-		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", string(rid)).WithMeta("database", database)
+		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", bytex.ToString(rid)).WithMeta("database", database)
 		return
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, rollbackTransactionFn, service.EmptyArgument()))
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, rollbackTransactionFn, service.NewArgument(&transactionRollbackArgument{
+		Database: database,
+	})))
 	_, getResultErr := fr.Get(ctx, &service.Empty{})
 	if getResultErr != nil {
 		err = getResultErr
@@ -228,15 +235,15 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 
 	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	} else {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
 	}
 
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
-			err = err.WithMeta("endpointId", string(rid))
+			err = err.WithMeta("endpointId", bytex.ToString(rid))
 			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
@@ -246,9 +253,10 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 		tuple = internal.NewTuple().Append(args...)
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, queryFn, service.NewArgument(&queryArgument{
-		Query: query,
-		Args:  tuple,
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, queryFn, service.NewArgument(&queryArgument{
+		Database: database,
+		Query:    query,
+		Args:     tuple,
 	})))
 
 	rows0 := &rows{}
@@ -278,15 +286,15 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 
 	rid, hasRid := request.Trunk().Get(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 	if hasRid {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database, service.Exact(string(rid)))
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name, service.Exact(bytex.ToString(rid)))
 	} else {
-		endpoint, hasEndpoint = service.GetEndpoint(ctx, database)
+		endpoint, hasEndpoint = service.GetEndpoint(ctx, name)
 	}
 
 	if !hasEndpoint {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("database", database)
 		if hasRid {
-			err = err.WithMeta("endpointId", string(rid))
+			err = err.WithMeta("endpointId", bytex.ToString(rid))
 			request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		}
 		return
@@ -296,9 +304,10 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 		tuple = internal.NewTuple().Append(args...)
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, database, executeFn, service.NewArgument(&queryArgument{
-		Query: query,
-		Args:  tuple,
+	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, executeFn, service.NewArgument(&queryArgument{
+		Database: database,
+		Query:    query,
+		Args:     tuple,
 	})))
 
 	result := &executeResult{}

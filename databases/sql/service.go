@@ -5,7 +5,6 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/internal"
 	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/logs"
 )
 
 const (
@@ -18,96 +17,106 @@ const (
 	databaseDialectFn     = "database_dialect"
 )
 
-type Option func(*Options)
-
-type Options struct {
-	name string
-}
-
-func defaultOptions() *Options {
-	return &Options{
-		name: name,
-	}
-}
-
-func Name(name string) Option {
-	return func(options *Options) {
-		options.name = name
-	}
-}
-
-func Service(options ...Option) service.Service {
-	opt := defaultOptions()
-	if options != nil {
-		for _, option := range options {
-			option(opt)
+func Service(databases ...string) service.Service {
+	defaultDatabaseName := ""
+	components := make([]service.Component, 0, 1)
+	if databases == nil || len(databases) == 0 {
+		drivers := internal.RegisteredDrivers()
+		if drivers == nil || len(drivers) == 0 {
+			panic("sql: no sql driver was registered")
+			return nil
+		}
+		for _, driver := range drivers {
+			components = append(components, internal.New(driver))
+		}
+		if len(drivers) == 1 {
+			defaultDatabaseName = drivers[0]
+		}
+	} else {
+		for _, database := range databases {
+			components = append(components, internal.New(database))
+		}
+		if len(databases) == 1 {
+			defaultDatabaseName = databases[0]
 		}
 	}
-	return &_service_{
-		name: opt.name,
+	return &service_{
+		Abstract:            service.NewAbstract(name, true, components...),
+		defaultDatabaseName: defaultDatabaseName,
 	}
 }
 
-type _service_ struct {
-	name string
-	log  logs.Logger
-	db   internal.Database
+type service_ struct {
+	service.Abstract
+	defaultDatabaseName string
 }
 
-func (svc *_service_) Build(options service.Options) (err error) {
-	svc.log = options.Log
-	config := &internal.Config{}
-	configErr := options.Config.As(&config)
-	if configErr != nil {
-		err = errors.Warning("sql: build service failed").WithCause(configErr).WithMeta("database", svc.name)
+func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
+	if name == "" && svc.defaultDatabaseName != "" {
+		name = svc.defaultDatabaseName
+	}
+	component, exist := svc.Components()[name]
+	if !exist {
 		return
 	}
-	svc.db, err = internal.New(internal.Options{
-		Log:    options.Log,
-		Config: config,
-	})
-	if err != nil {
-		err = errors.Warning("sql: build service failed").WithCause(err).WithMeta("database", svc.name)
-		return
-	}
+	db, has = component.(internal.Database)
 	return
 }
 
-func (svc *_service_) Name() string {
-	return svc.name
-}
-
-func (svc *_service_) Internal() bool {
-	return true
-}
-
-func (svc *_service_) Components() (components map[string]service.Component) {
-	return
-}
-
-func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
-	db := svc.db
+func (svc *service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
 	switch fn {
 	case databaseDialectFn:
-		v = &databaseInfo{
+		arg := &dialectArgument{}
+		argErr := argument.As(arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
+			return
+		}
+		v = &dialectResult{
 			Dialect: db.Dialect(),
 		}
 		return
 	case beginTransactionFn:
-		appId := service.GetApplicationId(ctx)
-		handleErr := db.BeginTransaction(ctx)
-		if handleErr != nil {
-			err = handleErr.WithMeta("service", svc.name).WithMeta("fn", fn)
+		arg := transactionBeginArgument{}
+		argErr := argument.As(arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
+			return
+		}
+		beginErr := db.BeginTransaction(ctx)
+		if beginErr != nil {
+			err = errors.ServiceError("sql: begin transaction failed").WithCause(beginErr).WithMeta("database", db.Name())
 			return
 		}
 		v = &transactionRegistration{
-			Id: appId,
+			Id: svc.AppId(),
 		}
 		break
 	case commitTransactionFn:
-		finished, handleErr := db.CommitTransaction(ctx)
-		if handleErr != nil {
-			err = handleErr.WithMeta("service", svc.name).WithMeta("fn", fn)
+		arg := transactionCommitArgument{}
+		argErr := argument.As(arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
+			return
+		}
+		finished, commitErr := db.CommitTransaction(ctx)
+		if commitErr != nil {
+			err = errors.ServiceError("sql: commit transaction failed").WithCause(commitErr).WithMeta("database", db.Name())
 			return
 		}
 		v = &transactionStatus{
@@ -115,50 +124,71 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		break
 	case rollbackTransactionFn:
-		handleErr := db.RollbackTransaction(ctx)
-		if handleErr != nil {
-			err = handleErr.WithMeta("service", svc.name).WithMeta("fn", fn)
+		arg := transactionRollbackArgument{}
+		argErr := argument.As(arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
+			return
+		}
+		rollbackErr := db.RollbackTransaction(ctx)
+		if rollbackErr != nil {
+			err = errors.ServiceError("sql: rollback transaction failed").WithCause(rollbackErr).WithMeta("database", db.Name())
 			return
 		}
 		v = &service.Empty{}
 		break
 	case queryFn:
-		qa := queryArgument{}
-		argumentErr := argument.As(&qa)
-		if argumentErr != nil {
-			err = errors.BadRequest("sql: invalid query argument").WithCause(argumentErr).WithMeta("service", svc.name).WithMeta("fn", fn)
+		arg := queryArgument{}
+		argErr := argument.As(&arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
 			return
 		}
 		var queryArgs []interface{}
-		if qa.Args != nil && qa.Args.Size() > 0 {
-			queryArgs = qa.Args.MapToSQLArgs()
+		if arg.Args != nil && arg.Args.Size() > 0 {
+			queryArgs = arg.Args.MapToSQLArgs()
 		}
-		rows0, queryErr := db.Query(ctx, qa.Query, queryArgs)
+		rows0, queryErr := db.Query(ctx, arg.Query, queryArgs)
 		if queryErr != nil {
-			err = errors.ServiceError("sql: query failed").WithCause(queryErr).WithMeta("service", svc.name).WithMeta("fn", fn).WithMeta("query", qa.Query)
+			err = errors.ServiceError("sql: query failed").WithCause(queryErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
 			return
 		}
 		result, resultErr := newRows(rows0)
 		if resultErr != nil {
-			err = errors.ServiceError("sql: query failed").WithCause(resultErr).WithMeta("service", svc.name).WithMeta("fn", fn).WithMeta("query", qa.Query)
+			err = errors.ServiceError("sql: query failed").WithCause(resultErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
 			return
 		}
 		v = result
 		break
 	case executeFn:
-		ea := executeArgument{}
-		argumentErr := argument.As(&ea)
-		if argumentErr != nil {
-			err = errors.BadRequest("sql: invalid execute argument").WithCause(argumentErr).WithMeta("service", svc.name).WithMeta("fn", fn)
+		arg := executeArgument{}
+		argErr := argument.As(&arg)
+		if argErr != nil {
+			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
+			return
+		}
+		db, has := svc.getDatabase(arg.Database)
+		if !has {
+			err = errors.BadRequest("sql: database is invalid")
 			return
 		}
 		var executeArgs []interface{}
-		if ea.Args != nil && ea.Args.Size() > 0 {
-			executeArgs = ea.Args.MapToSQLArgs()
+		if arg.Args != nil && arg.Args.Size() > 0 {
+			executeArgs = arg.Args.MapToSQLArgs()
 		}
-		result, queryErr := db.Execute(ctx, ea.Query, executeArgs)
+		result, queryErr := db.Execute(ctx, arg.Query, executeArgs)
 		if queryErr != nil {
-			err = errors.ServiceError("sql: execute failed").WithCause(queryErr).WithMeta("service", svc.name).WithMeta("fn", fn).WithMeta("query", ea.Query)
+			err = errors.ServiceError("sql: execute failed").WithCause(queryErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
 			return
 		}
 		affected, _ := result.RowsAffected()
@@ -169,20 +199,12 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		break
 	default:
-		err = errors.NotFound("sql: fn was not found").WithMeta("service", svc.name).WithMeta("fn", fn)
+		err = errors.NotFound("sql: fn was not found")
 		break
 	}
 	return
 }
 
-func (svc *_service_) Close() {
-	svc.db.Close()
-	if svc.log.DebugEnabled() {
-		svc.log.Debug().Caller().With("service", svc.name).Message("sql: close succeed")
-	}
-	return
-}
-
-func (svc *_service_) Document() (doc service.Document) {
+func (svc *service_) Document() (doc service.Document) {
 	return
 }

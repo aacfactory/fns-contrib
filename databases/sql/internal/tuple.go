@@ -225,7 +225,7 @@ func (t *Tuple) MapToSQLArgs() (args []interface{}) {
 	return
 }
 
-func (t Tuple) MarshalJSON() (p []byte, err error) {
+func (t *Tuple) MarshalJSON() (p []byte, err error) {
 	p, err = json.Marshal(t.values)
 	return
 }
@@ -240,7 +240,7 @@ func (t *Tuple) UnmarshalJSON(p []byte) (err error) {
 	return
 }
 
-func (t Tuple) String() (s string) {
+func (t *Tuple) String() (s string) {
 	for i, value := range t.values {
 		s = s + ", " + fmt.Sprintf("%d:%s", i+1, value[strings.Index(value, ":")+1:])
 	}

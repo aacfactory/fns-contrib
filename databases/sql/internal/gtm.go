@@ -18,32 +18,32 @@ type GlobalTransaction struct {
 }
 
 type globalTransactionManagementOptions struct {
-	log             logs.Logger
-	checkupInterval time.Duration
+	log                         logs.Logger
+	transactionMaxAliveDuration time.Duration
 }
 
 func newGlobalTransactionManagement(options globalTransactionManagementOptions) *globalTransactionManagement {
-	checkupInterval := options.checkupInterval
-	if checkupInterval < 60*time.Second {
-		checkupInterval = 2 * time.Minute
+	transactionMaxAliveDuration := options.transactionMaxAliveDuration
+	if transactionMaxAliveDuration < 1*time.Millisecond {
+		transactionMaxAliveDuration = 10 * time.Second
 	}
 	v := &globalTransactionManagement{
-		log:             options.log.With("sql", "gtm"),
-		checkupInterval: checkupInterval,
-		txMap:           &sync.Map{},
-		closeCh:         make(chan struct{}, 1),
-		stopCh:          make(chan struct{}, 1),
+		log:              options.log.With("sql", "gtm"),
+		maxAliveDuration: transactionMaxAliveDuration,
+		txMap:            &sync.Map{},
+		closeCh:          make(chan struct{}, 1),
+		stopCh:           make(chan struct{}, 1),
 	}
 	v.checkup()
 	return v
 }
 
 type globalTransactionManagement struct {
-	log             logs.Logger
-	checkupInterval time.Duration
-	txMap           *sync.Map
-	closeCh         chan struct{}
-	stopCh          chan struct{}
+	log              logs.Logger
+	maxAliveDuration time.Duration
+	txMap            *sync.Map
+	closeCh          chan struct{}
+	stopCh           chan struct{}
 }
 
 func (gtm *globalTransactionManagement) checkup() {
@@ -54,7 +54,7 @@ func (gtm *globalTransactionManagement) checkup() {
 			case <-gtm.closeCh:
 				stop = true
 				break
-			case <-time.After(gtm.checkupInterval):
+			case <-time.After(gtm.maxAliveDuration * 10):
 				now := time.Now()
 				timeouts := make(map[string]*GlobalTransaction)
 				gtm.txMap.Range(func(_, value interface{}) bool {

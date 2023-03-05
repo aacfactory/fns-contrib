@@ -5,10 +5,6 @@ import (
 	"github.com/aacfactory/json"
 )
 
-type databaseInfo struct {
-	Dialect string `json:"dialect"`
-}
-
 type transactionRegistration struct {
 	Id string `json:"id"`
 }
@@ -17,14 +13,36 @@ type transactionStatus struct {
 	Finished bool `json:"finished"`
 }
 
+type dialectArgument struct {
+	Database string `json:"database"`
+}
+
+type dialectResult struct {
+	Dialect string `json:"dialect"`
+}
+
+type transactionBeginArgument struct {
+	Database string `json:"database"`
+}
+
+type transactionCommitArgument struct {
+	Database string `json:"database"`
+}
+
+type transactionRollbackArgument struct {
+	Database string `json:"database"`
+}
+
 type queryArgument struct {
-	Query string          `json:"query"`
-	Args  *internal.Tuple `json:"args"`
+	Database string          `json:"database"`
+	Query    string          `json:"query"`
+	Args     *internal.Tuple `json:"args"`
 }
 
 type executeArgument struct {
-	Query string          `json:"query"`
-	Args  *internal.Tuple `json:"args"`
+	Database string          `json:"database"`
+	Query    string          `json:"query"`
+	Args     *internal.Tuple `json:"args"`
 }
 
 type executeResult struct {

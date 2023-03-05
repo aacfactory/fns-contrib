@@ -5,32 +5,38 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
 	"strings"
 	"sync/atomic"
 	"time"
 )
 
+func RegisteredDrivers() (drivers []string) {
+	return sql.Drivers()
+}
+
 type Database interface {
+	service.Component
 	Dialect() (name string)
 	BeginTransaction(ctx context.Context) (err errors.CodeError)
 	CommitTransaction(ctx context.Context) (finished bool, err errors.CodeError)
 	RollbackTransaction(ctx context.Context) (err errors.CodeError)
 	Query(ctx context.Context, query string, args []interface{}) (rows *sql.Rows, err errors.CodeError)
 	Execute(ctx context.Context, query string, args []interface{}) (result sql.Result, err errors.CodeError)
-	Close()
 }
 
 type Config struct {
-	Driver           string   `json:"driver"`
-	MasterSlaverMode bool     `json:"masterSlaverMode"`
-	DSN              []string `json:"dsn"`
-	MaxIdles         int      `json:"maxIdles"`
-	MaxOpens         int      `json:"maxOpens"`
-	EnableDebugLog   bool     `json:"enableDebugLog"`
-	GTMCleanUpSecond int      `json:"gtmCleanUpSecond"`
-	Isolation        int      `json:"isolation"`
-	Dialect          string   `json:"dialect"`
+	Driver                      string   `json:"driver"`
+	MasterSlaverMode            bool     `json:"masterSlaverMode"`
+	DSN                         []string `json:"dsn"`
+	MaxIdles                    int      `json:"maxIdles"`
+	MaxOpens                    int      `json:"maxOpens"`
+	EnableDebugLog              bool     `json:"enableDebugLog"`
+	TransactionMaxAliveDuration string   `json:"transactionMaxAliveDuration"`
+	GTMCleanUpSecond            int      `json:"gtmCleanUpSecond"`
+	Isolation                   int      `json:"isolation"`
+	Dialect                     string   `json:"dialect"`
 }
 
 type Options struct {
@@ -38,37 +44,16 @@ type Options struct {
 	Config *Config
 }
 
-func New(options Options) (v Database, err error) {
-	config := options.Config
-	client, clientErr := newClient(config)
-	if clientErr != nil {
-		err = clientErr
-		return
-	}
-	isolation := sql.IsolationLevel(config.Isolation)
-	if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
-		isolation = sql.LevelReadCommitted
-	}
-	dialect := strings.TrimSpace(config.Dialect)
-	if dialect == "" {
-		dialect = client.SchemaOfDSN()
-	}
+func New(name string) (v Database) {
 	v = &db{
-		running:           1,
-		log:               options.Log.With("sql", "db"),
-		enableSQLDebugLog: config.EnableDebugLog,
-		isolation:         isolation,
-		client:            client,
-		gtm: newGlobalTransactionManagement(globalTransactionManagementOptions{
-			log:             options.Log,
-			checkupInterval: time.Duration(config.GTMCleanUpSecond) * time.Second,
-		}),
-		dialect: config.Dialect,
+		name:    name,
+		running: 1,
 	}
 	return
 }
 
 type db struct {
+	name              string
 	running           int64
 	log               logs.Logger
 	enableSQLDebugLog bool
@@ -76,6 +61,51 @@ type db struct {
 	client            Client
 	gtm               *globalTransactionManagement
 	dialect           string
+}
+
+func (db *db) Build(options service.ComponentOptions) (err error) {
+	db.log = options.Log
+	config := &Config{}
+	configErr := options.Config.As(config)
+	if configErr != nil {
+		err = errors.Warning("sql: build failed").WithCause(configErr).WithMeta("database", db.name)
+		return
+	}
+	client, clientErr := newClient(config)
+	if clientErr != nil {
+		err = errors.Warning("sql: build failed").WithCause(clientErr).WithMeta("database", db.name)
+		return
+	}
+	db.client = client
+	isolation := sql.IsolationLevel(config.Isolation)
+	if isolation < sql.LevelDefault || isolation > sql.LevelLinearizable {
+		isolation = sql.LevelReadCommitted
+	}
+	db.isolation = isolation
+	dialect := strings.TrimSpace(config.Dialect)
+	if dialect == "" {
+		dialect = client.SchemaOfDSN()
+	}
+	db.dialect = dialect
+	if config.TransactionMaxAliveDuration == "" {
+		config.TransactionMaxAliveDuration = "10s"
+	}
+	transactionMaxAliveDuration, parseTransactionMaxAliveDurationErr := time.ParseDuration(strings.TrimSpace(config.TransactionMaxAliveDuration))
+	if parseTransactionMaxAliveDurationErr != nil {
+		err = errors.Warning("sql: build failed").WithCause(parseTransactionMaxAliveDurationErr).WithMeta("database", db.name)
+		return
+	}
+	db.gtm = newGlobalTransactionManagement(globalTransactionManagementOptions{
+		log:                         db.log,
+		transactionMaxAliveDuration: transactionMaxAliveDuration,
+	})
+	db.enableSQLDebugLog = config.EnableDebugLog
+	return
+}
+
+func (db *db) Name() (name string) {
+	name = db.name
+	return
 }
 
 func (db *db) Dialect() (name string) {
