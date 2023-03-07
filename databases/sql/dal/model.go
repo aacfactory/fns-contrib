@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// Model
+// @title 数据表模型
+// @description 数据表模型
 type Model interface {
 	TableName() (schema string, name string)
 }
