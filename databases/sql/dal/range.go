@@ -23,35 +23,35 @@ func (rng *Range) Value() (offset int, limit int) {
 	return
 }
 
-func (rng *Range) MapToPager() (pager *Pager) {
-	pager = NewPager((rng.offset/rng.limit)+1, rng.limit)
+func (rng *Range) MapToPageRequest() (pager *PageRequest) {
+	pager = NewPageRequest((rng.offset/rng.limit)+1, rng.limit)
 	return
 }
 
-func NewPager(no int, size int) *Pager {
+func NewPageRequest(no int, size int) *PageRequest {
 	if no < 1 {
 		no = 1
 	}
 	if size < 1 {
 		size = 10
 	}
-	return &Pager{
+	return &PageRequest{
 		no:   no,
 		size: size,
 	}
 }
 
-type Pager struct {
+type PageRequest struct {
 	no   int
 	size int
 }
 
-func (p *Pager) Value() (no int, size int) {
+func (p *PageRequest) Value() (no int, size int) {
 	no, size = p.no, p.size
 	return
 }
 
-func (p *Pager) MapToRange() (rng *Range) {
+func (p *PageRequest) MapToRange() (rng *Range) {
 	rng = NewRange((p.no-1)*p.size, p.size)
 	return
 }
