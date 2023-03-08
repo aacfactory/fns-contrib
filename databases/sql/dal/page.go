@@ -7,26 +7,11 @@ import (
 	"math"
 )
 
-// Pager
-// @title 页
-// @description 分页查询结果
 type Pager[T any] struct {
-	// No
-	// @title 页码
-	// @description 当前页码
-	No int64 `json:"no"`
-	// Num
-	// @title 总页数
-	// @description 总页数
-	Num int64 `json:"num"`
-	// Total
-	// @title 总页内容数
-	// @description 总页内容数
+	No    int64 `json:"no"`
+	Num   int64 `json:"num"`
 	Total int64 `json:"total"`
-	// Items
-	// @title 页内容
-	// @description 页内容列表
-	Items []T `json:"items"`
+	Items []T   `json:"items"`
 }
 
 func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, page *PageRequest) (result *Pager[T], err errors.CodeError) {
