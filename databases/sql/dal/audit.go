@@ -24,7 +24,7 @@ func tryFillByField(ctx context.Context, rv reflect.Value, field *Field) (err er
 			if hasRequest {
 				userId := request.User().Id()
 				if userId != "" {
-					byString = userId
+					byString = userId.String()
 					rv.Elem().FieldByName(field.Name()).SetString(byString)
 					hasByValue = true
 				}
@@ -39,7 +39,7 @@ func tryFillByField(ctx context.Context, rv reflect.Value, field *Field) (err er
 			if hasRequest {
 				userId := request.User().Id()
 				if userId != "" {
-					byInt = request.User().IntId()
+					byInt = userId.Int()
 					rv.Elem().FieldByName(field.Name()).SetInt(byInt)
 					hasByValue = true
 				}
