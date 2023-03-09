@@ -12,7 +12,7 @@ func IntValueType() sql.ValueType {
 	return &intValueType{
 		typ:           reflect.TypeOf(int64(1)),
 		ct:            "int64",
-		databaseTypes: []string{"INT", "SERIAL", "BIGINT", "INTEGER", "SMALLINT"},
+		databaseTypes: []string{"INT", "SERIAL", "BIGINT", "INTEGER", "SMALLINT", "INT"},
 	}
 }
 
