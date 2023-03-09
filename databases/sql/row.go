@@ -1,37 +1,95 @@
 package sql
 
 import (
-	"database/sql"
+	stdsql "database/sql"
+	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/json"
 )
 
-func newRows(raws *sql.Rows) (r Rows, err error) {
-	colTypes, colTypesErr := raws.ColumnTypes()
-	if colTypesErr != nil {
-		err = colTypesErr
+type Row interface {
+	json.Marshaler
+	json.Unmarshaler
+	Empty() (ok bool)
+	Columns() (columns []Column)
+	Column(name string, value interface{}) (has bool, err error)
+}
+
+type Rows interface {
+	json.Marshaler
+	json.Unmarshaler
+	Empty() (ok bool)
+	Size() int
+	Next() (v Row, has bool)
+}
+
+func newRows(raws *stdsql.Rows) (r Rows, err error) {
+	colTypes, columnTypesErr := raws.ColumnTypes()
+	if columnTypesErr != nil {
+		err = errors.Warning("sql: get columns types from sql rows failed").WithCause(columnTypesErr)
 		return
+	}
+	colNames, columnNamesErr := raws.Columns()
+	if columnNamesErr != nil {
+		err = errors.Warning("sql: get columns names from sql rows failed").WithCause(columnNamesErr)
+		return
+	}
+	vts := make([]ValueType, 0, 1)
+	scanners := make([]any, 0, 1)
+	for _, columnType := range colTypes {
+		vt, hasVT := findValueTypeByDatabaseType(columnType.DatabaseTypeName())
+		if !hasVT {
+			err = errors.Warning("sql: value type was not registered").WithMeta("column", columnType.Name()).WithMeta("databaseType", columnType.DatabaseTypeName())
+			return
+		}
+		scanner := vt.Scanner()
+		if scanner == nil {
+			err = errors.Warning("sql: scanner of value type is required").WithMeta("column", columnType.Name()).WithMeta("databaseType", columnType.DatabaseTypeName())
+			return
+		}
+		vts = append(vts, vt)
+		scanners = append(scanners, scanner)
 	}
 	values := make([]Row, 0, 1)
 	for raws.Next() {
-		columns := make([]Column, 0, 1)
-		columnScanners := make([]interface{}, 0, 1)
-		for _, colType := range colTypes {
-			col := NewColumnScanner(colType)
-			columnScanners = append(columnScanners, col)
-			columns = append(columns, col.column)
-		}
-
-		scanErr := raws.Scan(columnScanners...)
+		scanErr := raws.Scan(scanners...)
 		if scanErr != nil {
-			err = scanErr
+			err = errors.Warning("sql: row scan failed").WithCause(scanErr)
 			return
 		}
 
+		columns := make([]Column, 0, 1)
+		for i, scanner0 := range scanners {
+			scanner := scanner0.(ValueScanner)
+			value := scanner.Value()
+			ct := ""
+			var p []byte
+			isNil := value == nil
+			if isNil {
+				ct = "nil"
+				p = bytex.FromString("nil:nil")
+			} else {
+				vt := vts[i]
+				ct = vt.ColumnType()
+				p, err = vt.Encode(value)
+				if err != nil {
+					err = errors.Warning("sql: row scan failed").WithCause(err)
+					return
+				}
+			}
+			columns = append(columns, &column{
+				Type_:         ct,
+				DatabaseType_: colTypes[i].DatabaseTypeName(),
+				Name_:         colNames[i],
+				Value_:        p,
+				Nil:           isNil,
+			})
+			scanner.Reset()
+		}
 		values = append(values, &row{
 			columns,
 		})
 	}
-
 	r = &rows{
 		values: values,
 	}
@@ -43,7 +101,7 @@ type rows struct {
 	values []Row
 }
 
-func (r rows) MarshalJSON() (p []byte, err error) {
+func (r *rows) MarshalJSON() (p []byte, err error) {
 	if r.Empty() {
 		p = []byte{'[', ']'}
 		return

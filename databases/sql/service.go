@@ -156,7 +156,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		}
 		var queryArgs []interface{}
 		if arg.Args != nil && arg.Args.Size() > 0 {
-			queryArgs = arg.Args.MapToSQLArgs()
+			queryArgs = arg.Args.Values()
 		}
 		rows0, queryErr := db.Query(ctx, arg.Query, queryArgs)
 		if queryErr != nil {
@@ -184,7 +184,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		}
 		var executeArgs []interface{}
 		if arg.Args != nil && arg.Args.Size() > 0 {
-			executeArgs = arg.Args.MapToSQLArgs()
+			executeArgs = arg.Args.Values()
 		}
 		result, queryErr := db.Execute(ctx, arg.Query, executeArgs)
 		if queryErr != nil {

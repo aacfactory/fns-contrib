@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/internal"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
 	"sync"
@@ -60,6 +59,14 @@ func getOptions(ctx context.Context) (options *ProxyOptions) {
 	return
 }
 
+type dialectArgument struct {
+	Database string `json:"database"`
+}
+
+type dialectResult struct {
+	Dialect string `json:"dialect"`
+}
+
 func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	opt := getOptions(ctx)
 	database := opt.database
@@ -101,6 +108,14 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 	dialect = r.Dialect
 	cachedDialect.Store(database, dialect)
 	return
+}
+
+type transactionBeginArgument struct {
+	Database string `json:"database"`
+}
+
+type transactionRegistration struct {
+	Id string `json:"id"`
 }
 
 func BeginTransaction(ctx context.Context) (err errors.CodeError) {
@@ -148,6 +163,14 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 	return
 }
 
+type transactionCommitArgument struct {
+	Database string `json:"database"`
+}
+
+type transactionStatus struct {
+	Finished bool `json:"finished"`
+}
+
 func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 	opt := getOptions(ctx)
 	database := opt.database
@@ -184,6 +207,10 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 	return
 }
 
+type transactionRollbackArgument struct {
+	Database string `json:"database"`
+}
+
 func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 	opt := getOptions(ctx)
 	database := opt.database
@@ -218,6 +245,12 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 	return
 }
 
+type queryArgument struct {
+	Database string     `json:"database"`
+	Query    string     `json:"query"`
+	Args     *Arguments `json:"args"`
+}
+
 func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err errors.CodeError) {
 	opt := getOptions(ctx)
 	database := opt.database
@@ -248,9 +281,9 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 		}
 		return
 	}
-	var tuple *internal.Tuple
+	var tuple *Arguments
 	if args != nil && len(args) > 0 {
-		tuple = internal.NewTuple().Append(args...)
+		tuple = NewArguments().Append(args...)
 	}
 
 	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, queryFn, service.NewArgument(&queryArgument{
@@ -267,6 +300,17 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 	}
 	v = rows0
 	return
+}
+
+type executeArgument struct {
+	Database string     `json:"database"`
+	Query    string     `json:"query"`
+	Args     *Arguments `json:"args"`
+}
+
+type executeResult struct {
+	Affected     int64 `json:"affected"`
+	LastInsertId int64 `json:"lastInsertId"`
 }
 
 func Execute(ctx context.Context, query string, args ...interface{}) (affected int64, lastInsertId int64, err errors.CodeError) {
@@ -299,9 +343,9 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 		}
 		return
 	}
-	var tuple *internal.Tuple
+	var tuple *Arguments
 	if args != nil && len(args) > 0 {
-		tuple = internal.NewTuple().Append(args...)
+		tuple = NewArguments().Append(args...)
 	}
 
 	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, executeFn, service.NewArgument(&queryArgument{
