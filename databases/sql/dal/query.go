@@ -2,16 +2,13 @@ package dal
 
 import (
 	"context"
-	db "database/sql"
 	stdJson "encoding/json"
-	"fmt"
 	"github.com/aacfactory/copier"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/json"
 	"reflect"
 	"strings"
-	"time"
 )
 
 func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err errors.CodeError) {
@@ -246,16 +243,10 @@ func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsP
 }
 
 var (
-	sqlNullStringType  = reflect.TypeOf(db.NullString{})
-	sqlNullInt16Type   = reflect.TypeOf(db.NullInt16{})
-	sqlNullInt32Type   = reflect.TypeOf(db.NullInt32{})
-	sqlNullInt64Type   = reflect.TypeOf(db.NullInt64{})
-	sqlNullFloat64Type = reflect.TypeOf(db.NullFloat64{})
-	sqlNullBoolType    = reflect.TypeOf(db.NullBool{})
-	sqlNullTimeType    = reflect.TypeOf(db.NullTime{})
-	sqlBytesType       = reflect.TypeOf([]byte{})
-	sqlJsonType        = reflect.TypeOf(json.RawMessage{})
-	sqlSTDJsonType     = reflect.TypeOf(stdJson.RawMessage{})
+	sqlStringType = reflect.TypeOf("")
+	sqlIntType    = reflect.TypeOf(int64(0))
+	sqlFloatType  = reflect.TypeOf(float64(0))
+	sqlBoolType   = reflect.TypeOf(false)
 )
 
 func scanQueryResults(ctx context.Context, rows sql.Rows, resultsPtrValue reflect.Value) (err errors.CodeError) {
@@ -288,6 +279,7 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 		cName := strings.ToUpper(strings.TrimSpace(c.Name()))
 		field := reflect.StructField{}
 		hasField := false
+		jsonValueField := false
 		for i := 0; i < fieldNum; i++ {
 			structField := rt.Field(i)
 			tagValue, hasTag := structField.Tag.Lookup(tag)
@@ -308,148 +300,119 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 			if columnName == cName {
 				field = structField
 				hasField = true
+				// "REF", "LINK", "LINKS", "VC", "TREE"
+				jsonValueField = strings.Contains(tagValue, "REF") ||
+					strings.Contains(tagValue, "LINK") ||
+					strings.Contains(tagValue, "LINKS") ||
+					strings.Contains(tagValue, "VC") ||
+					strings.Contains(tagValue, "TREE")
 				break
 			}
 		}
 		if !hasField {
 			continue
 		}
-		switch sql.ColumnType(c.Type()) {
-		case sql.StringType:
-			v := ""
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+		rfv := rv.FieldByName(field.Name)
+		value, valueErr := c.Value()
+		if valueErr != nil {
+			err = errors.Warning("sql: scan query result failed").
+				WithMeta("column", cName).
+				WithCause(valueErr)
+			return
+		}
+		reflectValue := reflect.ValueOf(value)
+		if jsonValueField {
+			var jsonRaw []byte
+			switch value.(type) {
+			case []byte:
+				jsonRaw = value.([]byte)
+				break
+			case json.RawMessage:
+				jsonRaw = value.(json.RawMessage)
+				break
+			case stdJson.RawMessage:
+				jsonRaw = value.(stdJson.RawMessage)
+				break
+			default:
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type is not json bytes"))
 				return
 			}
-			if field.Type == sqlNullStringType {
-				vv := db.NullString{
-					String: v,
-					Valid:  true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
+			var jsonValue reflect.Value
+			if field.Type.Kind() == reflect.Ptr {
+				jsonValue = reflect.New(field.Type.Elem())
 			} else {
-				rv.FieldByName(field.Name).SetString(v)
+				jsonValue = reflect.New(field.Type)
 			}
-			break
-		case sql.BoolType:
-			v := false
-			decodeErr := c.Get(&v)
+			decodeErr := json.Unmarshal(jsonRaw, jsonValue.Interface())
 			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(decodeErr)
 				return
 			}
-			if field.Type == sqlNullBoolType {
-				vv := db.NullBool{
-					Bool:  v,
-					Valid: true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
+			rfv.Set(jsonValue)
+		} else if rfv.CanSet() {
+			if reflectValue.Type() == field.Type || reflectValue.Type().AssignableTo(field.Type) {
+				rv.FieldByName(field.Name).Set(reflectValue)
+			} else if reflectValue.Type().ConvertibleTo(field.Type) {
+				rfv.Set(reflectValue.Convert(field.Type))
 			} else {
-				rv.FieldByName(field.Name).SetBool(v)
-			}
-			break
-		case sql.IntType:
-			v := int64(0)
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
 				return
 			}
-			if field.Type == sqlNullInt16Type {
-				vv := db.NullInt16{
-					Int16: int16(v),
-					Valid: true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
-			} else if field.Type == sqlNullInt32Type {
-				vv := db.NullInt32{
-					Int32: int32(v),
-					Valid: true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
-			} else if field.Type == sqlNullInt64Type {
-				vv := db.NullInt64{
-					Int64: v,
-					Valid: true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
+		} else if field.Type == sqlStringType || field.Type.ConvertibleTo(sqlStringType) {
+			if reflectValue.Type() == sqlStringType {
+				rfv.SetString(reflectValue.String())
+			} else if reflectValue.Type().ConvertibleTo(sqlStringType) {
+				rfv.SetString(reflectValue.Convert(sqlStringType).String())
 			} else {
-				rv.FieldByName(field.Name).SetInt(v)
-			}
-			break
-		case sql.FloatType:
-			v := 0.0
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
 				return
 			}
-			if field.Type == sqlNullFloat64Type {
-				vv := db.NullFloat64{
-					Float64: v,
-					Valid:   true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
+		} else if field.Type == sqlBoolType || field.Type.ConvertibleTo(sqlBoolType) {
+			if reflectValue.Type() == sqlBoolType {
+				rfv.SetBool(reflectValue.Bool())
+			} else if reflectValue.Type().ConvertibleTo(sqlBoolType) {
+				rfv.SetBool(reflectValue.Convert(sqlBoolType).Bool())
 			} else {
-				rv.FieldByName(field.Name).SetFloat(v)
-			}
-			break
-		case sql.DatetimeType:
-			v := time.Time{}
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
 				return
 			}
-			if field.Type == sqlNullTimeType {
-				vv := db.NullTime{
-					Time:  v,
-					Valid: true,
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(vv))
+		} else if field.Type == sqlIntType || field.Type.ConvertibleTo(sqlIntType) {
+			if reflectValue.Type() == sqlIntType {
+				rfv.SetInt(reflectValue.Int())
+			} else if reflectValue.Type().ConvertibleTo(sqlIntType) {
+				rfv.SetInt(reflectValue.Convert(sqlIntType).Int())
 			} else {
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
-			}
-			break
-		case sql.BytesType:
-			rv.FieldByName(field.Name).SetBytes(c.RawValue())
-			break
-		case sql.TimeType:
-			v := sql.Time{}
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
 				return
 			}
-			rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
-			break
-		case sql.JsonType:
-			if field.Type == sqlJsonType || field.Type == sqlSTDJsonType {
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(c.RawValue()).Convert(field.Type))
+		} else if field.Type == sqlFloatType || field.Type.ConvertibleTo(sqlFloatType) {
+			if reflectValue.Type() == sqlFloatType {
+				rfv.SetFloat(reflectValue.Float())
+			} else if reflectValue.Type().ConvertibleTo(sqlFloatType) {
+				rfv.SetFloat(reflectValue.Convert(sqlFloatType).Float())
 			} else {
-				v := reflect.New(field.Type).Interface()
-				decodeErr := c.Get(&v)
-				if decodeErr != nil {
-					err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
-					return
-				}
-				rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Elem())
-			}
-			break
-		case sql.DateType:
-			v := sql.Date{}
-			decodeErr := c.Get(&v)
-			if decodeErr != nil {
-				err = errors.Warning(fmt.Sprintf("get %s failed", cName)).WithCause(decodeErr)
+				err = errors.Warning("sql: scan query result failed").
+					WithMeta("column", cName).
+					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
 				return
 			}
-			rv.FieldByName(field.Name).Set(reflect.ValueOf(v).Convert(field.Type))
-			break
-		case sql.UnknownType:
-			if field.Type.AssignableTo(sqlBytesType) {
-				rv.FieldByName(field.Name).SetBytes(c.RawValue())
-			}
+		} else {
+			err = errors.Warning("sql: scan query result failed").
+				WithMeta("column", cName).
+				WithCause(errors.Warning("sql: field type was not supported").WithMeta("field", field.Name))
+			return
 		}
 	}
 	// load hook
