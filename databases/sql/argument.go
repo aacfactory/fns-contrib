@@ -77,7 +77,7 @@ func (t *Arguments) MarshalJSON() (p []byte, err error) {
 			err = errors.Warning("sql: encode value type failed").WithMeta("type", typ.String()).WithCause(encodeErr)
 			return
 		}
-		vv = append(vv, bytes.Join([][]byte{bytex.FromString(string(vt.ColumnType())), vtp}, []byte{':'}))
+		vv = append(vv, bytes.Join([][]byte{bytex.FromString(vt.ColumnType()), vtp}, []byte{':'}))
 	}
 	p, err = json.Marshal(vv)
 	return
