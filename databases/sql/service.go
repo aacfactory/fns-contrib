@@ -52,7 +52,7 @@ type service_ struct {
 }
 
 func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
-	if name == "" && svc.defaultDatabaseName != "" {
+	if name == "default" && svc.defaultDatabaseName != "" {
 		name = svc.defaultDatabaseName
 	}
 	component, exist := svc.Components()[name]

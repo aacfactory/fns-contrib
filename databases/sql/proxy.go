@@ -17,7 +17,7 @@ const (
 var (
 	cachedDialect       = new(sync.Map)
 	defaultProxyOptions = &ProxyOptions{
-		database: "",
+		database: "default",
 	}
 )
 
@@ -96,13 +96,21 @@ func Dialect(ctx context.Context) (dialect string, err errors.CodeError) {
 		}
 		return
 	}
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, databaseDialectFn, service.NewArgument(&dialectArgument{
+	result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, databaseDialectFn, service.NewArgument(&dialectArgument{
 		Database: database,
 	})))
+	if requestErr != nil {
+		err = requestErr
+		return
+	}
+	if !result.Exist() {
+		err = errors.Warning("sql: dialect of database was not declared").WithMeta("database", database)
+		return
+	}
 	r := dialectResult{}
-	_, getResultErr := fr.Get(ctx, &r)
-	if getResultErr != nil {
-		err = getResultErr
+	scanErr := result.Scan(&r)
+	if scanErr != nil {
+		err = scanErr
 		return
 	}
 	dialect = r.Dialect
@@ -143,13 +151,21 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, beginTransactionFn, service.NewArgument(&transactionBeginArgument{
+	result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, beginTransactionFn, service.NewArgument(&transactionBeginArgument{
 		Database: database,
 	})))
+	if requestErr != nil {
+		err = requestErr
+		return
+	}
+	if !result.Exist() {
+		err = errors.Warning("sql: transaction of database was not declared").WithMeta("database", database)
+		return
+	}
 	r := transactionRegistration{}
-	_, getResultErr := fr.Get(ctx, &r)
-	if getResultErr != nil {
-		err = getResultErr
+	scanErr := result.Scan(&r)
+	if scanErr != nil {
+		err = scanErr
 		return
 	}
 	if r.Id == "" {
@@ -192,13 +208,21 @@ func CommitTransaction(ctx context.Context) (err errors.CodeError) {
 		err = errors.NotFound("sql: endpoint was not found").WithMeta("endpointId", bytex.ToString(rid)).WithMeta("database", database)
 		return
 	}
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, commitTransactionFn, service.NewArgument(&transactionCommitArgument{
+	result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, commitTransactionFn, service.NewArgument(&transactionCommitArgument{
 		Database: database,
 	})))
+	if requestErr != nil {
+		err = requestErr
+		return
+	}
+	if !result.Exist() {
+		err = errors.Warning("sql: transaction of database was not declared").WithMeta("database", database)
+		return
+	}
 	status := transactionStatus{}
-	_, getResultErr := fr.Get(ctx, &status)
-	if getResultErr != nil {
-		err = getResultErr
+	scanErr := result.Scan(&status)
+	if scanErr != nil {
+		err = scanErr
 		return
 	}
 	if status.Finished {
@@ -233,12 +257,11 @@ func RollbackTransaction(ctx context.Context) (err errors.CodeError) {
 		return
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, rollbackTransactionFn, service.NewArgument(&transactionRollbackArgument{
+	_, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, rollbackTransactionFn, service.NewArgument(&transactionRollbackArgument{
 		Database: database,
 	})))
-	_, getResultErr := fr.Get(ctx, &service.Empty{})
-	if getResultErr != nil {
-		err = getResultErr
+	if requestErr != nil {
+		err = requestErr
 		return
 	}
 	request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
@@ -285,20 +308,26 @@ func Query(ctx context.Context, query string, args ...interface{}) (v Rows, err 
 	if args != nil && len(args) > 0 {
 		tuple = NewArguments().Append(args...)
 	}
-
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, queryFn, service.NewArgument(&queryArgument{
+	result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, queryFn, service.NewArgument(&queryArgument{
 		Database: database,
 		Query:    query,
 		Args:     tuple,
 	})))
-
-	rows0 := &rows{}
-	_, getResultErr := fr.Get(ctx, rows0)
-	if getResultErr != nil {
-		err = getResultErr
+	if requestErr != nil {
+		err = requestErr
 		return
 	}
-	v = rows0
+	if !result.Exist() {
+		err = errors.Warning("sql: rows of query result was not declared").WithMeta("database", database)
+		return
+	}
+	rows0 := rows{}
+	scanErr := result.Scan(&rows0)
+	if scanErr != nil {
+		err = scanErr
+		return
+	}
+	v = &rows0
 	return
 }
 
@@ -348,19 +377,27 @@ func Execute(ctx context.Context, query string, args ...interface{}) (affected i
 		tuple = NewArguments().Append(args...)
 	}
 
-	fr := endpoint.Request(ctx, service.NewRequest(ctx, name, executeFn, service.NewArgument(&queryArgument{
+	result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(ctx, name, executeFn, service.NewArgument(&queryArgument{
 		Database: database,
 		Query:    query,
 		Args:     tuple,
 	})))
-
-	result := &executeResult{}
-	_, getResultErr := fr.Get(ctx, result)
-	if getResultErr != nil {
-		err = getResultErr
+	if requestErr != nil {
+		err = requestErr
 		return
 	}
-	affected = result.Affected
-	lastInsertId = result.LastInsertId
+	if !result.Exist() {
+		err = errors.Warning("sql: result of execute result was not declared").WithMeta("database", database)
+		return
+	}
+	r := executeResult{}
+	scanErr := result.Scan(&r)
+	if scanErr != nil {
+		err = scanErr
+		return
+	}
+
+	affected = r.Affected
+	lastInsertId = r.LastInsertId
 	return
 }
