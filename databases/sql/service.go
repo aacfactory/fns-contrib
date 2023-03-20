@@ -66,8 +66,8 @@ func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
 func (svc *service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
 	switch fn {
 	case databaseDialectFn:
-		arg := &dialectArgument{}
-		argErr := argument.As(arg)
+		arg := dialectArgument{}
+		argErr := argument.As(&arg)
 		if argErr != nil {
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
@@ -83,7 +83,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		return
 	case beginTransactionFn:
 		arg := transactionBeginArgument{}
-		argErr := argument.As(arg)
+		argErr := argument.As(&arg)
 		if argErr != nil {
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
@@ -104,7 +104,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		break
 	case commitTransactionFn:
 		arg := transactionCommitArgument{}
-		argErr := argument.As(arg)
+		argErr := argument.As(&arg)
 		if argErr != nil {
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
@@ -125,7 +125,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		break
 	case rollbackTransactionFn:
 		arg := transactionRollbackArgument{}
-		argErr := argument.As(arg)
+		argErr := argument.As(&arg)
 		if argErr != nil {
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return

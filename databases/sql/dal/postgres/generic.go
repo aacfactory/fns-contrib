@@ -517,6 +517,7 @@ func newGenericQueryModelFields(field *dal.Field) (v []*GenericQueryModelField) 
 				p: f.Name(),
 			})
 		}
+		return
 	}
 	v = append(v, &GenericQueryModelField{
 		v: field.Name(),
