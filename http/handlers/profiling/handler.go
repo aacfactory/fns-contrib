@@ -2,7 +2,7 @@ package profiling
 
 import (
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/server"
+	"github.com/aacfactory/fns/service"
 	"net/http"
 	"net/http/pprof"
 	"strings"
@@ -20,7 +20,7 @@ type Config struct {
 	Enable bool `json:"enable"`
 }
 
-func Handler() (h server.Handler) {
+func Handler() (h service.HttpHandler) {
 	h = &pprofHandler{}
 	return
 }
@@ -34,7 +34,7 @@ func (h *pprofHandler) Name() (name string) {
 	return
 }
 
-func (h *pprofHandler) Build(options *server.HandlerOptions) (err error) {
+func (h *pprofHandler) Build(options *service.HttpHandlerOptions) (err error) {
 	config := &Config{}
 	configErr := options.Config.As(config)
 	if configErr != nil {
