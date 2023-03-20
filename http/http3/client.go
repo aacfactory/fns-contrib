@@ -5,64 +5,100 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/cluster"
-	"github.com/aacfactory/logs"
-	"github.com/lucas-clemente/quic-go/http3"
-	"io/ioutil"
+	"github.com/quic-go/quic-go/http3"
+	"io"
 	"net/http"
 	"time"
 )
 
-func ClientBuilder(options cluster.ClientOptions) (client cluster.Client, err error) {
-	timeout := options.RequestTimeout
-	if timeout == 0 {
-		timeout = 10 * time.Second
-	}
-	rt := &http3.RoundTripper{}
-	if options.TLS != nil {
-		rt.TLSClientConfig = options.TLS
-	}
-	c := &http.Client{
-		Transport: rt,
-		Timeout:   timeout,
-	}
+func NewClient(address string, roundTripper *http3.RoundTripper, timeout time.Duration) (client *Client) {
 	client = &Client{
-		log:    options.Log,
-		client: c,
+		address:      address,
+		roundTripper: roundTripper,
+		core: &http.Client{
+			Transport:     roundTripper,
+			CheckRedirect: nil,
+			Jar:           nil,
+			Timeout:       timeout,
+		},
 	}
 	return
 }
 
 type Client struct {
-	log    logs.Logger
-	client *http.Client
+	address      string
+	roundTripper *http3.RoundTripper
+	core         *http.Client
 }
 
-func (client *Client) Do(_ context.Context, method string, address string, uri string, header http.Header, body []byte) (status int, respHeader http.Header, respBody []byte, err error) {
-	req, reqErr := http.NewRequest(method, fmt.Sprintf("https://%s%s", address, uri), bytes.NewReader(body))
-	if reqErr != nil {
-		err = errors.Warning("fns: create proxy request failed").WithCause(reqErr).WithMeta("method", method).WithMeta("address", address).WithMeta("uri", uri)
+func (c Client) Key() (key string) {
+	key = c.address
+	return
+}
+
+func (c Client) Get(ctx context.Context, path string, header http.Header) (status int, respHeader http.Header, respBody []byte, err error) {
+	r, rErr := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s%s", c.address, path), nil)
+	if rErr != nil {
+		err = errors.Warning("http3: create request failed").WithCause(rErr)
 		return
 	}
-	if header != nil {
-		req.Header = header
+	if header != nil && len(header) > 0 {
+		r.Header = header
 	}
-	resp, doErr := client.client.Do(req)
+	resp, doErr := c.core.Do(r)
 	if doErr != nil {
-		err = errors.Warning("fns: do proxy request failed").WithCause(doErr).WithMeta("method", method).WithMeta("address", address).WithMeta("uri", uri)
+		if errors.Map(doErr).Contains(context.Canceled) || errors.Map(doErr).Contains(context.DeadlineExceeded) {
+			err = errors.Timeout("http3: get failed").WithCause(doErr)
+			return
+		}
+		err = errors.Warning("http3: get failed").WithCause(doErr)
 		return
 	}
 	status = resp.StatusCode
 	respHeader = resp.Header
-	respBody, err = ioutil.ReadAll(resp.Body)
-	_ = resp.Body.Close()
+	respBody, err = io.ReadAll(resp.Body)
 	if err != nil {
-		err = errors.Warning("fns: read proxy response body failed").WithCause(err).WithMeta("method", method).WithMeta("address", address).WithMeta("uri", uri)
+		err = errors.Warning("http3: get failed").WithCause(err)
 		return
 	}
+	_ = resp.Body.Close()
 	return
 }
 
-func (client *Client) Close() {
-	client.client.CloseIdleConnections()
+func (c Client) Post(ctx context.Context, path string, header http.Header, body []byte) (status int, respHeader http.Header, respBody []byte, err error) {
+	if body == nil || len(body) == 0 {
+		body = []byte{'{', '}'}
+	}
+	r, rErr := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("https://%s%s", c.address, path), bytes.NewBuffer(body))
+	if rErr != nil {
+		err = errors.Warning("http3: create request failed").WithCause(rErr)
+		return
+	}
+	if header != nil && len(header) > 0 {
+		r.Header = header
+	}
+	resp, doErr := c.core.Do(r)
+	if doErr != nil {
+		if errors.Map(doErr).Contains(context.Canceled) || errors.Map(doErr).Contains(context.DeadlineExceeded) {
+			err = errors.Timeout("http3: post failed").WithCause(doErr)
+			return
+		}
+		err = errors.Warning("http3: post failed").WithCause(doErr)
+		return
+	}
+	status = resp.StatusCode
+	respHeader = resp.Header
+	respBody, err = io.ReadAll(resp.Body)
+	if err != nil {
+		err = errors.Warning("http3: post failed").WithCause(err)
+		return
+	}
+	_ = resp.Body.Close()
+	return
+}
+
+func (c Client) Close() {
+	c.core.CloseIdleConnections()
+	_ = c.roundTripper.Close()
+	return
 }
