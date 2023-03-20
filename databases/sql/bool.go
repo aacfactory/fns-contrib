@@ -1,13 +1,12 @@
-package types
+package sql
 
 import (
 	stdsql "database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
 )
 
-func BoolValueType() sql.ValueType {
+func BoolValueType() ValueType {
 	return &boolValueType{
 		typ:           reflect.TypeOf(true),
 		ct:            "bool",
@@ -36,7 +35,7 @@ func (vt *boolValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *boolValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *boolValueType) Scanner() (scanner ValueScanner) {
 	scanner = &boolValueTypeScanner{
 		value: &stdsql.NullBool{},
 	}

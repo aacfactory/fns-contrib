@@ -1,15 +1,14 @@
-package types
+package sql
 
 import (
 	stdsql "database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/bytex"
 	"reflect"
 	"time"
 )
 
-func DatetimeValueType() sql.ValueType {
+func DatetimeValueType() ValueType {
 	return &datetimeValueType{
 		typ:           reflect.TypeOf(time.Time{}),
 		ct:            "datetime",
@@ -38,7 +37,7 @@ func (vt *datetimeValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *datetimeValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *datetimeValueType) Scanner() (scanner ValueScanner) {
 	scanner = &datetimeValueTypeScanner{
 		value: &stdsql.NullTime{},
 	}

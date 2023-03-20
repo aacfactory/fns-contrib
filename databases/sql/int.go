@@ -1,18 +1,17 @@
-package types
+package sql
 
 import (
 	stdsql "database/sql"
 	"encoding/binary"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
 )
 
-func IntValueType() sql.ValueType {
+func IntValueType() ValueType {
 	return &intValueType{
 		typ:           reflect.TypeOf(int64(1)),
 		ct:            "int64",
-		databaseTypes: []string{"INT", "SERIAL", "BIGINT", "INTEGER", "SMALLINT", "INT"},
+		databaseTypes: []string{"INT", "SERIAL", "BIGINT", "INTEGER", "SMALLINT"},
 	}
 }
 
@@ -37,7 +36,7 @@ func (vt *intValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *intValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *intValueType) Scanner() (scanner ValueScanner) {
 	scanner = &intValueTypeScanner{
 		value: &stdsql.NullInt64{},
 	}

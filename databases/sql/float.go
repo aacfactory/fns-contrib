@@ -1,15 +1,14 @@
-package types
+package sql
 
 import (
 	stdsql "database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/bytex"
 	"reflect"
 	"strconv"
 )
 
-func FloatValueType() sql.ValueType {
+func FloatValueType() ValueType {
 	return &floatValueType{
 		typ:           reflect.TypeOf(float64(1)),
 		ct:            "float64",
@@ -38,7 +37,7 @@ func (vt *floatValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *floatValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *floatValueType) Scanner() (scanner ValueScanner) {
 	scanner = &floatValueTypeScanner{
 		value: &stdsql.NullFloat64{},
 	}

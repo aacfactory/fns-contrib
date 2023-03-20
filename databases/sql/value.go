@@ -3,7 +3,6 @@ package sql
 import (
 	stdsql "database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/types"
 	"reflect"
 	"strings"
 )
@@ -104,13 +103,13 @@ func findValueTypeByDatabaseType(dbt string) (vt ValueType, has bool) {
 }
 
 func init() {
-	RegisterType(types.StringValueType())
-	RegisterType(types.BoolValueType())
-	RegisterType(types.IntValueType())
-	RegisterType(types.FloatValueType())
-	RegisterType(types.DatetimeValueType())
-	RegisterType(types.DateValueType())
-	RegisterType(types.TimeValueType())
-	RegisterType(types.BytesValueType())
-	RegisterType(types.JsonValueType())
+	RegisterType(StringValueType())
+	RegisterType(BoolValueType())
+	RegisterType(IntValueType())
+	RegisterType(FloatValueType())
+	RegisterType(DatetimeValueType())
+	RegisterType(DateValueType())
+	RegisterType(TimeValueType())
+	RegisterType(BytesValueType())
+	RegisterType(JsonValueType())
 }

@@ -1,14 +1,13 @@
-package types
+package sql
 
 import (
 	stdsql "database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/bytex"
 	"reflect"
 )
 
-func StringValueType() sql.ValueType {
+func StringValueType() ValueType {
 	return &stringValueType{
 		typ:           reflect.TypeOf(""),
 		ct:            "string",
@@ -37,7 +36,7 @@ func (vt *stringValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *stringValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *stringValueType) Scanner() (scanner ValueScanner) {
 	scanner = &stringValueTypeScanner{
 		value: &stdsql.NullString{},
 	}

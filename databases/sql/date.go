@@ -1,16 +1,15 @@
-package types
+package sql
 
 import (
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/bytex"
 	"reflect"
 	"time"
 )
 
-func DateValueType() sql.ValueType {
+func DateValueType() ValueType {
 	return &dateValueType{
-		typ:           reflect.TypeOf(sql.Date{}),
+		typ:           reflect.TypeOf(Date{}),
 		ct:            "date",
 		databaseTypes: []string{"DATE"},
 	}
@@ -37,15 +36,15 @@ func (vt *dateValueType) DatabaseTypes() (types []string) {
 	return
 }
 
-func (vt *dateValueType) Scanner() (scanner sql.ValueScanner) {
+func (vt *dateValueType) Scanner() (scanner ValueScanner) {
 	scanner = &dateValueTypeScanner{
-		value: &sql.NullDate{},
+		value: &NullDate{},
 	}
 	return
 }
 
 func (vt *dateValueType) Encode(src any) (p []byte, err error) {
-	s, ok := src.(sql.Date)
+	s, ok := src.(Date)
 	if !ok {
 		err = errors.Warning("sql: date value type encode failed").WithCause(errors.Warning("sql: src is not sql.Date"))
 		return
@@ -60,12 +59,12 @@ func (vt *dateValueType) Decode(p []byte) (v any, err error) {
 		err = parseErr
 		return
 	}
-	v = sql.NewDateFromTime(t)
+	v = NewDateFromTime(t)
 	return
 }
 
 type dateValueTypeScanner struct {
-	value *sql.NullDate
+	value *NullDate
 }
 
 func (vts *dateValueTypeScanner) Scan(src any) error {
@@ -77,11 +76,11 @@ func (vts *dateValueTypeScanner) Value() (value any) {
 		value = vts.value.Value
 		return
 	}
-	value = sql.Date{}
+	value = Date{}
 	return
 }
 
 func (vts *dateValueTypeScanner) Reset() {
 	vts.value.Valid = false
-	vts.value.Value = sql.Date{}
+	vts.value.Value = Date{}
 }
