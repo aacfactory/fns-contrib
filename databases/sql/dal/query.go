@@ -106,7 +106,6 @@ func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Ra
 		err = scanErr
 		return
 	}
-
 	if resultsPtrValue.Elem().Len() == 0 {
 		return
 	}
@@ -258,12 +257,13 @@ func scanQueryResults(ctx context.Context, rows sql.Rows, resultsPtrValue reflec
 		}
 		resultPtrValue := reflect.New(resultsValue.Type().Elem().Elem())
 		scanErr := scanQueryResult(ctx, row, resultPtrValue)
-		if err != nil {
+		if scanErr != nil {
 			err = scanErr
 			return
 		}
 		resultsValue = reflect.Append(resultsValue, resultPtrValue)
 	}
+	resultsPtrValue.Elem().Set(resultsValue)
 	return
 }
 
@@ -301,10 +301,11 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 				field = structField
 				hasField = true
 				// "REF", "LINK", "LINKS", "VC", "TREE"
+				tagValue = strings.ToUpper(tagValue)
 				jsonValueField = strings.Contains(tagValue, "REF") ||
 					strings.Contains(tagValue, "LINK") ||
 					strings.Contains(tagValue, "LINKS") ||
-					strings.Contains(tagValue, "VC") ||
+					//strings.Contains(tagValue, "VC") ||
 					strings.Contains(tagValue, "TREE")
 				break
 			}
@@ -336,6 +337,8 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 			default:
 				err = errors.Warning("sql: scan query result failed").
 					WithMeta("column", cName).
+					WithMeta("type", c.Type()).
+					WithMeta("dbType", c.DatabaseType()).
 					WithCause(errors.Warning("sql: column value type is not json bytes"))
 				return
 			}
@@ -349,10 +352,15 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 			if decodeErr != nil {
 				err = errors.Warning("sql: scan query result failed").
 					WithMeta("column", cName).
+					WithMeta("json", string(jsonRaw)).
 					WithCause(decodeErr)
 				return
 			}
-			rfv.Set(jsonValue)
+			if rfv.Type().Kind() == reflect.Ptr {
+				rfv.Set(jsonValue)
+			} else {
+				rfv.Set(jsonValue.Elem())
+			}
 		} else if rfv.CanSet() {
 			if reflectValue.Type() == field.Type || reflectValue.Type().AssignableTo(field.Type) {
 				rv.FieldByName(field.Name).Set(reflectValue)

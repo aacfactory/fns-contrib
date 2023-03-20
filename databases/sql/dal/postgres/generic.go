@@ -142,9 +142,6 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 			valuesIdx++
 			columnIdent := formatIdents(column)
 			updateFragment = updateFragment + ", " + columnIdent + ` = ` + fmt.Sprintf("$%d", valuesIdx)
-			//columnsFragments = columnsFragments + ", " + formatIdents(column)
-			//valuesIdx++
-			//valuesFragments = valuesFragments + `, ` + fmt.Sprintf("$%d", valuesIdx)
 		}
 		targetFields = append(targetFields, newGenericQueryModelFields(field)...)
 	}
@@ -404,7 +401,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			} else {
 				sqSelectsFragment = newSelectColumnsFragment(targetModel)
 			}
-			sq := `SELECT row_to_json(` + formatIdents(targetSchema, targetName) + `.*) FROM (`
+			sq := `SELECT row_to_json(` + formatIdents(targetName) + `.*) FROM (`
 			sq = sq + `SELECT ` + sqSelectsFragment + ` FROM ` + formatIdents(targetSchema, targetName) + ` WHERE `
 			// cond
 			sqConditionFragment := ""
@@ -414,7 +411,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			}
 			sqConditionFragment = sqConditionFragment[5:]
 			sq = sq + sqConditionFragment + ` OFFSET 0 LIMIT 1`
-			sq = sq + `) AS ` + formatIdents(targetSchema, targetName)
+			sq = sq + `) AS ` + formatIdents(targetName)
 			fragment = fragment + ", (" + sq + ") AS " + formatIdents(field.Reference().Name())
 			continue
 		}
@@ -451,7 +448,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 				sqSelectsFragment = newSelectColumnsFragment(targetModel)
 			}
 
-			sq := `SELECT row_to_json(` + formatIdents(targetSchema, targetName) + `.*) FROM (`
+			sq := `SELECT row_to_json(` + formatIdents(targetName) + `.*) FROM (`
 			sq = sq + `SELECT ` + sqSelectsFragment + ` FROM ` + formatIdents(targetSchema, targetName) + ` WHERE `
 			// cond
 			sqConditionFragment := ""
@@ -478,7 +475,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			}
 			offset, limit := linkRange.Value()
 			sq = sq + ` OFFSET ` + strconv.Itoa(offset) + ` LIMIT ` + strconv.Itoa(limit)
-			sq = sq + `) AS ` + formatIdents(targetSchema, targetName)
+			sq = sq + `) AS ` + formatIdents(targetName)
 			fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + formatIdents(field.Link().Name())
 			continue
 		}

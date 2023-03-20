@@ -12,7 +12,7 @@ func DatetimeValueType() ValueType {
 	return &datetimeValueType{
 		typ:           reflect.TypeOf(time.Time{}),
 		ct:            "datetime",
-		databaseTypes: []string{"TIMESTAMP", "DATETIME"},
+		databaseTypes: []string{"TIMESTAMPTZ", "TIMESTAMP", "DATETIME"},
 	}
 }
 

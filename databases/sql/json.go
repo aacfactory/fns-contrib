@@ -93,11 +93,11 @@ func (vts *jsonValueTypeScanner) Value() (value any) {
 		value = vts.value.Json
 		return
 	}
-	value = json.RawMessage{}
+	value = nil
 	return
 }
 
 func (vts *jsonValueTypeScanner) Reset() {
 	vts.value.Valid = false
-	vts.value.Json = json.RawMessage{}
+	vts.value.Json = nil
 }
