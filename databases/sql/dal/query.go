@@ -79,7 +79,7 @@ func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}
 
 func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, resultsPtr interface{}) (err errors.CodeError) {
 	resultsPtrValue := reflect.ValueOf(resultsPtr)
-	resultPtrValue := reflect.New(resultsPtrValue.Type().Elem().Elem())
+	resultPtrValue := reflect.New(resultsPtrValue.Elem().Type().Elem().Elem())
 	model := resultPtrValue.Interface().(Model)
 	structure, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
 	if getGeneratorErr != nil {
