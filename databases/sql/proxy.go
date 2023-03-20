@@ -173,7 +173,7 @@ func BeginTransaction(ctx context.Context) (err errors.CodeError) {
 		request.Trunk().Remove(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database))
 		return
 	}
-	if hasRid {
+	if !hasRid {
 		request.Trunk().Put(fmt.Sprintf("%s:%s", requestLocalTransactionHostId, database), bytex.FromString(r.Id))
 	}
 	return
