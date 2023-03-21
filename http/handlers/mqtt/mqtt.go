@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/http/handlers/websockets"
 	"github.com/aacfactory/fns/commons/uid"
@@ -54,6 +55,7 @@ func (handler *Handler) Handle(ctx context.Context, wc websockets.Connection) {
 			break
 		}
 		// todo handle message
+		fmt.Println(p)
 		// how to handle sub and publish
 	}
 	_ = handler.unmount(ctx, id)
