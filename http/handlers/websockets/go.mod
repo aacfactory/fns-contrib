@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.1
+	github.com/aacfactory/fns v1.0.2
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/workers v1.6.0
