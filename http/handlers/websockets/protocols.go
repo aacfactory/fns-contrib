@@ -34,7 +34,7 @@ type SubProtocolHandlerOptions struct {
 type SubProtocolHandler interface {
 	Name() (name string)
 	Build(options SubProtocolHandlerOptions) (err error)
-	Handle(conn Connection)
+	Handle(ctx context.Context, conn Connection)
 	Service() (service service.Service)
 	Close() (err error)
 }
@@ -100,6 +100,6 @@ type SubProtocolHandlerTask struct {
 	conn    *WebsocketConnection
 }
 
-func (t *SubProtocolHandlerTask) Execute(_ context.Context) {
-	t.handler.Handle(t.conn)
+func (t *SubProtocolHandlerTask) Execute(ctx context.Context) {
+	t.handler.Handle(ctx, t.conn)
 }
