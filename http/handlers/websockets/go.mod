@@ -2,18 +2,21 @@ module github.com/aacfactory/fns-contrib/http/handlers/websockets
 
 go 1.20
 
-require github.com/aacfactory/fns v1.0.1
+require (
+	github.com/aacfactory/configures v1.12.1
+	github.com/aacfactory/errors v1.13.4
+	github.com/aacfactory/fns v1.0.1
+	github.com/aacfactory/json v1.13.1
+	github.com/aacfactory/logs v1.13.0
+	github.com/aacfactory/workers v1.6.0
+	github.com/fasthttp/websocket v1.5.2
+)
 
 require (
 	github.com/aacfactory/afssl v1.6.0 // indirect
-	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/copier v1.1.0 // indirect
-	github.com/aacfactory/errors v1.13.4 // indirect
-	github.com/aacfactory/json v1.13.1 // indirect
-	github.com/aacfactory/logs v1.13.0 // indirect
 	github.com/aacfactory/rings v1.1.2 // indirect
 	github.com/aacfactory/systems v0.2.0 // indirect
-	github.com/aacfactory/workers v1.6.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
@@ -31,6 +34,7 @@ require (
 	github.com/rs/cors v1.8.3 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/rs/zerolog v1.29.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
