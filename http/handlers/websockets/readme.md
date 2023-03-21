@@ -29,3 +29,11 @@ app := fns.New(
     fns.Handlers(websockets.Websocket(subs...)),
 )
 ```
+Get connection id in function
+```go
+connId := websockets.ConnectionId(ctx)
+```
+Send message to client
+```go
+err := websockets.Send(ctx, connId, payload)
+```

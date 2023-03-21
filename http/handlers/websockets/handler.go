@@ -45,6 +45,7 @@ func Websocket(subs ...SubProtocolHandler) (handler service.HttpHandler) {
 }
 
 type websocketHandler struct {
+	appId     string
 	log       logs.Logger
 	upgrader  *websocket.Upgrader
 	service   *Service
@@ -59,6 +60,7 @@ func (handler *websocketHandler) Name() (name string) {
 }
 
 func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err error) {
+	handler.appId = options.AppId
 	handler.log = options.Log
 
 	config := Config{}
@@ -165,6 +167,7 @@ func (handler *websocketHandler) ServeHTTP(writer http.ResponseWriter, request *
 	protocol := request.Header.Get("Sec-Websocket-Protocol")
 	if protocol == "" {
 		dispatched := handler.workers.Dispatch(context.TODO(), &Task{
+			appId:     handler.appId,
 			conn:      conn,
 			discovery: handler.discovery,
 			service:   handler.service,

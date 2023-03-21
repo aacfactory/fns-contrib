@@ -12,6 +12,7 @@ import (
 )
 
 type Task struct {
+	appId     string
 	conn      *websocket.Conn
 	discovery service.EndpointDiscovery
 	service   *Service
@@ -19,17 +20,23 @@ type Task struct {
 
 func (t *Task) Execute(ctx context.Context) {
 	conn := t.conn
-	id := t.service.mount(conn)
+	id, mountErr := t.mount(ctx, conn)
+	if mountErr != nil {
+		failed := Failed(mountErr)
+		_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
+		_ = conn.Close()
+		return
+	}
 	for {
 		mt, p, readErr := conn.ReadMessage()
 		if readErr != nil {
 			_ = conn.Close()
-			t.service.unmount(id)
+			_ = t.unmount(ctx, id)
 			break
 		}
 		if mt == websocket.CloseMessage {
 			_ = conn.Close()
-			t.service.unmount(id)
+			_ = t.unmount(ctx, id)
 			break
 		}
 		if mt == websocket.PingMessage {
@@ -43,7 +50,7 @@ func (t *Task) Execute(ctx context.Context) {
 			failed := Failed(errors.Warning("websockets: binary message was unsupported"))
 			_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
 			_ = conn.Close()
-			t.service.unmount(id)
+			_ = t.unmount(ctx, id)
 			break
 		}
 		request := Request{}
@@ -62,7 +69,7 @@ func (t *Task) Execute(ctx context.Context) {
 		ctx = context.WithValue(ctx, connectionId, id)
 		endpoint, has := t.discovery.Get(ctx, request.Service)
 		if !has {
-			failed := Failed(errors.Warning("websockets: decode request failed").WithCause(decodeErr))
+			failed := Failed(errors.NotFound("websockets: service was not found").WithMeta("service", request.Service))
 			_ = conn.WriteMessage(websocket.TextMessage, failed.Encode())
 			continue
 		}
@@ -90,5 +97,60 @@ func (t *Task) Execute(ctx context.Context) {
 		succeed := Succeed(result)
 		_ = conn.WriteMessage(websocket.TextMessage, succeed.Encode())
 	}
+	return
+}
+
+func (t *Task) mount(ctx context.Context, conn *websocket.Conn) (id string, err error) {
+	id = t.service.mount(conn)
+	endpoint, has := t.discovery.Get(ctx, handleName)
+	if !has {
+		t.service.unmount(id)
+		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
+		return
+	}
+	fr := endpoint.Request(
+		ctx,
+		service.NewRequest(
+			ctx,
+			handleName, mountFn,
+			service.NewArgument(&mountParam{
+				ConnectionId: id,
+				AppId:        t.appId,
+			}),
+			service.WithDeviceId(t.appId),
+			service.WithRequestId(uid.UID()),
+			service.WithInternalRequest(),
+		),
+	)
+	_, resultErr := fr.Get(ctx)
+	if resultErr != nil {
+		t.service.unmount(id)
+		err = errors.Warning("websockets: mount connection failed").WithCause(resultErr)
+		return
+	}
+	return
+}
+
+func (t *Task) unmount(ctx context.Context, id string) (err error) {
+	t.service.unmount(id)
+	endpoint, has := t.discovery.Get(ctx, handleName)
+	if !has {
+		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
+		return
+	}
+	fr := endpoint.Request(
+		ctx,
+		service.NewRequest(
+			ctx,
+			handleName, unmountFn,
+			service.NewArgument(&unmountParam{
+				ConnectionId: id,
+			}),
+			service.WithDeviceId(t.appId),
+			service.WithRequestId(uid.UID()),
+			service.WithInternalRequest(),
+		),
+	)
+	_, _ = fr.Get(ctx)
 	return
 }
