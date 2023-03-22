@@ -3,357 +3,81 @@ package redis
 import (
 	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
-	"time"
 )
 
-func Exist(ctx context.Context, key string) (ok bool, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: exist failed").WithCause(paramsErr)
+const (
+	requestLocalPipelineHostId = "@fns_redis_pid"
+	redisOptionsContextKey     = "@fns_redis_options"
+)
+
+var (
+	defaultProxyOptions = &ProxyOptions{
+		database: "default",
+	}
+)
+
+type ProxyOption func(*ProxyOptions)
+
+type ProxyOptions struct {
+	database string
+}
+
+func newDefaultProxyOptions() *ProxyOptions {
+	return &ProxyOptions{
+		database: "",
+	}
+}
+
+func Database(name string) ProxyOption {
+	return func(options *ProxyOptions) {
+		options.database = name
+	}
+}
+
+func WithOptions(ctx context.Context, options ...ProxyOption) context.Context {
+	opt := newDefaultProxyOptions()
+	if options != nil {
+		for _, option := range options {
+			option(opt)
+		}
+	}
+	return context.WithValue(ctx, redisOptionsContextKey, opt)
+}
+
+func getOptions(ctx context.Context) (options *ProxyOptions) {
+	v := ctx.Value(redisOptionsContextKey)
+	if v == nil {
+		options = defaultProxyOptions
 		return
 	}
-	result, doErr := DoCommand(ctx, Command{
-		Name:   "EXISTS",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: exist failed").WithCause(doErr)
-		return
-	}
-	ok = result.Exist
+	options = v.(*ProxyOptions)
 	return
 }
 
-func Remove(ctx context.Context, key string) (err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: remove failed").WithCause(paramsErr)
+func newProxyParam(database string, param interface{}) (p *proxyParam, err error) {
+	payload, encodeErr := json.Marshal(param)
+	if encodeErr != nil {
+		err = errors.Warning("redis: encode param failed").WithCause(encodeErr)
 		return
 	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "DEL",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: remove failed").WithCause(doErr)
-		return
-	}
-	return
-}
-
-func Expire(ctx context.Context, key string, expiration time.Duration) (ok bool, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: expire failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(expiration)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: expire failed").WithCause(paramsErr)
-		return
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "EXPIRE",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: set failed").WithCause(doErr)
-		return
-	}
-	ok = true
-	return
-}
-
-func Persist(ctx context.Context, key string) (ok bool, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: persist failed").WithCause(paramsErr)
-		return
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "PERSIST",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: persist failed").WithCause(doErr)
-		return
-	}
-	ok = true
-	return
-}
-
-func Set(ctx context.Context, key string, value string, expiration time.Duration) (err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: set failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(value)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: set failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(expiration)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: set failed").WithCause(paramsErr)
-		return
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "SET",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: set failed").WithCause(doErr)
-		return
+	p = &proxyParam{
+		Database: database,
+		Payload:  payload,
 	}
 	return
 }
 
-func Get(ctx context.Context, key string) (result *Result, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: get failed").WithCause(paramsErr)
-		return
-	}
-	result, err = DoCommand(ctx, Command{
-		Name:   "GET",
-		Params: params,
-	})
+type proxyParam struct {
+	Database string          `json:"database"`
+	Payload  json.RawMessage `json:"payload"`
+}
+
+func (p *proxyParam) ScanPayload(v interface{}) (err error) {
+	err = json.Unmarshal(p.Payload, v)
 	if err != nil {
-		err = errors.ServiceError("redis: get set failed").WithCause(err)
+		err = errors.Warning("redis: decode param failed").WithCause(err)
 		return
-	}
-	return
-}
-
-func GetSet(ctx context.Context, key string, value string, expiration time.Duration) (result *Result, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: get set failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(value)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: get set failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(expiration)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: get set failed").WithCause(paramsErr)
-		return
-	}
-	result, err = DoCommand(ctx, Command{
-		Name:   "GETSET",
-		Params: params,
-	})
-	if err != nil {
-		err = errors.ServiceError("redis: get set set failed").WithCause(err)
-		return
-	}
-	return
-}
-
-func Incr(ctx context.Context, key string) (v int64, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: incr failed").WithCause(paramsErr)
-		return
-	}
-	result, doErr := DoCommand(ctx, Command{
-		Name:   "INCR",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: incr failed").WithCause(doErr)
-		return
-	}
-	if !result.Exist {
-		return
-	}
-	decodeErr := json.Unmarshal(result.Value, &v)
-	if decodeErr != nil {
-		err = errors.ServiceError("redis: incr failed").WithCause(decodeErr)
-		return
-	}
-	return
-}
-
-func Decr(ctx context.Context, key string) (v int64, err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: decr failed").WithCause(paramsErr)
-		return
-	}
-	result, doErr := DoCommand(ctx, Command{
-		Name:   "DECR",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: decr failed").WithCause(doErr)
-		return
-	}
-	if !result.Exist {
-		return
-	}
-	decodeErr := json.Unmarshal(result.Value, &v)
-	if decodeErr != nil {
-		err = errors.ServiceError("redis: decr failed").WithCause(decodeErr)
-		return
-	}
-	return
-}
-
-func Lock(ctx context.Context, key string, expiration time.Duration) (err errors.CodeError) {
-	params := Params{}
-	var paramsErr errors.CodeError
-	paramsErr = params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: lock failed").WithCause(paramsErr)
-		return
-	}
-	paramsErr = params.Append(expiration)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: lock failed").WithCause(paramsErr)
-		return
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "SET",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: lock failed").WithCause(doErr)
-		return
-	}
-	return
-}
-
-func Unlock(ctx context.Context, key string) (err errors.CodeError) {
-	params := Params{}
-	paramsErr := params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: unlock failed").WithCause(paramsErr)
-		return
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "REMOVE",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: unlock failed").WithCause(doErr)
-		return
-	}
-	return
-}
-
-func DoCommand(ctx context.Context, command Command) (result *Result, err errors.CodeError) {
-	endpoint, hasEndpoint := service.GetEndpoint(ctx, name)
-	if !hasEndpoint {
-		err = errors.NotFound("redis: endpoint was not found")
-		return
-	}
-	fr := endpoint.Request(ctx, commandFn, service.NewArgument(&command))
-	r := Result{}
-	_, getResultErr := fr.Get(ctx, &r)
-	if getResultErr != nil {
-		err = getResultErr
-		return
-	}
-	result = &r
-	return
-}
-
-func SAdd(ctx context.Context, key string, members ...interface{}) (err errors.CodeError) {
-	params := Params{}
-	paramsErr := params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: sadd failed").WithCause(paramsErr)
-		return
-	}
-	for _, member := range members {
-		paramsErr = params.Append(member)
-		if paramsErr != nil {
-			err = errors.ServiceError("redis: sadd failed").WithCause(paramsErr)
-			return
-		}
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "SADD",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: sadd failed").WithCause(doErr)
-		return
-	}
-	return
-}
-
-func SRem(ctx context.Context, key string, members ...interface{}) (err errors.CodeError) {
-	params := Params{}
-	paramsErr := params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: srem failed").WithCause(paramsErr)
-		return
-	}
-	for _, member := range members {
-		paramsErr = params.Append(member)
-		if paramsErr != nil {
-			err = errors.ServiceError("redis: srem failed").WithCause(paramsErr)
-			return
-		}
-	}
-	_, doErr := DoCommand(ctx, Command{
-		Name:   "SREM",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: srem failed").WithCause(doErr)
-		return
-	}
-	return
-}
-
-func SMembers(ctx context.Context, key string) (members []string, err errors.CodeError) {
-	params := Params{}
-	paramsErr := params.Append(key)
-	if paramsErr != nil {
-		err = errors.ServiceError("redis: smembers failed").WithCause(paramsErr)
-		return
-	}
-	result, doErr := DoCommand(ctx, Command{
-		Name:   "SMEMBERS",
-		Params: params,
-	})
-	if doErr != nil {
-		err = errors.ServiceError("redis: smembers failed").WithCause(doErr)
-		return
-	}
-	if result.Exist {
-		members = make([]string, 0, 1)
-		decodeErr := result.DecodeJsonValueTo(&members)
-		if decodeErr != nil {
-			err = errors.ServiceError("redis: smembers failed").WithCause(decodeErr)
-			return
-		}
 	}
 	return
 }

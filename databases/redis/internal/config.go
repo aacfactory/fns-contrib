@@ -5,250 +5,310 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/aacfactory/fns/commons/container/ring"
-	rds "github.com/go-redis/redis/v8"
-	"io/ioutil"
+	"github.com/aacfactory/errors"
+	rds "github.com/redis/go-redis/v9"
+	"os"
 	"path/filepath"
-	"runtime"
+	"reflect"
 	"strings"
 	"time"
 )
 
-type Config struct {
-	MasterSlaverMode   bool     `json:"masterSlaverMode"`
-	Network            string   `json:"network"`
-	Addr               []string `json:"addr"`
-	Username           string   `json:"username"`
-	Password           string   `json:"password"`
-	DB                 int      `json:"db"`
-	PoolSize           int      `json:"poolSize"`
-	SSL                bool     `json:"ssl"`
-	CaFilePath         string   `json:"caFilePath"`
-	CertFilePath       string   `json:"certFilePath"`
-	KeyFilePath        string   `json:"keyFilePath"`
-	InsecureSkipVerify bool     `json:"insecureSkipVerify"`
+type SSLConfig struct {
+	CaFilePath         string `json:"caFilePath"`
+	CertFilePath       string `json:"certFilePath"`
+	KeyFilePath        string `json:"keyFilePath"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify"`
 }
 
-func (config *Config) CreateClient() (client Client, err error) {
-	if config.Addr == nil || len(config.Addr) < 1 {
-		err = fmt.Errorf("fns Redis: addr is empty")
+func (ssl *SSLConfig) Config() (config *tls.Config, err error) {
+	cas := x509.NewCertPool()
+	if ssl.CaFilePath != "" {
+		path := strings.TrimSpace(ssl.CaFilePath)
+		if !filepath.IsAbs(path) {
+			path, err = filepath.Abs(path)
+			if err != nil {
+				err = errors.Warning("get absolute representation of path failed").WithMeta("path", path).WithCause(err)
+				return
+			}
+		}
+		path = filepath.ToSlash(path)
+		p, readErr := os.ReadFile(path)
+		if readErr != nil {
+			err = errors.Warning("read file failed").WithMeta("path", path).WithCause(readErr)
+			return
+		}
+		cas.AppendCertsFromPEM(p)
+	}
+	cert := strings.TrimSpace(ssl.CertFilePath)
+	if cert == "" {
+		err = errors.Warning("cert file path is required")
 		return
 	}
-	network := strings.TrimSpace(config.Network)
-	if network == "" {
-		network = "tcp"
+	if !filepath.IsAbs(cert) {
+		cert, err = filepath.Abs(cert)
+		if err != nil {
+			err = errors.Warning("get absolute representation of path failed").WithMeta("path", cert).WithCause(err)
+			return
+		}
+	}
+	cert = filepath.ToSlash(cert)
+	certPEM, readCertErr := os.ReadFile(cert)
+	if readCertErr != nil {
+		err = errors.Warning("read file failed").WithMeta("path", cert).WithCause(readCertErr)
+		return
+	}
+	key := strings.TrimSpace(ssl.KeyFilePath)
+	if key == "" {
+		err = errors.Warning("key file path is required")
+		return
+	}
+	if !filepath.IsAbs(key) {
+		key, err = filepath.Abs(key)
+		if err != nil {
+			err = errors.Warning("get absolute representation of path failed").WithMeta("path", key).WithCause(err)
+			return
+		}
+	}
+	key = filepath.ToSlash(key)
+	keyPEM, readKeyErr := os.ReadFile(key)
+	if readKeyErr != nil {
+		err = errors.Warning("read file failed").WithMeta("path", key).WithCause(readKeyErr)
+		return
+	}
+	certificate, certificateErr := tls.X509KeyPair(certPEM, keyPEM)
+	if certificateErr != nil {
+		err = errors.Warning("make x509 keypair failed").WithCause(certificateErr)
+		return
+	}
+	config = &tls.Config{
+		RootCAs:            cas,
+		Certificates:       []tls.Certificate{certificate},
+		InsecureSkipVerify: ssl.InsecureSkipVerify,
+	}
+	return
+}
+
+type Config struct {
+	Addr            []string   `json:"addr"`
+	Username        string     `json:"username"`
+	Password        string     `json:"password"`
+	DB              int        `json:"db"`
+	PoolSize        int        `json:"poolSize"`
+	PoolTimeout     string     `json:"poolTimeout"`
+	MaxRetries      int        `json:"maxRetries"`
+	MinRetryBackoff string     `json:"minRetryBackoff"`
+	MaxRetryBackoff string     `json:"maxRetryBackoff"`
+	DialTimeout     string     `json:"dialTimeout"`
+	ReadTimeout     string     `json:"readTimeout"`
+	WriteTimeout    string     `json:"writeTimeout"`
+	MinIdleConns    int        `json:"minIdleConns"`
+	MaxIdleConns    int        `json:"maxIdleConns"`
+	ConnMaxIdleTime string     `json:"connMaxIdleTime"`
+	ConnMaxLifetime string     `json:"connMaxLifetime"`
+	SSL             *SSLConfig `json:"ssl"`
+}
+
+func (config *Config) options(appId string, appName string) (options interface{}, err error) {
+	if config.Addr == nil || len(config.Addr) == 0 {
+		err = errors.Warning("addr is required")
+		return
+	}
+	addrs := make([]string, 0, 1)
+	for _, addr := range config.Addr {
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			continue
+		}
+		addrs = append(addrs, addr)
+	}
+	if len(addrs) == 0 {
+		err = errors.Warning("addr is required")
+		return
 	}
 	username := strings.TrimSpace(config.Username)
 	password := strings.TrimSpace(config.Password)
 	db := config.DB
+	if db < 0 {
+		err = errors.Warning("db is invalid")
+		return
+	}
 	poolSize := config.PoolSize
-	if poolSize < 0 {
-		poolSize = runtime.NumCPU()
+	if poolSize < 1 {
+		poolSize = 64
 	}
-	var ssl *tls.Config
-	if config.SSL {
-		ssl, err = config.LoadSSL()
+	poolTimeout := time.Duration(0)
+	if config.PoolTimeout != "" {
+		poolTimeout, err = time.ParseDuration(strings.TrimSpace(config.PoolTimeout))
 		if err != nil {
+			err = errors.Warning("poolTimeout must be time.Duration format").WithCause(err)
 			return
 		}
 	}
-	if config.MasterSlaverMode {
-		if len(config.Addr) < 2 {
-			err = fmt.Errorf("redis: masterSlaverMode is enabled but num of addr is not gt 1")
-			return
-		}
-		masterAddr := strings.TrimSpace(config.Addr[0])
-		if masterAddr == "" {
-			err = fmt.Errorf("redis: masterSlaverMode is enabled but first of addr is empty")
-			return
-		}
-		master := rds.NewClient(&rds.Options{
-			Network:      network,
-			Addr:         masterAddr,
-			Username:     username,
-			Password:     password,
-			DB:           db,
-			ReadTimeout:  2 * time.Second,
-			WriteTimeout: 2 * time.Second,
-			PoolSize:     poolSize,
-			MinIdleConns: 1,
-			TLSConfig:    ssl,
-		})
-		pingErr := master.Ping(context.TODO()).Err()
-		if pingErr != nil {
-			err = fmt.Errorf("redis: ping %s failed, %v", masterAddr, pingErr)
-			return
-		}
-
-		slaverAddrs := config.Addr[1:]
-		slavers := ring.New()
-		for i, slaverAddr := range slaverAddrs {
-			slaverAddr = strings.TrimSpace(slaverAddr)
-			if slaverAddr == "" {
-				err = fmt.Errorf("redis: masterSlaverMode is enabled but one of slavers addr is empty")
-				return
-			}
-			slaver := rds.NewClient(&rds.Options{
-				Network:      network,
-				Addr:         slaverAddr,
-				Username:     username,
-				Password:     password,
-				DB:           db,
-				ReadTimeout:  2 * time.Second,
-				WriteTimeout: 2 * time.Second,
-				PoolSize:     poolSize,
-				MinIdleConns: 1,
-				TLSConfig:    ssl,
-			})
-			pingSlaverErr := slaver.Ping(context.TODO()).Err()
-			if pingSlaverErr != nil {
-				err = fmt.Errorf("redis: ping %s failed, %v", slaverAddr, pingSlaverErr)
-				return
-			}
-			slavers.Append(&keyedClient{
-				key: fmt.Sprintf("%v", i),
-				v:   slaver,
-			})
-		}
-		client = &masterSlaver{
-			master:  master,
-			slavers: slavers,
-		}
-		return
+	maxRetries := config.MaxRetries
+	if maxRetries < 0 {
+		maxRetries = 0
 	}
-
-	if len(config.Addr) == 1 {
-		addr := strings.TrimSpace(config.Addr[0])
-		if addr == "" {
-			err = fmt.Errorf("redis: first of addr is empty")
+	minRetryBackoff := time.Duration(0)
+	if config.MinRetryBackoff != "" {
+		minRetryBackoff, err = time.ParseDuration(strings.TrimSpace(config.MinRetryBackoff))
+		if err != nil {
+			err = errors.Warning("minRetryBackoff must be time.Duration format").WithCause(err)
 			return
 		}
-		node := rds.NewClient(&rds.Options{
-			Network:      network,
-			Addr:         addr,
-			Username:     username,
-			Password:     password,
-			DB:           db,
-			ReadTimeout:  2 * time.Second,
-			WriteTimeout: 2 * time.Second,
-			PoolSize:     poolSize,
-			MinIdleConns: 1,
-			TLSConfig:    ssl,
-		})
-		pingErr := node.Ping(context.TODO()).Err()
-		if pingErr != nil {
-			err = fmt.Errorf("redis: ping %s failed, %v", addr, pingErr)
+	}
+	maxRetryBackoff := time.Duration(0)
+	if config.MaxRetryBackoff != "" {
+		maxRetryBackoff, err = time.ParseDuration(strings.TrimSpace(config.MaxRetryBackoff))
+		if err != nil {
+			err = errors.Warning("maxRetryBackoff must be time.Duration format").WithCause(err)
 			return
 		}
-		client = &standalone{
-			client: node,
-		}
-		return
 	}
-
-	nodes := make([]*rds.Client, 0, len(config.Addr))
-	for _, addr := range config.Addr {
-		addr = strings.TrimSpace(addr)
-		if addr == "" {
-			err = fmt.Errorf("redis: one of addr is empty")
+	dialTimeout := time.Duration(0)
+	if config.DialTimeout != "" {
+		dialTimeout, err = time.ParseDuration(strings.TrimSpace(config.DialTimeout))
+		if err != nil {
+			err = errors.Warning("dialTimeout must be time.Duration format").WithCause(err)
 			return
 		}
-		node := rds.NewClient(&rds.Options{
-			Network:      network,
-			Addr:         addr,
-			Username:     username,
-			Password:     password,
-			DB:           db,
-			ReadTimeout:  2 * time.Second,
-			WriteTimeout: 2 * time.Second,
-			PoolSize:     poolSize,
-			MinIdleConns: 1,
-			TLSConfig:    ssl,
-		})
-		pingErr := node.Ping(context.TODO()).Err()
-		if pingErr != nil {
-			err = fmt.Errorf("redis: ping %s failed, %v", addr, pingErr)
+	}
+	readTimeout := time.Duration(0)
+	if config.ReadTimeout != "" {
+		readTimeout, err = time.ParseDuration(strings.TrimSpace(config.ReadTimeout))
+		if err != nil {
+			err = errors.Warning("readTimeout must be time.Duration format").WithCause(err)
 			return
 		}
-		nodes = append(nodes, node)
 	}
-
-	clusterClient := rds.NewClusterClient(&rds.ClusterOptions{
-		Addrs:        config.Addr,
-		Username:     username,
-		Password:     password,
-		DialTimeout:  2 * time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
-		PoolSize:     poolSize,
-		MinIdleConns: 1,
-		TLSConfig:    ssl,
-	})
-
-	pingErr := clusterClient.Ping(context.TODO()).Err()
-	if pingErr != nil {
-		err = fmt.Errorf("redis: ping %s failed, %v", config.Addr, pingErr)
-		return
+	writeTimeout := time.Duration(0)
+	if config.WriteTimeout != "" {
+		writeTimeout, err = time.ParseDuration(strings.TrimSpace(config.WriteTimeout))
+		if err != nil {
+			err = errors.Warning("writeTimeout must be time.Duration format").WithCause(err)
+			return
+		}
 	}
-
-	client = &cluster{
-		client: clusterClient,
+	minIdleConns := config.MinIdleConns
+	if minIdleConns < 1 {
+		minIdleConns = 2
 	}
-
+	maxIdleConns := config.MaxIdleConns
+	if maxIdleConns < 1 {
+		maxIdleConns = 8
+	}
+	connMaxIdleTime := time.Duration(0)
+	if config.ConnMaxIdleTime != "" {
+		connMaxIdleTime, err = time.ParseDuration(strings.TrimSpace(config.ConnMaxIdleTime))
+		if err != nil {
+			err = errors.Warning("connMaxIdleTime must be time.Duration format").WithCause(err)
+			return
+		}
+	}
+	connMaxLifetime := time.Duration(0)
+	if config.ConnMaxLifetime != "" {
+		connMaxLifetime, err = time.ParseDuration(strings.TrimSpace(config.ConnMaxLifetime))
+		if err != nil {
+			err = errors.Warning("connMaxLifetime must be time.Duration format").WithCause(err)
+			return
+		}
+	}
+	var tlsConfig *tls.Config
+	if config.SSL != nil {
+		tlsConfig, err = config.SSL.Config()
+		if err != nil {
+			err = errors.Warning("ssl is invalid").WithCause(err)
+			return
+		}
+	}
+	if len(addrs) == 1 {
+		options = &rds.Options{
+			Network:               "",
+			Addr:                  addrs[0],
+			ClientName:            fmt.Sprintf("fns:%s:%s", appName, appId),
+			Dialer:                nil,
+			OnConnect:             nil,
+			Username:              username,
+			Password:              password,
+			CredentialsProvider:   nil,
+			DB:                    db,
+			MaxRetries:            maxRetries,
+			MinRetryBackoff:       minRetryBackoff,
+			MaxRetryBackoff:       maxRetryBackoff,
+			DialTimeout:           dialTimeout,
+			ReadTimeout:           readTimeout,
+			WriteTimeout:          writeTimeout,
+			ContextTimeoutEnabled: true,
+			PoolFIFO:              true,
+			PoolSize:              poolSize,
+			PoolTimeout:           poolTimeout,
+			MinIdleConns:          minIdleConns,
+			MaxIdleConns:          maxIdleConns,
+			ConnMaxIdleTime:       connMaxIdleTime,
+			ConnMaxLifetime:       connMaxLifetime,
+			TLSConfig:             tlsConfig,
+			Limiter:               nil,
+		}
+	} else {
+		options = &rds.ClusterOptions{
+			Addrs:                 nil,
+			ClientName:            fmt.Sprintf("fns:%s:%s", appName, appId),
+			NewClient:             nil,
+			MaxRedirects:          0,
+			ReadOnly:              false,
+			RouteByLatency:        false,
+			RouteRandomly:         false,
+			ClusterSlots:          nil,
+			Dialer:                nil,
+			OnConnect:             nil,
+			Username:              username,
+			Password:              password,
+			MaxRetries:            maxRetries,
+			MinRetryBackoff:       minRetryBackoff,
+			MaxRetryBackoff:       maxRetryBackoff,
+			DialTimeout:           dialTimeout,
+			ReadTimeout:           readTimeout,
+			WriteTimeout:          writeTimeout,
+			ContextTimeoutEnabled: true,
+			PoolFIFO:              true,
+			PoolSize:              poolSize,
+			PoolTimeout:           poolTimeout,
+			MinIdleConns:          minIdleConns,
+			MaxIdleConns:          maxIdleConns,
+			ConnMaxIdleTime:       connMaxIdleTime,
+			ConnMaxLifetime:       connMaxLifetime,
+			TLSConfig:             tlsConfig,
+		}
+	}
 	return
 }
 
-func (config *Config) LoadSSL() (ssl *tls.Config, err error) {
-	certFilePath := strings.TrimSpace(config.CertFilePath)
-	if certFilePath == "" {
-		err = fmt.Errorf("redis: ssl is enabled but certFilePath is empty")
+func (config *Config) Dial(appId string, appName string) (client Client, err error) {
+	opts, optsErr := config.options(appId, appName)
+	if optsErr != nil {
+		err = errors.Warning("redis: dial failed").WithCause(optsErr)
 		return
 	}
-	keyFilePath := strings.TrimSpace(config.KeyFilePath)
-	if keyFilePath == "" {
-		err = fmt.Errorf("redis: ssl is enabled but keyFilePath is empty")
-		return
-	}
-	var absErr error
-	certFilePath, absErr = filepath.Abs(certFilePath)
-	if absErr != nil {
-		err = fmt.Errorf("redis: ssl is enabled but get absolute representation of certFilePath failed, %v", absErr)
-		return
-	}
-	keyFilePath, absErr = filepath.Abs(keyFilePath)
-	if absErr != nil {
-		err = fmt.Errorf("redis: ssl is enabled but get absolute representation of keyFilePath failed, %v", absErr)
-		return
-	}
-	certificate, certificateErr := tls.LoadX509KeyPair(certFilePath, keyFilePath)
-	if certificateErr != nil {
-		err = fmt.Errorf("redis: ssl is enabled but load x509 key pair failed, %v", certificateErr)
-		return
-	}
-
-	ssl = &tls.Config{
-		Certificates:       []tls.Certificate{certificate},
-		InsecureSkipVerify: config.InsecureSkipVerify,
-	}
-
-	caFilePath := strings.TrimSpace(config.CaFilePath)
-	if caFilePath != "" {
-		caFilePath, absErr = filepath.Abs(caFilePath)
-		if absErr != nil {
-			err = fmt.Errorf("redis: ssl is enabled but get absolute representation of caFilePath failed, %v", absErr)
+	switch opts.(type) {
+	case *rds.Options:
+		client = rds.NewClient(opts.(*rds.Options))
+		pingErr := client.Ping(context.TODO()).Err()
+		if pingErr != nil {
+			err = errors.Warning("redis: dial failed").WithCause(pingErr)
 			return
 		}
-		caContent, caReadErr := ioutil.ReadFile(caFilePath)
-		if caReadErr != nil {
-			err = fmt.Errorf("redis: ssl is enabled but read caFilePath content failed, %v", caReadErr)
+		break
+	case *rds.ClusterOptions:
+		client = rds.NewClusterClient(opts.(*rds.ClusterOptions))
+		pingErr := client.Ping(context.TODO()).Err()
+		if pingErr != nil {
+			err = errors.Warning("redis: dial failed").WithCause(pingErr)
 			return
 		}
-		caPool := x509.NewCertPool()
-		if !caPool.AppendCertsFromPEM(caContent) {
-			err = fmt.Errorf("redis: ssl is enabled but append ca into cert pool failed")
-			return
-		}
-		ssl.RootCAs = caPool
+		break
+	default:
+		err = errors.Warning("redis: dial failed").WithCause(errors.Warning("unknown options type").WithMeta("type", reflect.TypeOf(opts).String()))
+		return
 	}
 	return
 }

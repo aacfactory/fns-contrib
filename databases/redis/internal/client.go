@@ -2,119 +2,99 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"github.com/aacfactory/fns/commons/container/ring"
-	rds "github.com/go-redis/redis/v8"
-	"strings"
+	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/logs"
+	rds "github.com/redis/go-redis/v9"
+	"time"
 )
 
 type Client interface {
-	Do(ctx context.Context, args ...interface{}) *rds.Cmd
-	Writer() (cmd rds.Cmdable)
-	Reader() (cmd rds.Cmdable)
+	rds.Cmdable
 	Close() (err error)
 }
 
-type standalone struct {
-	client *rds.Client
+func NewDatabase(name string) (db *Database) {
+	return &Database{
+		name: name,
+	}
 }
 
-func (client *standalone) Do(ctx context.Context, args ...interface{}) *rds.Cmd {
-	return client.client.Do(ctx, args)
+type Database struct {
+	log     logs.Logger
+	appId   string
+	appName string
+	name    string
+	client  Client
+	gpm     *globalPipelineManagement
 }
 
-func (client *standalone) Writer() (cmd rds.Cmdable) {
-	cmd = client.client
+func (db *Database) Name() (name string) {
+	name = db.name
 	return
 }
 
-func (client *standalone) Reader() (cmd rds.Cmdable) {
-	cmd = client.client
-	return
-}
-
-func (client *standalone) Close() (err error) {
-	err = client.client.Close()
-	return
-}
-
-type keyedClient struct {
-	key string
-	v   *rds.Client
-}
-
-func (k *keyedClient) Key() string {
-	return k.key
-}
-
-type masterSlaver struct {
-	master  *rds.Client
-	slavers *ring.Ring
-}
-
-func (client *masterSlaver) Do(ctx context.Context, args ...interface{}) *rds.Cmd {
-	return client.master.Do(ctx, args)
-}
-
-func (client *masterSlaver) Writer() (cmd rds.Cmdable) {
-	cmd = client.master
-	return
-}
-
-func (client *masterSlaver) Reader() (cmd rds.Cmdable) {
-	x := client.slavers.Next()
-	if x == nil {
+func (db *Database) Build(options service.ComponentOptions) (err error) {
+	db.log = options.Log
+	db.appId = options.AppId
+	db.appName = options.AppName
+	config := Config{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.Warning("redis: build failed").WithCause(configErr)
 		return
 	}
-	kdb, _ := x.(*keyedClient)
-	cmd = kdb.v
+	client, dailErr := config.Dial(db.appId, db.appName)
+	if dailErr != nil {
+		err = errors.Warning("redis: build failed").WithCause(dailErr)
+		return
+	}
+	db.client = client
+	db.gpm = newGlobalPipelineManagement(globalPipelineManagementOptions{
+		log:              db.log,
+		maxAliveDuration: 30 * time.Second,
+	})
 	return
 }
 
-func (client *masterSlaver) Close() (err error) {
-	closeErrors := make([]string, 0, 1)
-	masterCloseErr := client.master.Close()
-	if masterCloseErr != nil {
-		closeErrors = append(closeErrors, masterCloseErr.Error())
-	}
-	for i := 0; i < client.slavers.Size(); i++ {
-		x := client.slavers.Next()
-		if x == nil {
-			return
-		}
-		kdb, _ := x.(*keyedClient)
-		slaverErr := kdb.v.Close()
-		if slaverErr != nil {
-			closeErrors = append(closeErrors, slaverErr.Error())
-		}
-	}
+func (db *Database) Close() {
+	_ = db.client.Close()
+}
 
-	if len(closeErrors) > 0 {
-		err = fmt.Errorf("redis: close failed, %v", strings.Join(closeErrors, ","))
+func (db *Database) Cmder(ctx context.Context) (cmder rds.Cmdable) {
+	pipeline, has := db.gpm.Get(ctx)
+	if has {
+		cmder = pipeline
+		return
+	}
+	cmder = db.client
+	return
+}
+
+func (db *Database) Pipeline(ctx context.Context) (err error) {
+	err = db.gpm.Create(ctx, db.client, false)
+	if err != nil {
+		err = errors.Warning("redis: create pipeline failed").WithCause(err)
 		return
 	}
 	return
 }
 
-type cluster struct {
-	client *rds.ClusterClient
-}
-
-func (client *cluster) Do(ctx context.Context, args ...interface{}) *rds.Cmd {
-	return client.client.Do(ctx, args)
-}
-
-func (client *cluster) Writer() (cmd rds.Cmdable) {
-	cmd = client.client
+func (db *Database) TxPipeline(ctx context.Context) (err error) {
+	err = db.gpm.Create(ctx, db.client, true)
+	if err != nil {
+		err = errors.Warning("redis: create tx pipeline failed").WithCause(err)
+		return
+	}
 	return
 }
 
-func (client *cluster) Reader() (cmd rds.Cmdable) {
-	cmd = client.client
+func (db *Database) Exec(ctx context.Context) (finished bool, cmds []rds.Cmder, err error) {
+	finished, cmds, err = db.gpm.Exec(ctx)
 	return
 }
 
-func (client *cluster) Close() (err error) {
-	err = client.client.Close()
+func (db *Database) Discard(ctx context.Context) {
+	db.gpm.Discard(ctx)
 	return
 }
