@@ -45,13 +45,16 @@ func Websocket(subs ...SubProtocolHandler) (handler service.HttpHandler) {
 }
 
 type websocketHandler struct {
-	appId     string
-	log       logs.Logger
-	upgrader  *websocket.Upgrader
-	service   *Service
-	discovery service.EndpointDiscovery
-	subs      map[string]SubProtocolHandler
-	workers   workers.Workers
+	appId                 string
+	log                   logs.Logger
+	upgrader              *websocket.Upgrader
+	service               *Service
+	discovery             service.EndpointDiscovery
+	subs                  map[string]SubProtocolHandler
+	workers               workers.Workers
+	readTimeout           time.Duration
+	writeTimeout          time.Duration
+	maxRequestMessageSize int64
 }
 
 func (handler *websocketHandler) Name() (name string) {
@@ -77,6 +80,17 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 			return
 		}
 	}
+	readTimeout := time.Duration(0)
+	if config.ReadTimeout != "" {
+		readTimeout, err = time.ParseDuration(config.ReadTimeout)
+		if err != nil {
+			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("readTimeout format must be time.Duration"))
+			return
+		}
+	} else {
+		readTimeout = 10 * time.Second
+	}
+	handler.readTimeout = readTimeout
 	readBufferSize := uint64(0)
 	if config.ReadBufferSize != "" {
 		readBufferSize, err = bytex.ToBytes(config.ReadBufferSize)
@@ -85,6 +99,17 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 			return
 		}
 	}
+	writeTimeout := time.Duration(0)
+	if config.WriteTimeout != "" {
+		writeTimeout, err = time.ParseDuration(config.WriteTimeout)
+		if err != nil {
+			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("writeTimeout format must be time.Duration"))
+			return
+		}
+	} else {
+		writeTimeout = 60 * time.Second
+	}
+	handler.writeTimeout = writeTimeout
 	writeBufferSize := uint64(0)
 	if config.WriteBufferSize != "" {
 		writeBufferSize, err = bytex.ToBytes(config.WriteBufferSize)
@@ -93,6 +118,17 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 			return
 		}
 	}
+	maxRequestMessageSize := uint64(0)
+	if config.MaxRequestMessageSize != "" {
+		maxRequestMessageSize, err = bytex.ToBytes(config.MaxRequestMessageSize)
+		if err != nil {
+			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("maxRequestMessageSize format must be byte"))
+			return
+		}
+	} else {
+		maxRequestMessageSize = uint64(4096)
+	}
+	handler.maxRequestMessageSize = int64(maxRequestMessageSize)
 	handler.upgrader = &websocket.Upgrader{
 		HandshakeTimeout: handshakeTimeout,
 		ReadBufferSize:   int(readBufferSize),
@@ -120,12 +156,15 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 				subConfig, _ = configures.NewJsonConfig([]byte{'{', '}'})
 			}
 			subOptions := SubProtocolHandlerOptions{
-				AppId:      options.AppId,
-				AppName:    options.AppName,
-				AppVersion: options.AppVersion,
-				Log:        options.Log.With("protocol", name),
-				Config:     subConfig,
-				Discovery:  options.Discovery,
+				AppId:                 options.AppId,
+				AppName:               options.AppName,
+				AppVersion:            options.AppVersion,
+				Log:                   options.Log.With("protocol", name),
+				Config:                subConfig,
+				ReadTimeout:           readTimeout,
+				WriteTimeout:          writeTimeout,
+				MaxRequestMessageSize: handler.maxRequestMessageSize,
+				Discovery:             options.Discovery,
 			}
 			subErr := sub.Build(subOptions)
 			if subErr != nil {
@@ -164,17 +203,24 @@ func (handler *websocketHandler) ServeHTTP(writer http.ResponseWriter, request *
 		_, _ = writer.Write(p)
 		return
 	}
+	conn.SetPingHandler(nil)
+	conn.SetPongHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
+	})
 	protocol := request.Header.Get("Sec-Websocket-Protocol")
 	if protocol == "" {
 		dispatched := handler.workers.Dispatch(context.TODO(), &Task{
-			appId:     handler.appId,
-			conn:      conn,
-			discovery: handler.discovery,
-			service:   handler.service,
+			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
+			appId:                 handler.appId,
+			conn:                  conn,
+			discovery:             handler.discovery,
+			service:               handler.service,
+			readTimeout:           handler.readTimeout,
+			writeTimeout:          handler.writeTimeout,
+			maxRequestMessageSize: handler.maxRequestMessageSize,
 		})
 		if !dispatched {
-			failed := Failed(errors.Warning("websockets: no more connection handlers"))
-			_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "no more connection worker"), time.Now().Add(2*time.Second))
 			_ = conn.Close()
 		}
 		return
@@ -196,8 +242,7 @@ func (handler *websocketHandler) ServeHTTP(writer http.ResponseWriter, request *
 		},
 	})
 	if !dispatched {
-		failed := Failed(errors.Warning("websockets: no more connection handlers"))
-		_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
+		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "no more connection worker"), time.Now().Add(2*time.Second))
 		_ = conn.Close()
 	}
 	return

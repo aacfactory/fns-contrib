@@ -2,20 +2,33 @@ package websockets
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
+	"github.com/aacfactory/workers"
 	"github.com/fasthttp/websocket"
+	"github.com/valyala/bytebufferpool"
+	"io"
+	"strings"
 	"time"
+	"unicode/utf8"
+)
+
+var (
+	ErrRequestMessageIsTooLarge = fmt.Errorf("message is too large")
 )
 
 type Task struct {
-	appId     string
-	conn      *websocket.Conn
-	discovery service.EndpointDiscovery
-	service   *Service
+	*workers.AbstractLongTask
+	appId                 string
+	conn                  *websocket.Conn
+	discovery             service.EndpointDiscovery
+	service               *Service
+	readTimeout           time.Duration
+	writeTimeout          time.Duration
+	maxRequestMessageSize int64
 }
 
 func (t *Task) Execute(ctx context.Context) {
@@ -27,52 +40,91 @@ func (t *Task) Execute(ctx context.Context) {
 		_ = conn.Close()
 		return
 	}
+	defer func(ctx context.Context, t *Task, id string) {
+		err := recover()
+		if err == nil {
+			return
+		}
+		_ = t.unmount(ctx, id)
+		t.Close()
+	}(ctx, t, id)
 	for {
-		mt, p, readErr := conn.ReadMessage()
-		if readErr != nil {
-			_ = conn.Close()
-			_ = t.unmount(ctx, id)
+		if aborted, abortedCause := t.Aborted(); aborted {
+			cause := abortedCause.Error()
+			if len(cause) > 123 {
+				cause = cause[0:123]
+			}
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseAbnormalClosure, cause), time.Now().Add(2*time.Second))
 			break
 		}
-		if mt == websocket.CloseMessage {
-			_ = conn.Close()
-			_ = t.unmount(ctx, id)
-			break
-		}
-		if mt == websocket.PingMessage {
-			_ = conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
-			continue
-		}
-		if mt == websocket.PongMessage {
+		t.Touch(t.readTimeout)
+		mt, reader, nextReadErr := conn.NextReader()
+		if nextReadErr != nil {
+			if nextReadErr != io.EOF {
+				cause := nextReadErr.Error()
+				if len(cause) > 123 {
+					cause = cause[0:123]
+				}
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseAbnormalClosure, cause), time.Now().Add(2*time.Second))
+			} else {
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(2*time.Second))
+			}
 			break
 		}
 		if mt == websocket.BinaryMessage {
-			failed := Failed(errors.Warning("websockets: binary message was unsupported"))
-			_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
-			_ = conn.Close()
-			_ = t.unmount(ctx, id)
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "binary message was unsupported"), time.Now().Add(2*time.Second))
 			break
 		}
+		message, readErr := t.read(reader)
+		if readErr != nil {
+			if readErr == ErrRequestMessageIsTooLarge {
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseMessageTooBig, ErrRequestMessageIsTooLarge.Error()), time.Now().Add(2*time.Second))
+			} else {
+				cause := readErr.Error()
+				if len(cause) > 123 {
+					cause = cause[0:123]
+				}
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseAbnormalClosure, cause), time.Now().Add(2*time.Second))
+			}
+			break
+		}
+		t.Touch(t.writeTimeout)
+		if utf8.Valid(message) {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is not utf-8"), time.Now().Add(2*time.Second))
+			break
+		}
+
 		request := Request{}
-		decodeErr := json.Unmarshal(p, &request)
+		decodeErr := json.Unmarshal(message, &request)
 		if decodeErr != nil {
-			failed := Failed(errors.Warning("websockets: decode request failed").WithCause(decodeErr))
-			_ = conn.WriteMessage(websocket.TextMessage, failed.Encode())
-			continue
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "decode message failed"), time.Now().Add(2*time.Second))
+			break
 		}
 		requestErr := request.Validate()
 		if requestErr != nil {
-			failed := Failed(requestErr)
-			_ = conn.WriteMessage(websocket.TextMessage, failed.Encode())
-			continue
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is invalid"), time.Now().Add(2*time.Second))
+			break
 		}
 		ctx = context.WithValue(ctx, connectionId, id)
 		endpoint, has := t.discovery.Get(ctx, request.Service)
 		if !has {
-			failed := Failed(errors.NotFound("websockets: service was not found").WithMeta("service", request.Service))
-			_ = conn.WriteMessage(websocket.TextMessage, failed.Encode())
+			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(errors.NotFound("websockets: service was not found").WithMeta("service", request.Service)).Encode())
+			if writeErr != nil {
+				break
+			}
 			continue
 		}
+		devIp := request.DeviceIp()
+		if devIp == "" {
+			if conn.RemoteAddr() != nil {
+				devIp = conn.RemoteAddr().String()
+				idx := strings.LastIndex(devIp, ":")
+				if idx > 0 {
+					devIp = devIp[0:idx]
+				}
+			}
+		}
+
 		fr := endpoint.Request(
 			ctx,
 			service.NewRequest(
@@ -80,23 +132,71 @@ func (t *Task) Execute(ctx context.Context) {
 				request.Service, request.Fn,
 				service.NewArgument(request.Payload),
 				service.WithDeviceId(request.DeviceId()),
-				service.WithDeviceIp(request.DeviceIp()),
+				service.WithDeviceIp(devIp),
 				service.WithHttpRequestHeader(request.Header),
 				service.WithRequestId(uid.UID()),
 			),
 		)
 		result, resultErr := fr.Get(ctx)
 		if resultErr != nil {
-			failed := Failed(resultErr)
-			_ = conn.WriteMessage(websocket.TextMessage, failed.Encode())
+			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(resultErr).Encode())
+			if writeErr != nil {
+				break
+			}
 			continue
 		}
 		if !result.Exist() {
+			writeErr := conn.WriteMessage(websocket.TextMessage, []byte{'n', 'u', 'l', 'l'})
+			if writeErr != nil {
+				break
+			}
 			continue
 		}
-		succeed := Succeed(result)
-		_ = conn.WriteMessage(websocket.TextMessage, succeed.Encode())
+		writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(result).Encode())
+		if writeErr != nil {
+			break
+		}
 	}
+	_ = conn.Close()
+	_ = t.unmount(ctx, id)
+	t.Close()
+	return
+}
+
+func (t *Task) read(reader io.Reader) (p []byte, err error) {
+	buf := bytebufferpool.Get()
+	defer bytebufferpool.Put(buf)
+	n := int64(0)
+	for {
+		b := make([]byte, 0, 512)
+		nn, readErr := reader.Read(b)
+		if readErr != nil {
+			if readErr != io.EOF {
+				err = readErr
+				return
+			}
+			if nn > 0 {
+				n += int64(nn)
+				if n > t.maxRequestMessageSize {
+					err = ErrRequestMessageIsTooLarge
+					return
+				}
+				b = b[0:nn]
+				_, _ = buf.Write(b)
+				break
+			}
+			break
+		}
+		n += int64(nn)
+		if n > t.maxRequestMessageSize {
+			err = ErrRequestMessageIsTooLarge
+			return
+		}
+		b = b[0:nn]
+		_, _ = buf.Write(b)
+		t.Touch(t.readTimeout)
+	}
+	p = buf.Bytes()
 	return
 }
 

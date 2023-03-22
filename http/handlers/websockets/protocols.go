@@ -12,23 +12,18 @@ import (
 	"time"
 )
 
-const (
-	TextMessage   = MessageType(1)
-	BinaryMessage = MessageType(2)
-	CloseMessage  = MessageType(8)
-	PingMessage   = MessageType(9)
-	PongMessage   = MessageType(10)
-)
-
 type MessageType int
 
 type SubProtocolHandlerOptions struct {
-	AppId      string
-	AppName    string
-	AppVersion versions.Version
-	Log        logs.Logger
-	Config     configures.Config
-	Discovery  service.EndpointDiscovery `json:"-"`
+	AppId                 string
+	AppName               string
+	AppVersion            versions.Version
+	Log                   logs.Logger
+	Config                configures.Config
+	ReadTimeout           time.Duration
+	WriteTimeout          time.Duration
+	MaxRequestMessageSize int64
+	Discovery             service.EndpointDiscovery `json:"-"`
 }
 
 type SubProtocolHandler interface {
