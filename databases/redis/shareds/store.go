@@ -101,6 +101,4 @@ func (store *store) Remove(ctx context.Context, key []byte) (err errors.CodeErro
 	return
 }
 
-func (store *store) Close() {
-
-}
+func (store *store) Close() {}
