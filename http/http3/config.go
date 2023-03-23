@@ -3,18 +3,19 @@ package http3
 import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/json"
 	"github.com/quic-go/quic-go"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	EnableTCP          bool              `json:"enableTcp"`
 	EnableDatagrams    bool              `json:"enableDatagrams"`
 	MaxHeaderBytes     string            `json:"maxHeaderBytes"`
 	AdditionalSettings map[uint64]uint64 `json:"additionalSettings"`
 	Quic               *QuicConfig       `json:"quic"`
 	Client             *ClientConfig     `json:"client"`
+	Compatible         json.RawMessage   `json:"compatible"`
 }
 
 func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {

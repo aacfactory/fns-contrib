@@ -8,9 +8,7 @@ import (
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/quic-go/quic-go/http3"
-	"net/http"
 	"strings"
-	"time"
 )
 
 const (
@@ -22,11 +20,17 @@ func Server() service.Http {
 	return &server{}
 }
 
+func Compatible(compatible service.Http) service.Http {
+	return &server{
+		compatible: compatible,
+	}
+}
+
 type server struct {
-	log    logs.Logger
-	std    *http.Server
-	quic   *http3.Server
-	dialer *Dialer
+	log        logs.Logger
+	compatible service.Http
+	quic       *http3.Server
+	dialer     *Dialer
 }
 
 func (srv *server) Name() (name string) {
@@ -76,37 +80,21 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 		StreamHijacker:     nil,
 		UniStreamHijacker:  nil,
 	}
-	// std
-	if config.EnableTCP {
-		srv.std = &http.Server{
-			Addr: fmt.Sprintf(":%d", options.Port),
-			Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-				headerErr := srv.quic.SetQuicHeaders(writer.Header())
-				if headerErr != nil {
-					headerErr = errors.Warning("http3: announce that this server supports HTTP/3 failed").WithCause(headerErr)
-					p, _ := json.Marshal(headerErr)
-					writer.WriteHeader(555)
-					writer.Header().Set(httpContentType, httpContentTypeJson)
-					_, _ = writer.Write(p)
-					return
-				}
-				handler.ServeHTTP(writer, request)
-				return
-			}),
-			DisableGeneralOptionsHandler: false,
-			TLSConfig:                    srvTLS,
-			ReadTimeout:                  10 * time.Second,
-			ReadHeaderTimeout:            1 * time.Second,
-			WriteTimeout:                 10 * time.Second,
-			IdleTimeout:                  10 * time.Second,
-			MaxHeaderBytes:               int(maxHeaderBytes),
-			TLSNextProto:                 nil,
-			ConnState:                    nil,
-			ErrorLog:                     logs.MapToLogger(options.Log, logs.ErrorLevel, true),
-			BaseContext:                  nil,
-			ConnContext:                  nil,
+	// compatible
+	if srv.compatible != nil {
+		compatibleOptions := service.HttpOptions{
+			Port:      options.Port,
+			ServerTLS: options.ServerTLS,
+			ClientTLS: options.ClientTLS,
+			Handler:   newCompatibleHandler(srv.quic, options.Handler),
+			Log:       options.Log.With("compatible", srv.compatible.Name()),
+			Options:   config.Compatible,
 		}
-
+		buildCompatibleErr := srv.compatible.Build(compatibleOptions)
+		if buildCompatibleErr != nil {
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("build compatible failed")).WithCause(buildCompatibleErr)
+			return
+		}
 	}
 	// dialer
 	dialer, dialerErr := NewDialer(options.ClientTLS, config.ClientConfig(), config.EnableDatagrams, quicConfig, config.AdditionalSettings)
@@ -124,7 +112,7 @@ func (srv *server) Dial(address string) (client service.HttpClient, err error) {
 }
 
 func (srv *server) ListenAndServe() (err error) {
-	if srv.std == nil {
+	if srv.compatible == nil {
 		err = srv.quic.ListenAndServe()
 		if err != nil {
 			err = errors.Warning("http3: listen and serve failed").WithCause(err)
@@ -134,9 +122,9 @@ func (srv *server) ListenAndServe() (err error) {
 	}
 	sErr := make(chan error)
 	qErr := make(chan error)
-	go func(std *http.Server, sErr chan error) {
-		sErr <- std.ListenAndServeTLS("", "")
-	}(srv.std, sErr)
+	go func(compatible service.Http, sErr chan error) {
+		sErr <- compatible.ListenAndServe()
+	}(srv.compatible, sErr)
 	go func(quic *http3.Server, qErr chan error) {
 		qErr <- quic.ListenAndServe()
 	}(srv.quic, qErr)
@@ -154,12 +142,19 @@ func (srv *server) ListenAndServe() (err error) {
 
 func (srv *server) Close() (err error) {
 	srv.dialer.Close()
-	if srv.std != nil {
-		_ = srv.std.Close()
+	errs := errors.MakeErrors()
+	if srv.compatible != nil {
+		compatibleErr := srv.compatible.Close()
+		if compatibleErr != nil {
+			errs.Append(compatibleErr)
+		}
 	}
-	err = srv.quic.Close()
-	if err != nil {
-		err = errors.Warning("http3: close failed").WithCause(err)
+	quicErr := srv.quic.Close()
+	if quicErr != nil {
+		errs.Append(quicErr)
+	}
+	if len(errs) > 0 {
+		err = errors.Warning("http3: close failed").WithCause(errs.Error())
 	}
 	return
 }
