@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/redis/shareds"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
@@ -80,7 +81,8 @@ func ClusterBuilder(options service.ClusterBuilderOptions) (cluster service.Clus
 		err = errors.Warning("swarm: build docker swarm bootstrap failed").WithCause(fmt.Errorf("can not get ip from %s", hostname))
 		return
 	}
-	// todo shared
+	// shared
+	shared := shareds.Shared()
 	// todo proxy
 
 	return
@@ -94,6 +96,7 @@ type Swarm struct {
 	proxyAddress string
 	proxyTLS     *service.TLSConfig
 	cli          *client.Client
+	shared       service.Shared
 }
 
 func (cluster *Swarm) Join(ctx context.Context) (err error) {
@@ -112,8 +115,8 @@ func (cluster *Swarm) Nodes(ctx context.Context) (nodes service.Nodes, err error
 }
 
 func (cluster *Swarm) Shared() (shared service.Shared) {
-	//TODO implement me
-	panic("implement me")
+	shared = cluster.shared
+	return
 }
 
 func (cluster *Swarm) findMembers(ctx context.Context) (addresses []string) {
