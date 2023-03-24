@@ -3,7 +3,8 @@ package mysql
 import (
 	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/mysql"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/builtin/authorizations"
 	"github.com/aacfactory/logs"
@@ -16,9 +17,8 @@ func Component() (component service.Component) {
 }
 
 type store struct {
-	log    logs.Logger
-	Schema string
-	Table  string
+	log          logs.Logger
+	databaseName string
 }
 
 func (st *store) Name() (name string) {
@@ -34,30 +34,34 @@ func (st *store) Build(options service.ComponentOptions) (err error) {
 		err = errors.Warning("authorizations mysql store: build failed, decode config failed").WithCause(configErr)
 		return
 	}
+	st.databaseName = strings.TrimSpace(config.DatabaseName)
 	schema := strings.TrimSpace(config.Schema)
 	table := strings.TrimSpace(config.Table)
 	if table == "" {
 		err = errors.Warning("authorizations mysql store: build failed, table in config is required")
 		return
 	}
-	st.Schema = schema
-	st.Table = table
+	_schema = schema
+	_table = table
 	return
 }
 
-func (st *store) Exist(ctx context.Context, tokenId string) (ok bool) {
-	row := TokenRow{
-		schema: st.Schema,
-		name:   st.Table,
+func (st *store) prepare(ctx context.Context) context.Context {
+	if st.databaseName == "" {
+		return ctx
 	}
-	has, existErr := mysql.Exist(ctx, mysql.NewConditions(mysql.Eq("ID", tokenId)), &row)
+	return sql.WithOptions(ctx, sql.Database(st.databaseName))
+}
+
+func (st *store) Exist(ctx context.Context, tokenId string) (ok bool) {
+	exist, existErr := dal.Exist[*TokenRow](ctx, dal.NewConditions(dal.Eq("ID", tokenId)))
 	if existErr != nil {
 		if st.log.ErrorEnabled() {
 			st.log.Error().Caller().Cause(existErr).With("tokenId", tokenId).Message("authorizations mysql store: exist failed")
 		}
 		return
 	}
-	ok = has
+	ok = exist
 	return
 }
 
@@ -69,10 +73,8 @@ func (st *store) Save(ctx context.Context, at authorizations.Token) (err error) 
 		NotBefore: at.NotBefore(),
 		NotAfter:  at.NotAfter(),
 		Value:     string(at.Bytes()),
-		schema:    st.Schema,
-		name:      st.Table,
 	}
-	insertErr := mysql.Insert(ctx, &row)
+	insertErr := dal.Insert(ctx, &row)
 	if insertErr != nil {
 		err = errors.ServiceError("authorizations mysql store: save token failed").WithCause(insertErr)
 		return
@@ -82,11 +84,9 @@ func (st *store) Save(ctx context.Context, at authorizations.Token) (err error) 
 
 func (st *store) Remove(ctx context.Context, tokenId string) (err error) {
 	row := TokenRow{
-		Id:     tokenId,
-		schema: st.Schema,
-		name:   st.Table,
+		Id: tokenId,
 	}
-	rmErr := mysql.Delete(ctx, &row)
+	rmErr := dal.Delete(ctx, &row)
 	if rmErr != nil {
 		err = errors.ServiceError("authorizations mysql store: remove token failed").WithCause(rmErr)
 		return
@@ -96,11 +96,11 @@ func (st *store) Remove(ctx context.Context, tokenId string) (err error) {
 
 func (st *store) RemoveUserTokens(ctx context.Context, userId string) (err error) {
 	query := `DELETE FROM `
-	if st.Schema != "" {
-		query = query + `"` + st.Schema + `".`
+	if _schema != "" {
+		query = query + `"` + _schema + `".`
 	}
-	query = query + `"` + st.Table + `" WHERE "USER_ID" = $1`
-	_, _, execErr := mysql.ExecuteContext(ctx, query, userId)
+	query = query + `"` + _table + `" WHERE "USER_ID" = $1`
+	_, _, execErr := sql.Execute(ctx, query, userId)
 	if execErr != nil {
 		err = errors.ServiceError("authorizations mysql store: remove user tokens failed").WithCause(execErr)
 		return
