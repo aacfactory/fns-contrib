@@ -74,6 +74,41 @@ func TestHttp2(t *testing.T) {
 	_ = srv.Close()
 }
 
+func TestServer_ListenAndServe(t *testing.T) {
+	log, logErr := Log()
+	if logErr != nil {
+		t.Errorf("%+v", logErr)
+		return
+	}
+	srvTLS, cliTLS, tlsErr := SSL()
+	if tlsErr != nil {
+		t.Errorf("%+v", tlsErr)
+		return
+	}
+	srvTLS.ClientAuth = tls.NoClientCert
+	srv := http2.Server()
+	buildErr := srv.Build(service.HttpOptions{
+		Port:      18080,
+		ServerTLS: srvTLS,
+		ClientTLS: cliTLS,
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.WriteHeader(200)
+			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
+			return
+		}),
+		Log:     log,
+		Options: nil,
+	})
+	if buildErr != nil {
+		t.Errorf("%+v", buildErr)
+		return
+	}
+	err := srv.ListenAndServe()
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+}
+
 func SSL() (srv *tls.Config, cli *tls.Config, err error) {
 	ca, caKey, caErr := afssl.CreateCA("FNS-TEST", 365)
 	if caErr != nil {
