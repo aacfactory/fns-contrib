@@ -29,7 +29,7 @@ authorization:
 
 ```go
 import (
-"github.com/aacfactory/fns-contrib/authorizations/encoding/jwt"
+    "github.com/aacfactory/fns-contrib/authorizations/encoding/jwt"
 )
 
 
