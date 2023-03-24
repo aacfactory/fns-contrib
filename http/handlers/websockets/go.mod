@@ -5,11 +5,12 @@ go 1.20
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.2
+	github.com/aacfactory/fns v1.0.5
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
-	github.com/aacfactory/workers v1.8.0
+	github.com/aacfactory/workers v1.8.1
 	github.com/fasthttp/websocket v1.5.2
+	github.com/valyala/bytebufferpool v1.0.0
 )
 
 require (
@@ -40,7 +41,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.45.0 // indirect
 	go.uber.org/automaxprocs v1.5.2 // indirect
 	golang.org/x/sync v0.1.0 // indirect
