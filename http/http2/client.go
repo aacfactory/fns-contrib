@@ -18,62 +18,97 @@ const (
 	httpContentTypeJson = "application/json"
 )
 
-func NewClientOptions(opts *service.FastHttpClientOptions) (v *ClientOptions, err error) {
-	if opts == nil {
-		opts = &service.FastHttpClientOptions{
+func NewClientOptions(opt *service.FastHttpClientOptions) (v *ClientOptions, err error) {
+	if opt == nil {
+		opt = &service.FastHttpClientOptions{
 			DialDualStack:             false,
 			MaxConnsPerHost:           0,
-			MaxIdleConnSeconds:        0,
-			MaxConnSeconds:            0,
+			MaxIdleConnDuration:       "",
+			MaxConnDuration:           "",
 			MaxIdemponentCallAttempts: 0,
-			ReadBufferSize:            "4MB",
-			WriteBufferSize:           "4MB",
-			ReadTimeoutSeconds:        0,
-			WriteTimeoutSeconds:       0,
-			MaxResponseBodySize:       "4MB",
-			MaxConnWaitTimeoutSeconds: 0,
+			ReadBufferSize:            "4K",
+			ReadTimeout:               "",
+			WriteBufferSize:           "4K",
+			WriteTimeout:              "",
+			MaxResponseBodySize:       "",
+			MaxConnWaitTimeout:        "",
 		}
 	}
-	readBufferSize := strings.ToUpper(strings.TrimSpace(opts.ReadBufferSize))
-	if readBufferSize == "" {
-		readBufferSize = "4MB"
+	maxIdleWorkerDuration := time.Duration(0)
+	if opt.MaxIdleConnDuration != "" {
+		maxIdleWorkerDuration, err = time.ParseDuration(strings.TrimSpace(opt.MaxIdleConnDuration))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("maxIdleWorkerDuration must be time.Duration format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
-	readBuffer, readBufferErr := bytex.ToBytes(readBufferSize)
-	if readBufferErr != nil {
-		err = errors.Warning("fns: build server failed").WithCause(readBufferErr).WithMeta("fns", "http")
-		return
+	maxConnDuration := time.Duration(0)
+	if opt.MaxConnDuration != "" {
+		maxConnDuration, err = time.ParseDuration(strings.TrimSpace(opt.MaxConnDuration))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("maxConnDuration must be time.Duration format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
-
-	writeBufferSize := strings.ToUpper(strings.TrimSpace(opts.WriteBufferSize))
-	if writeBufferSize == "" {
-		writeBufferSize = "4MB"
+	readBufferSize := uint64(0)
+	if opt.ReadBufferSize != "" {
+		readBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.ReadBufferSize))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("readBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
-	writeBuffer, writeBufferErr := bytex.ToBytes(writeBufferSize)
-	if writeBufferErr != nil {
-		err = errors.Warning("fns: build server failed").WithCause(writeBufferErr).WithMeta("fns", "http")
-		return
+	readTimeout := 10 * time.Second
+	if opt.ReadTimeout != "" {
+		readTimeout, err = time.ParseDuration(strings.TrimSpace(opt.ReadTimeout))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("readTimeout must be time.Duration format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
-
-	maxResponseBodySize := strings.ToUpper(strings.TrimSpace(opts.MaxResponseBodySize))
-	if maxResponseBodySize == "" {
-		maxResponseBodySize = "4MB"
+	writeBufferSize := uint64(0)
+	if opt.WriteBufferSize != "" {
+		writeBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.WriteBufferSize))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("writeBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
-	maxResponseBody, maxResponseBodyErr := bytex.ToBytes(maxResponseBodySize)
-	if maxResponseBodyErr != nil {
-		err = errors.Warning("fns: build server failed").WithCause(maxResponseBodyErr).WithMeta("fns", "http")
-		return
+	writeTimeout := 10 * time.Second
+	if opt.WriteTimeout != "" {
+		writeTimeout, err = time.ParseDuration(strings.TrimSpace(opt.WriteTimeout))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("writeTimeout must be time.Duration format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
+	}
+	maxResponseBodySize := uint64(4 * bytex.MEGABYTE)
+	if opt.MaxResponseBodySize != "" {
+		maxResponseBodySize, err = bytex.ToBytes(strings.TrimSpace(opt.MaxResponseBodySize))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("maxResponseBodySize must be bytes format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
+	}
+	maxConnWaitTimeout := time.Duration(0)
+	if opt.MaxConnWaitTimeout != "" {
+		maxConnWaitTimeout, err = time.ParseDuration(strings.TrimSpace(opt.MaxConnWaitTimeout))
+		if err != nil {
+			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("maxConnWaitTimeout must be time.Duration format")).WithCause(err).WithMeta("fns", "http")
+			return
+		}
 	}
 	v = &ClientOptions{
-		MaxConns:                  opts.MaxConnsPerHost,
-		MaxConnDuration:           time.Duration(opts.MaxConnSeconds) * time.Second,
-		MaxIdleConnDuration:       time.Duration(opts.MaxIdleConnSeconds) * time.Second,
-		MaxIdemponentCallAttempts: opts.MaxIdemponentCallAttempts,
-		ReadBufferSize:            int(readBuffer),
-		WriteBufferSize:           int(writeBuffer),
-		ReadTimeout:               time.Duration(opts.ReadTimeoutSeconds) * time.Second,
-		WriteTimeout:              time.Duration(opts.WriteTimeoutSeconds) * time.Second,
-		MaxResponseBodySize:       int(maxResponseBody),
-		MaxConnWaitTimeout:        time.Duration(opts.MaxConnWaitTimeoutSeconds) * time.Second,
+		MaxConns:                  opt.MaxConnsPerHost,
+		MaxConnDuration:           maxConnDuration,
+		MaxIdleConnDuration:       maxIdleWorkerDuration,
+		MaxIdemponentCallAttempts: opt.MaxIdemponentCallAttempts,
+		ReadBufferSize:            int(readBufferSize),
+		WriteBufferSize:           int(writeBufferSize),
+		ReadTimeout:               readTimeout,
+		WriteTimeout:              writeTimeout,
+		MaxResponseBodySize:       int(maxResponseBodySize),
+		MaxConnWaitTimeout:        maxConnWaitTimeout,
 	}
 	return
 }

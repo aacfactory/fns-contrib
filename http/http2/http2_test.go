@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/aacfactory/afssl"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/http/http2"
 	"github.com/aacfactory/fns/service"
@@ -26,6 +27,7 @@ func TestHttp2(t *testing.T) {
 		return
 	}
 	srv := http2.Server()
+	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
 	buildErr := srv.Build(service.HttpOptions{
 		Port:      18080,
 		ServerTLS: srvTLS,
@@ -36,7 +38,7 @@ func TestHttp2(t *testing.T) {
 			return
 		}),
 		Log:     log,
-		Options: nil,
+		Options: opt,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)
@@ -87,6 +89,7 @@ func TestServer_ListenAndServe(t *testing.T) {
 	}
 	srvTLS.ClientAuth = tls.NoClientCert
 	srv := http2.Server()
+	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
 	buildErr := srv.Build(service.HttpOptions{
 		Port:      18080,
 		ServerTLS: srvTLS,
@@ -97,7 +100,7 @@ func TestServer_ListenAndServe(t *testing.T) {
 			return
 		}),
 		Log:     log,
-		Options: nil,
+		Options: opt,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)
