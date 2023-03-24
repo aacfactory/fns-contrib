@@ -4,8 +4,8 @@ go 1.20
 
 require (
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.4
-	github.com/aacfactory/fns-contrib/databases/redis v1.0.2
+	github.com/aacfactory/fns v1.0.5
+	github.com/aacfactory/fns-contrib/databases/redis v1.0.3
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/docker/docker v20.10.17+incompatible
@@ -30,11 +30,11 @@ require (
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/goccy/go-yaml v1.10.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/glog v1.1.0 // indirect
+	github.com/golang/glog v1.1.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.3 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
