@@ -1,6 +1,7 @@
 package postgres
 
 type Config struct {
-	Schema string
-	Table  string
+	DatabaseName string
+	Schema       string
+	Table        string
 }
