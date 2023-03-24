@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.4
+	github.com/aacfactory/fns v1.0.5
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/rings v1.1.2

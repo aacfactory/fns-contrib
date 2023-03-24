@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/aacfactory/afssl"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/http/http3"
 	"github.com/aacfactory/fns/service"
@@ -48,7 +49,9 @@ func TestHttp3(t *testing.T) {
 		t.Errorf("%+v", dialErr)
 		return
 	}
+	beg := time.Now()
 	status, header, body, getErr := client.Get(context.TODO(), "/hello", http.Header{})
+	fmt.Println("cost:", time.Now().Sub(beg))
 	if getErr != nil {
 		_ = srv1.Close()
 		t.Errorf("%+v", getErr)
@@ -76,6 +79,7 @@ func instance(ca []byte, key []byte) (srv service.Http, err error) {
 		return
 	}
 	srv = http3.Server()
+	options, _ := configures.NewJsonConfig([]byte{'{', '}'})
 	buildErr := srv.Build(service.HttpOptions{
 		Port:      18080,
 		ServerTLS: srvTLS,
@@ -86,7 +90,7 @@ func instance(ca []byte, key []byte) (srv service.Http, err error) {
 			return
 		}),
 		Log:     log,
-		Options: nil,
+		Options: options,
 	})
 	if buildErr != nil {
 		err = buildErr
@@ -120,6 +124,7 @@ func TestSTD(t *testing.T) {
 		t.Error(encodeErr)
 		return
 	}
+	optionsConfig, _ := configures.NewJsonConfig(options)
 	srv := http3.Compatible(&service.FastHttp{})
 	buildErr := srv.Build(service.HttpOptions{
 		Port:      18080,
@@ -131,7 +136,7 @@ func TestSTD(t *testing.T) {
 			return
 		}),
 		Log:     log,
-		Options: options,
+		Options: optionsConfig,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)

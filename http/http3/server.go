@@ -2,6 +2,7 @@ package http3
 
 import (
 	"fmt"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
@@ -46,12 +47,10 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	srv.log = options.Log
 	config := Config{}
-	if options.Options != nil && len(options.Options) > 2 {
-		decodeErr := json.Unmarshal(options.Options, &config)
-		if decodeErr != nil {
-			err = errors.Warning("http3: build failed").WithCause(decodeErr)
-			return
-		}
+	decodeErr := options.Options.As(&config)
+	if decodeErr != nil {
+		err = errors.Warning("http3: build failed").WithCause(decodeErr)
+		return
 	}
 	maxHeaderBytes := uint64(0)
 	if config.MaxHeaderBytes != "" {
@@ -82,13 +81,21 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	// compatible
 	if srv.compatible != nil {
+		if config.Compatible == nil || !json.Validate(config.Compatible) {
+			config.Compatible = []byte{'{', '}'}
+		}
+		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Compatible)
+		if compatibleConfigErr != nil {
+			err = errors.Warning("http3: build failed").WithCause(compatibleConfigErr)
+			return
+		}
 		compatibleOptions := service.HttpOptions{
 			Port:      options.Port,
 			ServerTLS: options.ServerTLS,
 			ClientTLS: options.ClientTLS,
 			Handler:   newCompatibleHandler(srv.quic, options.Handler),
 			Log:       options.Log.With("compatible", srv.compatible.Name()),
-			Options:   config.Compatible,
+			Options:   compatibleConfig,
 		}
 		buildCompatibleErr := srv.compatible.Build(compatibleOptions)
 		if buildCompatibleErr != nil {
