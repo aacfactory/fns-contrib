@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/builtin/authorizations"
 	"github.com/aacfactory/json"
@@ -43,15 +42,19 @@ func (tokens *jwtTokens) Build(options service.ComponentOptions) (err error) {
 }
 
 func (tokens *jwtTokens) Create(_ context.Context, param authorizations.CreateTokenParam) (token authorizations.Token, err errors.CodeError) {
+	if param.Id == "" {
+		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("id is required"))
+		return
+	}
 	if !param.UserId.Exist() {
-		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("user id is not exist"))
+		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("user id is required"))
 		return
 	}
 	attr := param.Attributes
 	if attr == nil {
 		attr = json.NewObject()
 	}
-	id := uid.UID()
+	id := param.Id
 	signed, signErr := tokens.core.Sign(id, param.UserId, attr)
 	if signErr != nil {
 		err = errors.Warning("jwt: create token failed").WithCause(signErr)
