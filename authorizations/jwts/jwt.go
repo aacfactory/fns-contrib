@@ -14,21 +14,24 @@ type Claims struct {
 }
 
 type JWT struct {
-	method      jwt.SigningMethod
-	pubKey      interface{}
-	priKey      interface{}
-	issuer      string
-	audience    []string
-	expirations time.Duration
+	method   jwt.SigningMethod
+	pubKey   interface{}
+	priKey   interface{}
+	issuer   string
+	audience []string
 }
 
-func (j *JWT) Sign(id string, userId service.RequestUserId, attr *json.Object) (signed string, err error) {
+func (j *JWT) Sign(id string, userId service.RequestUserId, attr *json.Object, expirations time.Duration) (signed string, err error) {
 	if id == "" {
 		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("id is required"))
 		return
 	}
 	if !userId.Exist() {
 		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("userId is required"))
+		return
+	}
+	if expirations < 1 {
+		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("expirations is required"))
 		return
 	}
 	if attr == nil {
@@ -39,7 +42,7 @@ func (j *JWT) Sign(id string, userId service.RequestUserId, attr *json.Object) (
 			Issuer:    j.issuer,
 			Subject:   userId.String(),
 			Audience:  j.audience,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.expirations)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expirations)),
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-8 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ID:        id,

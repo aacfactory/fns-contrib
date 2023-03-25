@@ -7,17 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 type Config struct {
-	Method      string   `json:"method"`
-	SK          string   `json:"sk"`
-	PublicKey   string   `json:"publicKey"`
-	PrivateKey  string   `json:"privateKey"`
-	Issuer      string   `json:"issuer"`
-	Audience    []string `json:"audience"`
-	Expirations string   `json:"expirations"`
+	Method     string   `json:"method"`
+	SK         string   `json:"sk"`
+	PublicKey  string   `json:"publicKey"`
+	PrivateKey string   `json:"privateKey"`
+	Issuer     string   `json:"issuer"`
+	Audience   []string `json:"audience"`
 }
 
 func (config *Config) CreateJWT() (v *JWT, err error) {
@@ -115,21 +113,12 @@ func (config *Config) CreateJWT() (v *JWT, err error) {
 	if config.Audience != nil {
 		audience = config.Audience
 	}
-	expirations := 13 * 24 * time.Hour
-	if config.Expirations != "" {
-		expirations, err = time.ParseDuration(strings.TrimSpace(config.Expirations))
-		if err != nil {
-			err = errors.Warning("jwt: build tokens failed").WithCause(errors.Warning("expirations must be time.Duration format").WithCause(err))
-			return
-		}
-	}
 	v = &JWT{
-		method:      method,
-		pubKey:      pubKey,
-		priKey:      priKey,
-		issuer:      issuer,
-		audience:    audience,
-		expirations: expirations,
+		method:   method,
+		pubKey:   pubKey,
+		priKey:   priKey,
+		issuer:   issuer,
+		audience: audience,
 	}
 	return
 }

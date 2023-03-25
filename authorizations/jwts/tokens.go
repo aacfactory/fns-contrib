@@ -9,6 +9,7 @@ import (
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"strings"
+	"time"
 )
 
 func Tokens() authorizations.Tokens {
@@ -50,12 +51,16 @@ func (tokens *jwtTokens) Create(_ context.Context, param authorizations.CreateTo
 		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("user id is required"))
 		return
 	}
+	if param.Expirations < 1 {
+		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("expirations is required"))
+		return
+	}
 	attr := param.Attributes
 	if attr == nil {
 		attr = json.NewObject()
 	}
 	id := param.Id
-	signed, signErr := tokens.core.Sign(id, param.UserId, attr)
+	signed, signErr := tokens.core.Sign(id, param.UserId, attr, param.Expirations)
 	if signErr != nil {
 		err = errors.Warning("jwt: create token failed").WithCause(signErr)
 		return
@@ -74,16 +79,21 @@ func (tokens *jwtTokens) Parse(_ context.Context, token authorizations.Token) (r
 		err = errors.Warning("jwt: parse token failed").WithCause(errors.Warning("token is invalid"))
 		return
 	}
-	id, userId, attr, valid, _, parseErr := tokens.core.Parse(remains)
+	id, userId, attr, valid, rc, parseErr := tokens.core.Parse(remains)
 	if parseErr != nil {
 		err = errors.Warning("jwt: parse token failed").WithCause(parseErr)
 		return
+	}
+	expiresAt := time.Time{}
+	if rc.ExpiresAt != nil {
+		expiresAt = rc.ExpiresAt.Time
 	}
 	result = authorizations.ParsedToken{
 		Valid:      valid,
 		Id:         id,
 		UserId:     userId,
 		Attributes: attr,
+		ExpireAT:   expiresAt,
 	}
 	return
 }
