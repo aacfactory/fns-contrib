@@ -8,10 +8,10 @@ import (
 )
 
 type SaveParam struct {
-	Id          string        `json:"id"`
-	UserId      string        `json:"userId"`
-	Token       string        `json:"token"`
-	Expirations time.Duration `json:"expirations"`
+	Id       string    `json:"id"`
+	UserId   string    `json:"userId"`
+	Token    string    `json:"token"`
+	ExpireAT time.Time `json:"expireAt"`
 }
 
 type RemoveParam struct {
@@ -20,10 +20,10 @@ type RemoveParam struct {
 }
 
 type Token struct {
-	Id          string        `json:"id"`
-	UserId      string        `json:"userId"`
-	Token       string        `json:"token"`
-	Expirations time.Duration `json:"expirations"`
+	Id       string    `json:"id"`
+	UserId   string    `json:"userId"`
+	Token    string    `json:"token"`
+	ExpireAT time.Time `json:"expireAt"`
 }
 
 type Store interface {
