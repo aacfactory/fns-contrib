@@ -7,25 +7,29 @@ import (
 	"github.com/aacfactory/fns/service/builtin/permissions"
 )
 
-type Enforcer struct {
+func Enforcer() permissions.Enforcer {
+	return &enforcer{}
 }
 
-func (enforcer *Enforcer) Name() (name string) {
+type enforcer struct {
+}
+
+func (e *enforcer) Name() (name string) {
 	name = "rbac"
 	return
 }
 
-func (enforcer *Enforcer) Build(options service.ComponentOptions) (err error) {
+func (e *enforcer) Build(options service.ComponentOptions) (err error) {
 
 	return
 }
 
-func (enforcer *Enforcer) Close() {
+func (e *enforcer) Close() {
 
 	return
 }
 
-func (enforcer *Enforcer) Enforce(ctx context.Context, param permissions.EnforceParam) (ok bool, err errors.CodeError) {
+func (e *enforcer) Enforce(ctx context.Context, param permissions.EnforceParam) (ok bool, err errors.CodeError) {
 
 	return
 }
