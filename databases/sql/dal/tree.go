@@ -59,15 +59,17 @@ func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T
 		err = fieldErr
 		return
 	}
-	nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)
-	if !hasNodeField {
-		err = errors.Warning("dal: get tree node field was not found").WithMeta("node_column", field.tree.nodeColumnName)
-		return
-	}
 	nodes = make([]T, 0, 1)
 	for _, rootNodeValue := range rootNodeValues {
-		for _, node := range nodes {
-
+		contains := false
+		for _, prev := range nodes {
+			if containsTreeModel(prev, rootNodeValue, structure, field) {
+				contains = true
+				break
+			}
+		}
+		if contains {
+			continue
 		}
 		node, mapErr := MapListToTree[T, N](list, rootNodeValue)
 		if mapErr != nil {
@@ -77,7 +79,78 @@ func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T
 		if reflect.ValueOf(node).IsNil() {
 			continue
 		}
+		ejects := make([]int, 0, 1)
+		for i, prev := range nodes {
+			rv := reflect.Indirect(reflect.ValueOf(prev))
+			nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)
+			if !hasNodeField {
+				continue
+			}
+			prevKey, isN := rv.FieldByName(nodeField.Name()).Interface().(N)
+			if !isN {
+				continue
+			}
+			if containsTreeModel(node, prevKey, structure, field) {
+				ejects = append(ejects, i)
+			}
+		}
+		ejectsLen := len(ejects)
+		if ejectsLen > 0 {
+			temps := make([]T, 0, 1)
+			for i, prev := range nodes {
+				eject := sort.Search(ejectsLen, func(j int) bool {
+					return ejects[j] == i
+				})
+				if eject == ejectsLen {
+					temps = append(temps, prev)
+				}
+			}
+			nodes = temps
+		}
 		nodes = append(nodes, node)
+	}
+	return
+}
+
+func containsTreeModel[T Model, N keyable](node T, key N, structure *ModelStructure, f *Field) (ok bool) {
+	rv := reflect.Indirect(reflect.ValueOf(node))
+	nodeField, hasNodeField := structure.FindFieldByColumn(f.tree.nodeColumnName)
+	if !hasNodeField {
+		return
+	}
+	field := rv.FieldByName(nodeField.Name())
+	if field.IsZero() {
+		return
+	}
+	fv, isN := field.Interface().(N)
+	if !isN {
+		return
+	}
+	if fv == key {
+		ok = true
+		return
+	}
+	childrenField := rv.FieldByName(f.Name())
+	childrenType := reflect.TypeOf(make([]T, 0, 1))
+	if !childrenField.CanConvert(childrenType) {
+		return
+	}
+	childrenField = childrenField.Convert(childrenType)
+	if childrenField.IsNil() {
+		return
+	}
+	children, isModels := childrenField.Interface().([]T)
+	if !isModels {
+		return
+	}
+	if children == nil || len(children) == 0 {
+		return
+	}
+	for _, child := range children {
+		ok = containsTreeModel(child, key, structure, f)
+		if ok {
+			return
+		}
 	}
 	return
 }
