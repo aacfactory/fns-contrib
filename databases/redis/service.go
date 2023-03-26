@@ -602,6 +602,96 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		result = value
 		break
+	case geoAddFn:
+		param := GeoAddParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoAdd(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case geoDistFn:
+		param := GeoDistParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoDist(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case geoHashFn:
+		param := GeoHashParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoHash(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case geoPosFn:
+		param := GeoPosParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoPos(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case geoSearchFn:
+		param := GeoSearchParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoSearch(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case geoSearchStoreFn:
+		param := GeoSearchStoreParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := geoSearchStore(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
 	default:
 		err = errors.NotFound("redis: fn was not found").WithMeta("service", name).WithMeta("fn", fn)
 		break
