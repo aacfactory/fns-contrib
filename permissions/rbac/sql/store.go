@@ -290,6 +290,25 @@ func (s *store) Bounds(ctx context.Context, userId string) (roles []*rbac.Role, 
 		}
 		return
 	}
-
+	if len(rows) < len(row.RoleIds) {
+		roleIds := make([]string, 0, 1)
+		rowsLen := len(rows)
+		for _, id := range row.RoleIds {
+			pos := sort.Search(rowsLen, func(i int) bool {
+				return rows[i].Id == id
+			})
+			if pos < rowsLen {
+				roleIds = append(roleIds, id)
+			}
+		}
+		row.RoleIds = roleIds
+		_ = dal.Update(ctx, row)
+	}
+	roles = make([]*rbac.Role, 0, 1)
+	cpErr := copier.Copy(&roles, rows)
+	if cpErr != nil {
+		err = errors.Warning("rbac: bounds failed").WithCause(cpErr).WithMeta("userId", userId).WithMeta("store", s.Name())
+		return
+	}
 	return
 }
