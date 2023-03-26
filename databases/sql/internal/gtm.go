@@ -158,6 +158,9 @@ func (gtm *globalTransactionManagement) Commit(ctx context.Context) (finished bo
 			gtm.log.Debug().With("requestId", id).Message("begin to commit transaction")
 		}
 		err = gt.tx.Commit()
+		if err != nil {
+			_ = gt.tx.Rollback()
+		}
 		gtm.txMap.Delete(id)
 		if gtm.log.DebugEnabled() {
 			_, has := gtm.txMap.Load(id)

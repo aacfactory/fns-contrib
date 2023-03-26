@@ -4,19 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"testing"
-	"time"
 )
-
-type Audits struct {
-	Id       string    `col:"ID,pk" json:"ID"`
-	CreateBY string    `col:"CREATE_BY,acb" json:"CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,act" json:"CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,amb" json:"MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,amt" json:"MODIFY_AT"`
-	DeleteBY string    `col:"DELETE_BY,adb" json:"DELETE_BY"`
-	DeleteAT time.Time `col:"DELETE_AT,adt" json:"DELETE_AT"`
-	Version  int64     `col:"VERSION,aol" json:"VERSION"`
-}
 
 type Avatar struct {
 	Icon   string `json:"icon"`
