@@ -69,8 +69,11 @@ func (t *Arguments) MarshalJSON() (p []byte, err error) {
 		typ := reflect.TypeOf(value)
 		vt, hasVT := valueTypes[typ.String()]
 		if !hasVT {
-			err = errors.Warning("sql: value type was not found").WithMeta("type", typ.String())
-			return
+			vt, hasVT = valueTypes[typ.Kind().String()]
+			if !hasVT {
+				err = errors.Warning("sql: value type was not found").WithMeta("type", typ.String())
+				return
+			}
 		}
 		vtp, encodeErr := vt.Encode(value)
 		if encodeErr != nil {
