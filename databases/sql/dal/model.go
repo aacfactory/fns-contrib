@@ -311,7 +311,7 @@ func (structure *ModelStructure) scanReflectType(rt reflect.Type) (err error) {
 			}
 		}
 		fieldName := sf.Name
-		fieldTag, hasColTag := sf.Tag.Lookup(tag)
+		fieldTag, hasColTag := sf.Tag.Lookup(colTag)
 		if !hasColTag {
 			continue
 		}
@@ -333,7 +333,11 @@ func (structure *ModelStructure) scanReflectType(rt reflect.Type) (err error) {
 
 func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 	fieldName := sf.Name
-	fieldTag := sf.Tag.Get(tag)
+	fieldTag := sf.Tag.Get(colTag)
+	fieldJson, hasJsonTag := sf.Tag.Lookup(jsonTag)
+	if !hasJsonTag {
+		fieldJson = fieldName
+	}
 	tagItems := strings.Split(fieldTag, ",")
 	columnName := strings.TrimSpace(tagItems[0])
 	// normal
@@ -342,6 +346,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      normalKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -367,6 +372,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      pkKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -385,6 +391,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      incrKindPkField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -399,6 +406,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      normalKindField,
 			conflict:  conflicted,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -413,6 +421,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      jsonObjectKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -431,6 +440,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      acbKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -449,6 +459,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      actKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -467,6 +478,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      ambKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -485,6 +497,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      amtKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -503,6 +516,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      adbKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -521,6 +535,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      adtKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -539,6 +554,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      aolKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -558,6 +574,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      virtualKindField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{columnName},
 			reference: nil,
@@ -610,6 +627,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:     referenceKindField,
 			conflict: false,
 			name:     fieldName,
+			jsonName: fieldJson,
 			model:    structure,
 			columns:  srcColumns,
 			reference: &ReferenceField{
@@ -664,6 +682,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      kind,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   srcColumns,
 			reference: nil,
@@ -760,6 +779,7 @@ func (structure *ModelStructure) addField(sf reflect.StructField) (err error) {
 			kind:      treeField,
 			conflict:  false,
 			name:      fieldName,
+			jsonName:  fieldJson,
 			model:     structure,
 			columns:   []string{},
 			reference: nil,

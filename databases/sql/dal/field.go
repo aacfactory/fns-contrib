@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	tag = "col"
+	colTag  = "col"
+	jsonTag = "json"
 )
 
 const (
@@ -32,6 +33,7 @@ type Field struct {
 	kind      string
 	conflict  bool
 	name      string
+	jsonName  string
 	model     *ModelStructure
 	columns   []string
 	reference *ReferenceField
@@ -47,6 +49,11 @@ func (field *Field) Model() (model *ModelStructure) {
 
 func (field *Field) Name() (name string) {
 	name = field.name
+	return
+}
+
+func (field *Field) JsonName() (name string) {
+	name = field.jsonName
 	return
 }
 

@@ -370,7 +370,7 @@ func newCountGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	return
 }
 
-func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
+func newSelectColumnsFragment(structure *dal.ModelStructure, useJson bool) (fragment string) {
 	schema, name := structure.Name()
 	fields := structure.Fields()
 	for _, field := range fields {
@@ -390,7 +390,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 				pks := make([]string, 0, 1)
 				for _, targetModelField := range targetModel.Fields() {
 					if targetModelField.IsPk() || targetModelField.IsIncrPk() {
-						pks = append(pks, formatIdents(targetSchema, targetName, targetModelField.Column()))
+						pks = append(pks, fmt.Sprintf("%s AS \"%s\"", formatIdents(targetSchema, targetName, targetModelField.Column()), targetModelField.JsonName()))
 					}
 				}
 				if len(pks) == 0 {
@@ -399,7 +399,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 					sqSelectsFragment = strings.Join(pks, ", ")
 				}
 			} else {
-				sqSelectsFragment = newSelectColumnsFragment(targetModel)
+				sqSelectsFragment = newSelectColumnsFragment(targetModel, true)
 			}
 			sq := `SELECT row_to_json(` + formatIdents(targetName) + `.*) FROM (`
 			sq = sq + `SELECT ` + sqSelectsFragment + ` FROM ` + formatIdents(targetSchema, targetName) + ` WHERE `
@@ -412,7 +412,12 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			sqConditionFragment = sqConditionFragment[5:]
 			sq = sq + sqConditionFragment + ` OFFSET 0 LIMIT 1`
 			sq = sq + `) AS ` + formatIdents(targetName)
-			fragment = fragment + ", (" + sq + ") AS " + formatIdents(field.Reference().Name())
+			if useJson {
+				fragment = fragment + ", (" + sq + ") AS " + `"` + field.JsonName() + `"`
+			} else {
+				fragment = fragment + ", (" + sq + ") AS " + formatIdents(field.Reference().Name())
+			}
+
 			continue
 		}
 		if field.IsLink() {
@@ -436,7 +441,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 				pks := make([]string, 0, 1)
 				for _, targetModelField := range targetModel.Fields() {
 					if targetModelField.IsPk() || targetModelField.IsIncrPk() {
-						pks = append(pks, formatIdents(targetSchema, targetName, targetModelField.Column()))
+						pks = append(pks, fmt.Sprintf("%s AS \"%s\"", formatIdents(targetSchema, targetName, targetModelField.Column()), targetModelField.JsonName()))
 					}
 				}
 				if len(pks) == 0 {
@@ -445,7 +450,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 					sqSelectsFragment = strings.Join(pks, ", ")
 				}
 			} else {
-				sqSelectsFragment = newSelectColumnsFragment(targetModel)
+				sqSelectsFragment = newSelectColumnsFragment(targetModel, true)
 			}
 
 			sq := `SELECT row_to_json(` + formatIdents(targetName) + `.*) FROM (`
@@ -476,17 +481,37 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 			offset, limit := linkRange.Value()
 			sq = sq + ` OFFSET ` + strconv.Itoa(offset) + ` LIMIT ` + strconv.Itoa(limit)
 			sq = sq + `) AS ` + formatIdents(targetName)
-			fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + formatIdents(field.Link().Name())
+			if link.Arrayed() {
+				if useJson {
+					fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + `"` + field.JsonName() + `"`
+				} else {
+					fragment = fragment + ", (SELECT to_json(ARRAY(" + sq + "))) AS " + formatIdents(field.Link().Name())
+				}
+			} else {
+				if useJson {
+					fragment = fragment + ", (" + sq + ") AS " + `"` + field.JsonName() + `"`
+				} else {
+					fragment = fragment + ", (" + sq + ") AS " + formatIdents(field.Link().Name())
+				}
+			}
 			continue
 		}
 		if field.IsVirtual() {
-			fragment = fragment + ", (" + field.Virtual().Query() + ") AS " + formatIdents(field.Virtual().Name())
+			if useJson {
+				fragment = fragment + ", (" + field.Virtual().Query() + ") AS " + `"` + field.JsonName() + `"`
+			} else {
+				fragment = fragment + ", (" + field.Virtual().Query() + ") AS " + formatIdents(field.Virtual().Name())
+			}
 			continue
 		}
 		if field.IsTreeType() {
 			continue
 		}
-		fragment = fragment + ", " + formatIdents(schema, name, field.Column())
+		if useJson {
+			fragment = fragment + ", " + formatIdents(schema, name, field.Column()) + " AS " + `"` + field.JsonName() + `"`
+		} else {
+			fragment = fragment + ", " + formatIdents(schema, name, field.Column())
+		}
 	}
 	fragment = fragment[2:]
 	return
@@ -495,7 +520,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 func newSelectGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
-	ql := `SELECT ` + newSelectColumnsFragment(structure) + ` FROM ` + tableName
+	ql := `SELECT ` + newSelectColumnsFragment(structure, false) + ` FROM ` + tableName
 	query = &GenericQuery{
 		method:      dal.QueryMode,
 		value:       ql,

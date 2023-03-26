@@ -282,7 +282,7 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 		jsonValueField := false
 		for i := 0; i < fieldNum; i++ {
 			structField := rt.Field(i)
-			tagValue, hasTag := structField.Tag.Lookup(tag)
+			tagValue, hasTag := structField.Tag.Lookup(colTag)
 			if !hasTag {
 				continue
 			}
