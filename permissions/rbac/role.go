@@ -16,7 +16,7 @@ type Role struct {
 	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Parent      string    `json:"parent"`
+	ParentId    string    `json:"parentId"`
 	Children    []*Role   `json:"children"`
 	Policies    []*Policy `json:"policies"`
 }
