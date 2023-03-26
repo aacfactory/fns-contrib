@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+type Audits struct {
+	Id       string    `col:"ID,pk" json:"id"`
+	CreateBY string    `col:"CREATE_BY,acb" json:"createBY"`
+	CreateAT time.Time `col:"CREATE_AT,act" json:"createAT"`
+	ModifyBY string    `col:"MODIFY_BY,amb" json:"modifyBY"`
+	ModifyAT time.Time `col:"MODIFY_AT,amt" json:"modifyAT"`
+	DeleteBY string    `col:"DELETE_BY,adb" json:"deleteBY"`
+	DeleteAT time.Time `col:"DELETE_AT,adt" json:"deleteAT"`
+	Version  int64     `col:"VERSION,aol" json:"version"`
+}
+
 func tryFillByField(ctx context.Context, rv reflect.Value, field *Field) (err error) {
 	var by interface{}
 	byStringTypeKind := false
