@@ -139,6 +139,15 @@ func (s *store) Remove(ctx context.Context, roleId string) (err errors.CodeError
 	if s.database != "" {
 		ctx = db.WithOptions(ctx, db.Database(s.database))
 	}
+	exits, existErr := dal.Exist[*RoleRow](ctx, dal.NewConditions(dal.Eq("PARENT_ID", roleId)))
+	if existErr != nil {
+		err = errors.Warning("rbac: remove failed").WithCause(existErr).WithMeta("store", s.Name()).WithMeta("id", roleId)
+		return
+	}
+	if exits {
+		err = errors.Warning("rbac: remove failed").WithCause(rbac.ErrCantRemoveHasChildrenRow).WithMeta("store", s.Name()).WithMeta("id", roleId)
+		return
+	}
 	row, queryErr := dal.QueryOne[*RoleRow](ctx, dal.NewConditions(dal.Eq("ID", roleId)))
 	if queryErr != nil {
 		err = errors.Warning("rbac: remove failed").WithCause(queryErr).WithMeta("store", s.Name()).WithMeta("id", roleId)

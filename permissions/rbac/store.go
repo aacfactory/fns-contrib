@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrRoleNofFound = fmt.Errorf("role was not found")
+	ErrRoleNofFound             = fmt.Errorf("role was not found")
+	ErrCantRemoveHasChildrenRow = fmt.Errorf("can not remove role which has chilren")
 )
 
 type BindParam struct {
