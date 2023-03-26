@@ -81,6 +81,9 @@ func (s *store) Save(ctx context.Context, param tokens.SaveParam) (err errors.Co
 		err = errors.Warning("tokens: save failed").WithCause(encodeErr).WithMeta("store", s.Name())
 		return
 	}
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
 	setErr := rds.Set(ctx, rds.SetParam{
 		Key:        s.buildUserTokenKey(param.UserId, param.Id),
 		Value:      bytex.ToString(p),
@@ -94,6 +97,9 @@ func (s *store) Save(ctx context.Context, param tokens.SaveParam) (err errors.Co
 }
 
 func (s *store) Remove(ctx context.Context, param tokens.RemoveParam) (err errors.CodeError) {
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
 	err = rds.Del(ctx, []string{s.buildUserTokenKey(param.UserId, param.Id)})
 	if err != nil {
 		err = errors.Warning("tokens: remove failed").WithCause(err).WithMeta("store", s.Name())
@@ -103,6 +109,9 @@ func (s *store) Remove(ctx context.Context, param tokens.RemoveParam) (err error
 }
 
 func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err errors.CodeError) {
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
 	keys, keysErr := rds.Keys(ctx, s.buildUserTokenKey("*", id))
 	if keysErr != nil {
 		err = errors.Warning("tokens: get failed").WithCause(keysErr).WithMeta("store", s.Name())
@@ -135,6 +144,9 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 }
 
 func (s *store) List(ctx context.Context, userId string) (v []tokens.Token, err errors.CodeError) {
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
 	keys, keysErr := rds.Keys(ctx, s.buildUserTokenKey(userId, "*"))
 	if keysErr != nil {
 		err = errors.Warning("tokens: list failed").WithCause(keysErr).WithMeta("store", s.Name())
