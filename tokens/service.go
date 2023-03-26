@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	name     = "tokens"
 	saveFn   = "save"
 	removeFn = "remove"
 	getFn    = "get"
@@ -20,7 +21,7 @@ func Service(store Store) service.Service {
 		return nil
 	}
 	return &service_{
-		Abstract: service.NewAbstract("tokens", true, store),
+		Abstract: service.NewAbstract(name, true, store),
 	}
 }
 

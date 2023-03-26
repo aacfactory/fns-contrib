@@ -3,8 +3,8 @@ package redis
 import (
 	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/authorizations/tokens"
 	rds "github.com/aacfactory/fns-contrib/databases/redis"
+	"github.com/aacfactory/fns-contrib/tokens"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"

@@ -1,13 +1,13 @@
-module github.com/aacfactory/fns-contrib/authorizations/tokens/redis
+module github.com/aacfactory/fns-contrib/tokens/redis
 
 go 1.20
 
-replace github.com/aacfactory/fns-contrib/authorizations/tokens v0.0.0-20230325075508-c51f7cb36421 => ../../tokens
+replace github.com/aacfactory/fns-contrib/tokens v0.0.0-20230325075508-c51f7cb36421 => ./..
 
 require (
 	github.com/aacfactory/errors v1.13.4
 	github.com/aacfactory/fns v1.0.5
-	github.com/aacfactory/fns-contrib/authorizations/tokens v0.0.0-20230325075508-c51f7cb36421
+	github.com/aacfactory/fns-contrib/tokens v0.0.0-20230325075508-c51f7cb36421
 	github.com/aacfactory/fns-contrib/databases/redis v1.0.3
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0

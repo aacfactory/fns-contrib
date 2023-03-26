@@ -3,9 +3,9 @@ package sql
 import (
 	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/authorizations/tokens"
 	db "github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
+	"github.com/aacfactory/fns-contrib/tokens"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
 	"strings"
