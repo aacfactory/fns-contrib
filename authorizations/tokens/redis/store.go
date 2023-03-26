@@ -17,6 +17,10 @@ const (
 	prefix = "fns/tokens"
 )
 
+func Store() tokens.Store {
+	return &store{}
+}
+
 type store struct {
 	log      logs.Logger
 	database string
