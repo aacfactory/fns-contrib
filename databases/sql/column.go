@@ -65,8 +65,11 @@ func (c *column) Value() (value any, err error) {
 	}
 	vt, hasVT := findValueTypeByDatabaseType(c.DatabaseType_)
 	if !hasVT {
-		err = errors.Warning("sql: get column value failed").WithCause(errors.Warning("sql: value type was not registered")).WithMeta("columnType", c.Type_).WithMeta("databaseType", c.DatabaseType_)
-		return
+		vt, hasVT = findValueTypeByColumnType(c.Type_)
+		if !hasVT {
+			err = errors.Warning("sql: get column value failed").WithCause(errors.Warning("sql: value type was not registered")).WithMeta("columnType", c.Type_).WithMeta("databaseType", c.DatabaseType_)
+			return
+		}
 	}
 	cv, decodeErr := vt.Decode(c.Value_)
 	if decodeErr != nil {
