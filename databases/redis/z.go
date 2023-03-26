@@ -10,13 +10,13 @@ import (
 )
 
 type Z struct {
-	Score float64
-	Value string
+	Score float64 `json:"score"`
+	Value string  `json:"value"`
 }
 
 type ZAddParam struct {
-	Key    string
-	Values []Z
+	Key    string `json:"key"`
+	Values []Z    `json:"values"`
 }
 
 const (
@@ -88,7 +88,7 @@ func zAdd(ctx context.Context, cmder rds.Cmdable, param ZAddParam) (n int64, err
 }
 
 type ZCardParam struct {
-	Key string
+	Key string `json:"key"`
 }
 
 const (
@@ -155,9 +155,9 @@ func zCard(ctx context.Context, cmder rds.Cmdable, param ZCardParam) (n int64, e
 }
 
 type ZCountParam struct {
-	Key string
-	Min string
-	Max string
+	Key string `json:"key"`
+	Min string `json:"min"`
+	Max string `json:"max"`
 }
 
 const (
@@ -224,11 +224,11 @@ func zCount(ctx context.Context, cmder rds.Cmdable, param ZCountParam) (n int64,
 }
 
 type ZRangeByScoreParam struct {
-	Key    string
-	Min    string
-	Max    string
-	Offset int64
-	Count  int64
+	Key    string `json:"key"`
+	Min    string `json:"min"`
+	Max    string `json:"max"`
+	Offset int64  `json:"offset"`
+	Count  int64  `json:"count"`
 }
 
 const (
@@ -301,9 +301,9 @@ func zRangeByScore(ctx context.Context, cmder rds.Cmdable, param ZRangeByScorePa
 }
 
 type ZRangeParam struct {
-	Key   string
-	Start int64
-	Stop  int64
+	Key   string `json:"key"`
+	Start int64  `json:"start"`
+	Stop  int64  `json:"stop"`
 }
 
 const (
@@ -371,8 +371,8 @@ func zRange(ctx context.Context, cmder rds.Cmdable, param ZRangeParam) (values [
 }
 
 type ZRemParam struct {
-	Key    string
-	Values []string
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
 }
 
 const (
@@ -440,9 +440,9 @@ func zRem(ctx context.Context, cmder rds.Cmdable, param ZRemParam) (n int64, err
 }
 
 type ZRemByRangeParam struct {
-	Key   string
-	Start int64
-	Stop  int64
+	Key   string `json:"key"`
+	Start int64  `json:"start"`
+	Stop  int64  `json:"stop"`
 }
 
 const (
@@ -506,9 +506,9 @@ func zRemRangeByRank(ctx context.Context, cmder rds.Cmdable, param ZRemByRangePa
 }
 
 type ZRemByScoreParam struct {
-	Key string
-	Min string
-	Max string
+	Key string `json:"key"`
+	Min string `json:"min"`
+	Max string `json:"max"`
 }
 
 const (

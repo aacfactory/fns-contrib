@@ -78,8 +78,8 @@ const (
 )
 
 type HDelParam struct {
-	Key    string
-	fields []string
+	Key    string   `json:"key"`
+	Fields []string `json:"fields"`
 }
 
 func HDel(ctx context.Context, param HDelParam) (err errors.CodeError) {
@@ -122,7 +122,7 @@ func HDel(ctx context.Context, param HDelParam) (err errors.CodeError) {
 }
 
 func hDel(ctx context.Context, cmder rds.Cmdable, param HDelParam) (n int64, err error) {
-	n, err = cmder.HDel(ctx, param.Key, param.fields...).Result()
+	n, err = cmder.HDel(ctx, param.Key, param.Fields...).Result()
 	if err != nil {
 		err = errors.Warning("redis: hdel failed").WithCause(err)
 		return
@@ -135,8 +135,8 @@ const (
 )
 
 type HExistParam struct {
-	Key   string
-	field string
+	Key   string `json:"key"`
+	Field string `json:"field"`
 }
 
 func HExist(ctx context.Context, param HExistParam) (ok bool, err errors.CodeError) {
@@ -187,7 +187,7 @@ func HExist(ctx context.Context, param HExistParam) (ok bool, err errors.CodeErr
 }
 
 func hExist(ctx context.Context, cmder rds.Cmdable, param HExistParam) (ok bool, err error) {
-	ok, err = cmder.HExists(ctx, param.Key, param.field).Result()
+	ok, err = cmder.HExists(ctx, param.Key, param.Field).Result()
 	if err != nil {
 		if err == rds.Nil {
 			return
@@ -203,13 +203,13 @@ const (
 )
 
 type HGetParam struct {
-	Key   string
-	field string
+	Key   string `json:"key"`
+	Field string `json:"field"`
 }
 
 type HGetResult struct {
-	Has   bool
-	Value string
+	Has   bool   `json:"has"`
+	Value string `json:"value"`
 }
 
 func HGet(ctx context.Context, param HGetParam) (v HGetResult, err errors.CodeError) {
@@ -261,7 +261,7 @@ func HGet(ctx context.Context, param HGetParam) (v HGetResult, err errors.CodeEr
 
 func hGet(ctx context.Context, cmder rds.Cmdable, param HGetParam) (v HGetResult, err error) {
 	s := ""
-	s, err = cmder.HGet(ctx, param.Key, param.field).Result()
+	s, err = cmder.HGet(ctx, param.Key, param.Field).Result()
 	if err != nil {
 		if err == rds.Nil {
 			return
@@ -281,9 +281,9 @@ const (
 )
 
 type HSetParam struct {
-	Key   string
-	field string
-	value string
+	Key   string `json:"key"`
+	Field string `json:"field"`
+	Value string `json:"value"`
 }
 
 func HSet(ctx context.Context, param HSetParam) (err errors.CodeError) {
@@ -326,7 +326,7 @@ func HSet(ctx context.Context, param HSetParam) (err errors.CodeError) {
 }
 
 func hSet(ctx context.Context, cmder rds.Cmdable, param HSetParam) (n int64, err error) {
-	n, err = cmder.HSet(ctx, param.Key, param.field, param.value).Result()
+	n, err = cmder.HSet(ctx, param.Key, param.Field, param.Value).Result()
 	if err != nil {
 		err = errors.Warning("redis: hset failed").WithCause(err)
 		return

@@ -15,11 +15,11 @@ const (
 )
 
 type PipelineParam struct {
-	Tx bool
+	Tx bool `json:"tx"`
 }
 
 type pipelineResult struct {
-	Id string
+	Id string `json:"id"`
 }
 
 func Pipeline(ctx context.Context, tx bool) (err errors.CodeError) {
@@ -82,13 +82,13 @@ func Pipeline(ctx context.Context, tx bool) (err errors.CodeError) {
 }
 
 type ExecResult struct {
-	Finished bool
-	Cmders   []ExecResultCmder
+	Finished bool              `json:"finished"`
+	Cmders   []ExecResultCmder `json:"cmders"`
 }
 
 type ExecResultCmder struct {
-	Name  string
-	Error string
+	Name  string `json:"name"`
+	Error string `json:"error"`
 }
 
 func Exec(ctx context.Context) (v []ExecResultCmder, err errors.CodeError) {

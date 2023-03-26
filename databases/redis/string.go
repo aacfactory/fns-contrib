@@ -11,9 +11,9 @@ import (
 )
 
 type SetParam struct {
-	Key        string
-	Value      string
-	Expiration time.Duration
+	Key        string        `json:"key"`
+	Value      string        `json:"value"`
+	Expiration time.Duration `json:"expiration"`
 }
 
 const (
@@ -173,8 +173,8 @@ func setEx(ctx context.Context, cmder rds.Cmdable, param SetParam) (err error) {
 }
 
 type GetResult struct {
-	Has   bool
-	Value string
+	Has   bool   `json:"has"`
+	Value string `json:"value"`
 }
 
 const (
@@ -247,8 +247,8 @@ func get(ctx context.Context, cmder rds.Cmdable, key string) (v GetResult, err e
 }
 
 type GetSetParam struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 const (
@@ -399,8 +399,8 @@ func mget(ctx context.Context, cmder rds.Cmdable, keys []string) (values map[str
 type MSetParam []KeyPair
 
 type KeyPair struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 const (
@@ -520,8 +520,8 @@ func incr(ctx context.Context, cmder rds.Cmdable, key string) (n int64, err erro
 }
 
 type IncrByParam struct {
-	Key   string
-	Value int64
+	Key   string `json:"key"`
+	Value int64  `json:"value"`
 }
 
 const (
@@ -645,8 +645,8 @@ func decr(ctx context.Context, cmder rds.Cmdable, key string) (n int64, err erro
 }
 
 type DecrByParam struct {
-	Key   string
-	Value int64
+	Key   string `json:"key"`
+	Value int64  `json:"value"`
 }
 
 const (

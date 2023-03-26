@@ -11,11 +11,11 @@ import (
 )
 
 type KeysParam struct {
-	Pattern string
+	Pattern string `json:"pattern"`
 }
 
 type KeysResult struct {
-	Values []string
+	Values []string `json:"values"`
 }
 
 const (
@@ -199,8 +199,8 @@ func exists(ctx context.Context, cmder rds.Cmdable, key string) (has bool, err e
 }
 
 type ExpireParam struct {
-	Key        string
-	Expiration time.Duration
+	Key        string        `json:"key"`
+	Expiration time.Duration `json:"expiration"`
 }
 
 const (
@@ -308,14 +308,14 @@ func persist(ctx context.Context, cmder rds.Cmdable, key string) (err error) {
 }
 
 type ScanParam struct {
-	Cursor uint64
-	Match  string
-	Count  int64
+	Cursor uint64 `json:"cursor"`
+	Match  string `json:"match"`
+	Count  int64  `json:"count"`
 }
 
 type ScanResult struct {
-	Keys []string
-	Next uint64
+	Keys []string `json:"keys"`
+	Next uint64   `json:"next"`
 }
 
 const (
@@ -384,13 +384,13 @@ func scan(ctx context.Context, cmder rds.Cmdable, param ScanParam) (result ScanR
 }
 
 type SortParam struct {
-	Key    string
-	By     string
-	Offset int64
-	Count  int64
-	Get    []string
-	Order  string
-	Alpha  bool
+	Key    string   `json:"key"`
+	By     string   `json:"by"`
+	Offset int64    `json:"offset"`
+	Count  int64    `json:"count"`
+	Get    []string `json:"get"`
+	Order  string   `json:"order"`
+	Alpha  bool     `json:"alpha"`
 }
 
 const (
