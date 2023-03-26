@@ -143,6 +143,10 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		err = errors.Warning("tokens: get failed").WithCause(getErr).WithMeta("store", s.Name())
 		return
 	}
+	if row == nil {
+		err = errors.Warning("tokens: get failed").WithCause(tokens.ErrTokenNofFound).WithMeta("store", s.Name())
+		return
+	}
 	token = tokens.Token{
 		Id:       row.Id,
 		UserId:   row.UserId,

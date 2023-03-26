@@ -2,9 +2,14 @@ package tokens
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/service"
 	"time"
+)
+
+var (
+	ErrTokenNofFound = fmt.Errorf("token was not found")
 )
 
 type SaveParam struct {
