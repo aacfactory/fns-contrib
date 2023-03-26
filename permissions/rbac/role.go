@@ -25,3 +25,26 @@ type Role struct {
 	Children    []*Role   `json:"children"`
 	Policies    []*Policy `json:"policies"`
 }
+
+func (role *Role) CheckPolicy(object string, action string) (ok bool) {
+	if role.Policies != nil && len(role.Policies) > 0 {
+		for _, policy := range role.Policies {
+			if policy == nil {
+				continue
+			}
+			if policy.Object == object && policy.match(action) {
+				ok = true
+				return
+			}
+		}
+	}
+	if role.Children != nil && len(role.Children) > 0 {
+		for _, child := range role.Children {
+			ok = child.CheckPolicy(object, action)
+			if ok {
+				return
+			}
+		}
+	}
+	return
+}
