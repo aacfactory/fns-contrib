@@ -11,14 +11,14 @@ import (
 )
 
 type Audits struct {
-	Id       string    `col:"ID,pk" json:"ID"`
-	CreateBY string    `col:"CREATE_BY,acb" json:"CREATE_BY"`
-	CreateAT time.Time `col:"CREATE_AT,act" json:"CREATE_AT"`
-	ModifyBY string    `col:"MODIFY_BY,amb" json:"MODIFY_BY"`
-	ModifyAT time.Time `col:"MODIFY_AT,amt" json:"MODIFY_AT"`
-	DeleteBY string    `col:"DELETE_BY,adb" json:"DELETE_BY"`
-	DeleteAT time.Time `col:"DELETE_AT,adt" json:"DELETE_AT"`
-	Version  int64     `col:"VERSION,aol" json:"VERSION"`
+	Id       string    `col:"ID,pk" json:"id"`
+	CreateBY string    `col:"CREATE_BY,acb" json:"createBY"`
+	CreateAT time.Time `col:"CREATE_AT,act" json:"createAT"`
+	ModifyBY string    `col:"MODIFY_BY,amb" json:"modifyBY"`
+	ModifyAT time.Time `col:"MODIFY_AT,amt" json:"modifyAT"`
+	DeleteBY string    `col:"DELETE_BY,adb" json:"deleteBY"`
+	DeleteAT time.Time `col:"DELETE_AT,adt" json:"deleteAT"`
+	Version  int64     `col:"VERSION,aol" json:"version"`
 }
 
 type Avatar struct {
@@ -29,11 +29,11 @@ type Avatar struct {
 
 type User struct {
 	Audits
-	Name     string   `col:"NAME,conflict" json:"NAME"`
-	Age      int      `col:"AGE" json:"AGE"`
-	Birthday sql.Date `col:"BIRTHDAY" json:"BIRTHDAY"`
-	Avatar   *Avatar  `col:"AVATAR,json" json:"AVATAR"`
-	Group    *Group   `col:"GROUP,ref,GROUP_ID+ID" json:"GROUP"`
+	Name     string   `col:"NAME,conflict" json:"name"`
+	Age      int      `col:"AGE" json:"age"`
+	Birthday sql.Date `col:"BIRTHDAY" json:"birthday"`
+	Avatar   *Avatar  `col:"AVATAR,json" json:"avatar"`
+	Group    *Group   `col:"GROUP,ref,GROUP_ID+ID" json:"group"`
 }
 
 func (user *User) TableName() (schema string, name string) {
@@ -43,12 +43,12 @@ func (user *User) TableName() (schema string, name string) {
 
 type Group struct {
 	Audits
-	Name     string   `col:"NAME" json:"NAME"`
-	ParentId string   `col:"PARENT_ID" json:"PARENT_ID"`
-	Users    []*User  `col:"USERS,links,ID+GROUP_ID,NAME ASC" json:"USERS,links"`
+	Name     string   `col:"NAME" json:"name"`
+	ParentId string   `col:"PARENT_ID" json:"parentId"`
+	Users    []*User  `col:"USERS,links,ID+GROUP_ID,NAME ASC" json:"users"`
 	Children []*Group `col:"-,tree,ID+PARENT_ID" json:"-"`
-	Leader   *User    `col:"LEADER,ref,LEADER_ID+ID" json:"LEADER"`
-	Members  int64    `col:"MEMBERS,vc,{query}" json:"MEMBERS"`
+	Leader   *User    `col:"LEADER,ref,LEADER_ID+ID" json:"leader"`
+	Members  int64    `col:"MEMBERS,vc,{query}" json:"members"`
 }
 
 func (group *Group) TableName() (schema string, name string) {

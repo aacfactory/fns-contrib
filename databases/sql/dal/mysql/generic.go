@@ -363,7 +363,7 @@ func generateReferenceQuery(field *dal.Field) (query string) {
 	if field.Reference().Abstracted() {
 		for _, targetField := range targetModel.Fields() {
 			if targetField.IsPk() || targetField.IsIncrPk() {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.Column(), targetField.Column())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.JsonName(), targetField.Column())
 			}
 		}
 		if selectsFragment == "" {
@@ -377,14 +377,14 @@ func generateReferenceQuery(field *dal.Field) (query string) {
 			}
 			if targetField.IsReference() {
 				subReference := generateReferenceQuery(targetField)
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Reference().Name(), subReference)
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), subReference)
 			} else if targetField.IsLink() {
 				subLink := generateLinkQuery(targetField)
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Link().Name(), subLink)
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), subLink)
 			} else if targetField.IsVirtual() {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Virtual().Name(), targetField.Virtual().Query())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), targetField.Virtual().Query())
 			} else {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.Column(), targetField.Column())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.JsonName(), targetField.Column())
 			}
 		}
 		selectsFragment = selectsFragment[2:]
@@ -418,7 +418,7 @@ func generateLinkQuery(field *dal.Field) (query string) {
 	if field.Link().Abstracted() {
 		for _, targetField := range targetModel.Fields() {
 			if targetField.IsPk() || targetField.IsIncrPk() {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.Column(), targetField.Column())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.JsonName(), targetField.Column())
 			}
 		}
 		if selectsFragment == "" {
@@ -432,14 +432,14 @@ func generateLinkQuery(field *dal.Field) (query string) {
 			}
 			if targetField.IsReference() {
 				subReference := generateReferenceQuery(targetField)
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Reference().Name(), subReference)
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), subReference)
 			} else if targetField.IsLink() {
 				subLink := generateLinkQuery(targetField)
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Link().Name(), subLink)
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), subLink)
 			} else if targetField.IsVirtual() {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.Virtual().Name(), targetField.Virtual().Query())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', (%s)", targetField.JsonName(), targetField.Virtual().Query())
 			} else {
-				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.Column(), targetField.Column())
+				selectsFragment = selectsFragment + fmt.Sprintf(", '%s', %s", targetField.JsonName(), targetField.Column())
 			}
 		}
 		selectsFragment = selectsFragment[2:]
