@@ -46,13 +46,29 @@ func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 		err = queryErr
 		return
 	}
+	if list == nil || len(list) == 0 {
+		return
+	}
 	results, err = MapListToTrees[T, N](list, rootNodeValues)
 	return
 }
 
 func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T, err errors.CodeError) {
+	structure, field, fieldErr := getTreeModelKeyFieldName(list)
+	if fieldErr != nil {
+		err = fieldErr
+		return
+	}
+	nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)
+	if !hasNodeField {
+		err = errors.Warning("dal: get tree node field was not found").WithMeta("node_column", field.tree.nodeColumnName)
+		return
+	}
 	nodes = make([]T, 0, 1)
 	for _, rootNodeValue := range rootNodeValues {
+		for _, node := range nodes {
+
+		}
 		node, mapErr := MapListToTree[T, N](list, rootNodeValue)
 		if mapErr != nil {
 			err = mapErr
@@ -66,24 +82,33 @@ func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T
 	return
 }
 
+func getTreeModelKeyFieldName[T Model](list []T) (structure *ModelStructure, field *Field, err errors.CodeError) {
+	structure0, getStructureErr := getModelStructure(list[0])
+	if getStructureErr != nil {
+		err = errors.Warning("dal: get tree model key field failed").WithCause(getStructureErr)
+		return
+	}
+	structure = structure0
+	for _, f := range structure.fields {
+		if f.IsTreeType() {
+			field = f
+			return
+		}
+	}
+	if field == nil {
+		err = errors.Warning("dal: get tree model key field failed").WithCause(errors.Warning("tree field was not found"))
+		return
+	}
+	return
+}
+
 func MapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
 	if list == nil || len(list) == 0 {
 		return
 	}
-	structure, getStructureErr := getModelStructure(list[0])
-	if getStructureErr != nil {
-		err = errors.Warning("get model structure failed").WithCause(getStructureErr)
-		return
-	}
-	var field *Field
-	for _, f := range structure.fields {
-		if f.IsTreeType() {
-			field = f
-			break
-		}
-	}
-	if field == nil {
-		err = errors.Warning("tree field was not found")
+	structure, field, fieldErr := getTreeModelKeyFieldName(list)
+	if fieldErr != nil {
+		err = fieldErr
 		return
 	}
 	nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)

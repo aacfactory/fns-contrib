@@ -59,10 +59,13 @@ func TestMapListToTree(t *testing.T) {
 		},
 	}
 
-	node, mapErr := dal.MapListToTree[*Department, string](list, "A")
+	nodes, mapErr := dal.MapListToTrees[*Department, string](list, []string{"A1", "A12"})
 	if mapErr != nil {
 		t.Errorf("%+v", mapErr)
 		return
 	}
-	fmt.Println(node.String())
+	for _, node := range nodes {
+		fmt.Println(node.String())
+	}
+
 }
