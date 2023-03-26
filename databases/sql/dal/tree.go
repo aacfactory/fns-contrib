@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aacfactory/errors"
 	"reflect"
+	"sort"
 )
 
 type keyable interface {
@@ -21,11 +22,11 @@ func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, 
 	if results == nil || len(results) == 0 {
 		return
 	}
-	result = results[rootNodeValue]
+	result = results[0]
 	return
 }
 
-func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
+func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
 	results, err = queryTrees[T, N](ctx, conditions, orders, rng, rootNodeValues...)
 	if err != nil {
 		err = errors.ServiceError("dal: query trees failed").WithCause(err)
@@ -34,7 +35,7 @@ func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 	return
 }
 
-func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results map[N]T, err errors.CodeError) {
+func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
 	if rootNodeValues == nil || len(rootNodeValues) == 0 {
 		err = errors.Warning("root node values are required")
 		return
@@ -45,14 +46,14 @@ func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 		err = queryErr
 		return
 	}
-	results, err = mapListToTrees[T, N](list, rootNodeValues)
+	results, err = MapListToTrees[T, N](list, rootNodeValues)
 	return
 }
 
-func mapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes map[N]T, err errors.CodeError) {
-	nodes = make(map[N]T)
+func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T, err errors.CodeError) {
+	nodes = make([]T, 0, 1)
 	for _, rootNodeValue := range rootNodeValues {
-		node, mapErr := mapListToTree[T, N](list, rootNodeValue)
+		node, mapErr := MapListToTree[T, N](list, rootNodeValue)
 		if mapErr != nil {
 			err = mapErr
 			return
@@ -60,12 +61,12 @@ func mapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes map
 		if reflect.ValueOf(node).IsNil() {
 			continue
 		}
-		nodes[rootNodeValue] = node
+		nodes = append(nodes, node)
 	}
 	return
 }
 
-func mapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
+func MapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
 	if list == nil || len(list) == 0 {
 		return
 	}
@@ -124,7 +125,7 @@ func mapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err e
 			if parentFieldValue != nodeFieldValue {
 				continue
 			}
-			childNode, mapErr := mapListToTree[T, N](list, childFieldValue)
+			childNode, mapErr := MapListToTree[T, N](list, childFieldValue)
 			if mapErr != nil {
 				err = mapErr
 				return
@@ -132,6 +133,10 @@ func mapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err e
 			children = append(children, childNode)
 		}
 		childrenField.Set(reflect.ValueOf(children))
+		if childrenField.Type().ConvertibleTo(sortType) {
+			sortable := childrenField.Convert(sortType).Interface().(sort.Interface)
+			sort.Sort(sortable)
+		}
 		node = model
 		break
 	}

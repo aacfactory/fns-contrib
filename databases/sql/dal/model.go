@@ -7,6 +7,7 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"golang.org/x/sync/singleflight"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ func newModel[T Model]() (v T) {
 }
 
 var (
+	sortType        = reflect.TypeOf((*sort.Interface)(nil)).Elem()
 	modelType       = reflect.TypeOf((*Model)(nil)).Elem()
 	modelStructures = new(sync.Map)
 	gettingBarrier  = new(singleflight.Group)
