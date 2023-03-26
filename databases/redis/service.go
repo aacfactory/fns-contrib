@@ -527,6 +527,81 @@ func (svc *_service_) Handle(ctx context.Context, fn string, argument service.Ar
 		}
 		result = value
 		break
+	case hGetALLFn:
+		param := ""
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := hGetALL(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case hDelFn:
+		param := HDelParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := hDel(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case hExistFn:
+		param := HExistParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := hExist(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case hGetFn:
+		param := HGetParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := hGet(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
+	case hSetFn:
+		param := HSetParam{}
+		paramErr := pp.ScanPayload(&param)
+		if paramErr != nil {
+			err = errors.BadRequest("redis: invalid command argument").WithCause(paramErr)
+			return
+		}
+		cmder := db.Cmder(ctx)
+		value, handleErr := hSet(ctx, cmder, param)
+		if handleErr != nil {
+			err = errors.Map(handleErr)
+			return
+		}
+		result = value
+		break
 	default:
 		err = errors.NotFound("redis: fn was not found").WithMeta("service", name).WithMeta("fn", fn)
 		break
