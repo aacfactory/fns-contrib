@@ -5,14 +5,14 @@ go 1.20
 
 replace (
 	github.com/aacfactory/fns-contrib/permissions/rbac v0.0.0 => ../../rbac
-	github.com/aacfactory/fns-contrib/databases/sql/dal v1.0.1 => ../../../databases/sql
+	github.com/aacfactory/fns-contrib/databases/sql v1.0.1 => ../../../databases/sql
 )
 
 require (
 	github.com/aacfactory/fns v1.0.5
 	github.com/aacfactory/fns-contrib/permissions/rbac v0.0.0
 	github.com/aacfactory/logs v1.13.0
-	github.com/aacfactory/fns-contrib/databases/sql/dal v1.0.1
+	github.com/aacfactory/fns-contrib/databases/sql v1.0.1
 )
 
 require (

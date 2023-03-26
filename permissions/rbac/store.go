@@ -2,8 +2,13 @@ package rbac
 
 import (
 	"context"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/service"
+)
+
+var (
+	ErrRoleNofFound = fmt.Errorf("role was not found")
 )
 
 type BindParam struct {
@@ -15,7 +20,7 @@ type SaveRoleParam struct {
 	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Parent      string    `json:"parent"`
+	ParentId    string    `json:"parentId"`
 	Policies    []*Policy `json:"policies"`
 }
 
@@ -26,5 +31,5 @@ type Store interface {
 	Get(ctx context.Context, roleId string) (role Role, err errors.CodeError)
 	List(ctx context.Context, roleIds []string) (roles []*Role, err errors.CodeError)
 	Bind(ctx context.Context, param BindParam) (err errors.CodeError)
-	Bounds(ctx context.Context, userId string) (err errors.CodeError)
+	Bounds(ctx context.Context, userId string) (roles []*Role, err errors.CodeError)
 }
