@@ -3,17 +3,12 @@ package rbac
 import "github.com/aacfactory/fns/commons/wildcard"
 
 type Policy struct {
-	Object  string `json:"object"`
-	Action  string `json:"action"`
-	matcher *wildcard.Wildcard
+	Object string `json:"object"`
+	Action string `json:"action"`
 }
 
 func (p *Policy) match(action string) (ok bool) {
-	if p.matcher == nil {
-		ok = true
-		return
-	}
-	ok = p.matcher.Match(action)
+	ok = wildcard.Match(p.Action, action)
 	return
 }
 
