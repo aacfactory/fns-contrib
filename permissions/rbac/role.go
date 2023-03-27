@@ -13,7 +13,7 @@ func (p *Policy) match(action string) (ok bool) {
 }
 
 type Role struct {
-	Id          string    `json:"id"`
+	Id          string    `json:"id" tree:"ParentId+Children"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	ParentId    string    `json:"parentId"`
