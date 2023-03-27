@@ -2,11 +2,9 @@ module github.com/aacfactory/fns-contrib/tokens
 
 go 1.20
 
-replace github.com/aacfactory/fns v1.0.5 => ./../../fns
-
 require (
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.5
+	github.com/aacfactory/fns v1.0.6
 )
 
 require (
