@@ -190,16 +190,17 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 }
 
 func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role, err errors.CodeError) {
-	if roleIds == nil || len(roleIds) == 0 {
-		err = errors.Warning("rbac: list failed").WithCause(errors.Warning("role ids is required")).WithMeta("store", s.Name())
-		return
-	}
 	if s.database != "" {
 		ctx = db.WithOptions(ctx, db.Database(s.database))
 	}
-	rows, queryErr := dal.QueryTrees[*RoleRow, string](ctx, nil, nil, nil, roleIds...)
-	if queryErr != nil {
-		err = errors.Warning("rbac: list failed").WithCause(queryErr).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
+	var rows []*RoleRow
+	if roleIds == nil || len(roleIds) == 0 {
+		rows, err = dal.QueryRootTrees[*RoleRow, string](ctx, nil, nil, nil)
+	} else {
+		rows, err = dal.QueryTrees[*RoleRow, string](ctx, nil, nil, nil, roleIds...)
+	}
+	if err != nil {
+		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
 		return
 	}
 	if rows == nil || len(rows) == 0 {
