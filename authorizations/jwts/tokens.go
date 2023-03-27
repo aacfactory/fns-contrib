@@ -42,17 +42,17 @@ func (tokens *jwtTokens) Build(options service.ComponentOptions) (err error) {
 	return
 }
 
-func (tokens *jwtTokens) Create(_ context.Context, param authorizations.CreateTokenParam) (token authorizations.Token, err errors.CodeError) {
+func (tokens *jwtTokens) Format(_ context.Context, param authorizations.FormatTokenParam) (token authorizations.Token, err errors.CodeError) {
 	if param.Id == "" {
-		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("id is required"))
+		err = errors.Warning("jwt: format token failed").WithCause(errors.Warning("id is required"))
 		return
 	}
 	if !param.UserId.Exist() {
-		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("user id is required"))
+		err = errors.Warning("jwt: format token failed").WithCause(errors.Warning("user id is required"))
 		return
 	}
 	if param.Expirations < 1 {
-		err = errors.Warning("jwt: create token failed").WithCause(errors.Warning("expirations is required"))
+		err = errors.Warning("jwt: format token failed").WithCause(errors.Warning("expirations is required"))
 		return
 	}
 	attr := param.Attributes
@@ -62,7 +62,7 @@ func (tokens *jwtTokens) Create(_ context.Context, param authorizations.CreateTo
 	id := param.Id
 	signed, signErr := tokens.core.Sign(id, param.UserId, attr, param.Expirations)
 	if signErr != nil {
-		err = errors.Warning("jwt: create token failed").WithCause(signErr)
+		err = errors.Warning("jwt: format token failed").WithCause(signErr)
 		return
 	}
 	token = authorizations.Token(fmt.Sprintf("Bearer %s", signed))
