@@ -30,7 +30,7 @@ func (sub *SubQueryArgument) GenerateQueryFragment(ctx context.Context, dialect 
 		err = getGeneratorErr
 		return
 	}
-	_, fragment, arguments, err = generator.Query(DefineSelectColumns(ctx, sub.column), sub.conditions, nil, nil)
+	_, fragment, arguments, err = generator.Select(DefineSelectColumns(ctx, sub.column), sub.conditions, nil, nil)
 	return
 }
 

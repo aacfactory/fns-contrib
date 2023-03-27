@@ -68,7 +68,7 @@ func TestQueryGeneratorBuilder(t *testing.T) {
 		t.Errorf("%+v", buildErr)
 		return
 	}
-	fmt.Println(generator.Query(context.TODO(), dal.NewConditions(dal.Eq("NAME", "NAME")), dal.NewOrders().Desc("AGE"), dal.NewRange(0, 12)))
+	fmt.Println(generator.Select(context.TODO(), dal.NewConditions(dal.Eq("NAME", "NAME")), dal.NewOrders().Desc("AGE"), dal.NewRange(0, 12)))
 	fmt.Println(generator.Count(context.TODO(), dal.NewConditions(dal.Between("AGE", 10, 12))))
 	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(dal.IN("NAME", []string{"foo", "bar"}))))
 	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(
@@ -120,7 +120,58 @@ func TestReference(t *testing.T) {
 		t.Errorf("%+v", buildErr)
 		return
 	}
-	method, query, args, err := generator.Query(context.TODO(), dal.NewConditions(dal.Eq("ID", "")), dal.NewOrders().Asc("ID"), dal.NewRange(0, 10))
+	method, query, args, err := generator.Select(context.TODO(), dal.NewConditions(dal.Eq("ID", "")), dal.NewOrders().Asc("ID"), dal.NewRange(0, 10))
+	if err != nil {
+		t.Errorf("%+v", err)
+		return
+	}
+	fmt.Println(method)
+	fmt.Println(query)
+	fmt.Println(args, len(args))
+}
+
+func TestUpdateWithValues(t *testing.T) {
+	builder := &postgres.QueryGeneratorBuilder{}
+	st, stErr := dal.StructureOfModel(&PostRow{})
+	if stErr != nil {
+		t.Errorf("%+v", stErr)
+		return
+	}
+	generator, buildErr := builder.Build(st)
+	if buildErr != nil {
+		t.Errorf("%+v", buildErr)
+		return
+	}
+	method, query, args, err := generator.UpdateWithValues(
+		context.TODO(),
+		dal.NewValues().Append("TITLE", "newtile").Append("CONTENT", dal.NewUnpreparedValue("'fff'")),
+		dal.NewConditions(dal.Eq("ID", "1")),
+	)
+	if err != nil {
+		t.Errorf("%+v", err)
+		return
+	}
+	fmt.Println(method)
+	fmt.Println(query)
+	fmt.Println(args, len(args))
+}
+
+func TestDeleteWithConditions(t *testing.T) {
+	builder := &postgres.QueryGeneratorBuilder{}
+	st, stErr := dal.StructureOfModel(&PostRow{})
+	if stErr != nil {
+		t.Errorf("%+v", stErr)
+		return
+	}
+	generator, buildErr := builder.Build(st)
+	if buildErr != nil {
+		t.Errorf("%+v", buildErr)
+		return
+	}
+	method, query, args, err := generator.DeleteWithConditions(
+		context.TODO(),
+		dal.NewConditions(dal.Eq("ID", "1")),
+	)
 	if err != nil {
 		t.Errorf("%+v", err)
 		return

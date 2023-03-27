@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"reflect"
 	"strconv"
@@ -19,7 +20,7 @@ func formatIdents(s ...string) (v string) {
 	return
 }
 
-func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
@@ -78,7 +79,7 @@ func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertOrUpdateQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
@@ -158,17 +159,17 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 	return
 }
 
-func newInsertWhenExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
-	query = newInsertWhenExistOrNotGenericQuery(structure, true)
+func newInsertWhenExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+	query = newInsertWhenExistOrNotQuery(structure, true)
 	return
 }
 
-func newInsertWhenNotExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
-	query = newInsertWhenExistOrNotGenericQuery(structure, false)
+func newInsertWhenNotExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+	query = newInsertWhenExistOrNotQuery(structure, false)
 	return
 }
 
-func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bool) (query *GenericQuery) {
+func newInsertWhenExistOrNotQuery(structure *dal.ModelStructure, exist bool) (query *GenericQuery) {
 	method := dal.ExecuteMode
 	incrPk := ""
 	schema, name := structure.Name()
@@ -225,7 +226,7 @@ func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bo
 	return
 }
 
-func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newUpdateQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	valuesIdx := 0
@@ -282,7 +283,7 @@ func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newDeleteQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	valuesIdx := 0
@@ -346,7 +347,7 @@ func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT 1 AS "_EXIST_" FROM ` + tableName
@@ -358,7 +359,7 @@ func newExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	return
 }
 
-func newCountGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newCountQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT count(1) AS "_COUNT_" FROM ` + tableName
@@ -517,7 +518,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure, useJson bool) (frag
 	return
 }
 
-func newSelectGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newSelectQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT ` + newSelectColumnsFragment(structure, false) + ` FROM ` + tableName
@@ -590,8 +591,61 @@ func (generic *GenericQuery) WeaveExecute(_ context.Context, model dal.Model) (m
 	return
 }
 
+func (generic *GenericQuery) WeaveUpdateWithValues(ctx context.Context, values dal.Values, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	if values == nil || len(values) == 0 {
+		err = errors.Warning("postgres: weave update with values failed").WithCause(errors.Warning("values is required"))
+		return
+	}
+	method, query = generic.method, generic.value
+	setIdx := strings.Index(query, " SET ")
+	if setIdx < 0 {
+		err = errors.Warning("postgres: weave update with values failed").WithCause(errors.Warning("`SET` was not found in query"))
+		return
+	}
+	query = query[:setIdx+5]
+	arguments = make([]interface{}, 0, 1)
+	setFragment, setArgs, setErr := generateValues(values)
+	if setErr != nil {
+		err = errors.Warning("postgres: weave update with values failed").WithCause(setErr)
+		return
+	}
+	query = query + setFragment
+	arguments = append(arguments, setArgs...)
+	if cond != nil {
+		ctx = setGenericConditionsArgumentNum(ctx, len(arguments))
+		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
+		if genCondErr != nil {
+			err = genCondErr
+			return
+		}
+		query = query + " WHERE" + fragment
+		arguments = append(arguments, condArgs...)
+	}
+	return
+}
+
+func (generic *GenericQuery) WeaveDeleteWithConditions(ctx context.Context, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query = generic.method, generic.value
+	whereIdx := strings.Index(query, " WHERE ")
+	if whereIdx < 0 {
+		err = errors.Warning("postgres: weave delete with conditions failed").WithCause(errors.Warning("`WHERE` was not found in query"))
+		return
+	}
+	query = query[:whereIdx]
+	if cond != nil {
+		ctx = setGenericConditionsArgumentNum(ctx, 0)
+		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
+		if genCondErr != nil {
+			err = genCondErr
+			return
+		}
+		query = query + " WHERE" + fragment
+		arguments = append(arguments, condArgs...)
+	}
+	return
+}
+
 func (generic *GenericQuery) WeaveQuery(ctx context.Context, cond *dal.Conditions, orders *dal.Orders, rng *dal.Range) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
-	ctx = setGenericConditionsArgumentNum(ctx)
 	method, query = generic.method, generic.value
 	definedColumns, hasDefinedColumns := dal.DefinedSelectColumns(ctx)
 	if hasDefinedColumns {
@@ -604,6 +658,7 @@ func (generic *GenericQuery) WeaveQuery(ctx context.Context, cond *dal.Condition
 	}
 	arguments = make([]interface{}, 0, 1)
 	if cond != nil {
+		ctx = setGenericConditionsArgumentNum(ctx, 0)
 		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
 		if genCondErr != nil {
 			err = genCondErr
@@ -689,6 +744,37 @@ func tryGetSubQueryArgument(args []interface{}) (sub *dal.SubQueryArgument) {
 		return
 	}
 	sub = v
+	return
+}
+
+func generateValues(values dal.Values) (fragment string, arguments []interface{}, err error) {
+	arguments = make([]interface{}, 0, 1)
+	fragments := make([]string, 0, 1)
+	n := 1
+	for _, value := range values {
+		field := strings.TrimSpace(value.Field)
+		if field == "" {
+			err = errors.Warning("some field of value is nil")
+			return
+		}
+		if value.Value == nil {
+			err = errors.Warning("some field value of value is nil")
+			return
+		}
+		unprepared, isUnprepared := value.Value.(*dal.UnpreparedValue)
+		if isUnprepared {
+			fragments = append(fragments, fmt.Sprintf("%s = %s", formatIdents(field), unprepared.Fragment))
+		} else {
+			fragments = append(fragments, fmt.Sprintf("%s = $%d", formatIdents(field), n))
+			arguments = append(arguments, value.Value)
+			n++
+		}
+	}
+	if len(fragments) == 0 {
+		err = errors.Warning("generate values failed")
+		return
+	}
+	fragment = strings.Join(fragments, ", ")
 	return
 }
 

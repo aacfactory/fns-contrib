@@ -67,10 +67,12 @@ type QueryGenerator interface {
 	InsertWhenExist(ctx context.Context, model Model, source string) (method QueryMethod, query string, arguments []interface{}, err error)
 	InsertWhenNotExist(ctx context.Context, model Model, source string) (method QueryMethod, query string, arguments []interface{}, err error)
 	Update(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	UpdateWithValues(ctx context.Context, values Values, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
 	Delete(ctx context.Context, model Model) (method QueryMethod, query string, arguments []interface{}, err error)
+	DeleteWithConditions(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
 	Exist(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
 	Count(ctx context.Context, cond *Conditions) (method QueryMethod, query string, arguments []interface{}, err error)
-	Query(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
+	Select(ctx context.Context, cond *Conditions, orders *Orders, rng *Range) (method QueryMethod, query string, arguments []interface{}, err error)
 }
 
 type DialectQueryGeneratorBuilder interface {

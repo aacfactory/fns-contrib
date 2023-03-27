@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"fmt"
+	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"reflect"
 	"strings"
@@ -22,7 +23,7 @@ func formatIdents(s ...string) (v string) {
 	return
 }
 
-func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	columnsFragments := ""
@@ -69,7 +70,7 @@ func newInsertGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertOrUpdateQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	columnsFragments := ""
@@ -132,12 +133,12 @@ func newInsertOrUpdateGenericQuery(structure *dal.ModelStructure) (query *Generi
 	return
 }
 
-func newInsertWhenExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertWhenExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	query = newInsertWhenExistOrNotGenericQuery(structure, true)
 	return
 }
 
-func newInsertWhenNotExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newInsertWhenNotExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	query = newInsertWhenExistOrNotGenericQuery(structure, false)
 	return
 }
@@ -186,7 +187,7 @@ func newInsertWhenExistOrNotGenericQuery(structure *dal.ModelStructure, exist bo
 	return
 }
 
-func newUpdateGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newUpdateQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	pkFields := make([]*dal.Field, 0, 1)
@@ -261,7 +262,7 @@ func newGenericQueryModelFields(field *dal.Field) (v []*GenericQueryModelField) 
 	return
 }
 
-func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newDeleteQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	pkFields := make([]*dal.Field, 0, 1)
@@ -321,7 +322,7 @@ func newDeleteGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) 
 	return
 }
 
-func newExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newExistQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT 1 AS _EXIST_ FROM ` + tableName
@@ -333,7 +334,7 @@ func newExistGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	return
 }
 
-func newCountGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newCountQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT count(1) AS _COUNT_ FROM ` + tableName
@@ -501,7 +502,7 @@ func newSelectColumnsFragment(structure *dal.ModelStructure) (fragment string) {
 	return
 }
 
-func newSelectGenericQuery(structure *dal.ModelStructure) (query *GenericQuery) {
+func newSelectQuery(structure *dal.ModelStructure) (query *GenericQuery) {
 	schema, name := structure.Name()
 	tableName := formatIdents(schema, name)
 	ql := `SELECT ` + newSelectColumnsFragment(structure) + ` FROM ` + tableName
@@ -548,6 +549,58 @@ func (generic *GenericQuery) WeaveExecute(_ context.Context, model dal.Model) (m
 	for _, field := range generic.modelFields {
 		arg := field.Value(rv.Elem())
 		arguments = append(arguments, arg)
+	}
+	return
+}
+
+func (generic *GenericQuery) WeaveUpdateWithValues(ctx context.Context, values dal.Values, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	if values == nil || len(values) == 0 {
+		err = errors.Warning("mysql: weave update with values failed").WithCause(errors.Warning("values is required"))
+		return
+	}
+	method, query = generic.method, generic.value
+	setIdx := strings.Index(query, " SET ")
+	if setIdx < 0 {
+		err = errors.Warning("mysql: weave update with values failed").WithCause(errors.Warning("`SET` was not found in query"))
+		return
+	}
+	query = query[:setIdx+5]
+	arguments = make([]interface{}, 0, 1)
+	setFragment, setArgs, setErr := generateValues(values)
+	if setErr != nil {
+		err = errors.Warning("mysql: weave update with values failed").WithCause(setErr)
+		return
+	}
+	query = query + setFragment
+	arguments = append(arguments, setArgs...)
+	if cond != nil {
+		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
+		if genCondErr != nil {
+			err = genCondErr
+			return
+		}
+		query = query + " WHERE" + fragment
+		arguments = append(arguments, condArgs...)
+	}
+	return
+}
+
+func (generic *GenericQuery) WeaveDeleteWithConditions(ctx context.Context, cond *dal.Conditions) (method dal.QueryMethod, query string, arguments []interface{}, err error) {
+	method, query = generic.method, generic.value
+	whereIdx := strings.Index(query, " WHERE ")
+	if whereIdx < 0 {
+		err = errors.Warning("mysql: weave delete with conditions failed").WithCause(errors.Warning("`WHERE` was not found in query"))
+		return
+	}
+	query = query[:whereIdx]
+	if cond != nil {
+		fragment, condArgs, genCondErr := generateConditions(ctx, cond)
+		if genCondErr != nil {
+			err = genCondErr
+			return
+		}
+		query = query + " WHERE" + fragment
+		arguments = append(arguments, condArgs...)
 	}
 	return
 }
@@ -681,6 +734,35 @@ func tryGetSubQueryArgument(args []interface{}) (sub *dal.SubQueryArgument) {
 		return
 	}
 	sub = v
+	return
+}
+
+func generateValues(values dal.Values) (fragment string, arguments []interface{}, err error) {
+	arguments = make([]interface{}, 0, 1)
+	fragments := make([]string, 0, 1)
+	for _, value := range values {
+		field := strings.TrimSpace(value.Field)
+		if field == "" {
+			err = errors.Warning("some field of value is nil")
+			return
+		}
+		if value.Value == nil {
+			err = errors.Warning("some field value of value is nil")
+			return
+		}
+		unprepared, isUnprepared := value.Value.(*dal.UnpreparedValue)
+		if isUnprepared {
+			fragments = append(fragments, fmt.Sprintf("%s = %s", formatIdents(field), unprepared.Fragment))
+		} else {
+			fragments = append(fragments, fmt.Sprintf("%s = ?", formatIdents(field)))
+			arguments = append(arguments, value.Value)
+		}
+	}
+	if len(fragments) == 0 {
+		err = errors.Warning("generate values failed")
+		return
+	}
+	fragment = strings.Join(fragments, ", ")
 	return
 }
 

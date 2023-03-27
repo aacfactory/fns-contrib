@@ -87,7 +87,7 @@ func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Ra
 		return
 	}
 	// generator
-	_, query, arguments, generateErr := generator.Query(ctx, conditions, orders, rng)
+	_, query, arguments, generateErr := generator.Select(ctx, conditions, orders, rng)
 	if generateErr != nil {
 		err = errors.Map(generateErr)
 		return

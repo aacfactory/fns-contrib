@@ -91,12 +91,12 @@ const (
 	conditionsArgumentNumCtxKey = "@fns_sql_dal_pg_conditions_arg_num"
 )
 
-func setGenericConditionsArgumentNum(ctx context.Context) context.Context {
+func setGenericConditionsArgumentNum(ctx context.Context, n int) context.Context {
 	if getGenericConditionsArgumentNum(ctx) != nil {
 		return ctx
 	}
 	return context.WithValue(ctx, conditionsArgumentNumCtxKey, &genericConditionsArgumentNum{
-		value: 0,
+		value: n,
 	})
 }
 

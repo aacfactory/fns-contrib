@@ -51,3 +51,55 @@ func Update(ctx context.Context, model Model) (err errors.CodeError) {
 	}
 	return
 }
+
+func NewValues() Values {
+	return make([]Value, 0, 1)
+}
+
+type Values []Value
+
+func (values Values) Append(field string, value interface{}) Values {
+	return append(values, Value{
+		Field: field,
+		Value: value,
+	})
+}
+
+func NewUnpreparedValue(fragment string) *UnpreparedValue {
+	return &UnpreparedValue{
+		Fragment: fragment,
+	}
+}
+
+type UnpreparedValue struct {
+	Fragment string
+}
+
+type Value struct {
+	Field string
+	Value interface{}
+}
+
+func UpdateWithValues[T Model](ctx context.Context, values Values, cond *Conditions) (affected int64, err errors.CodeError) {
+	if values == nil || len(values) == 0 {
+		err = errors.ServiceError("dal: update failed").WithCause(errors.Warning("values is required"))
+		return
+	}
+	model := newModel[T]()
+	_, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
+	if getGeneratorErr != nil {
+		err = errors.ServiceError("dal: update failed").WithCause(getGeneratorErr)
+		return
+	}
+	_, query, args, genErr := generator.UpdateWithValues(ctx, values, cond)
+	if genErr != nil {
+		err = errors.ServiceError("dal: update failed").WithCause(genErr)
+		return
+	}
+	affected, _, err = sql.Execute(ctx, query, args)
+	if err != nil {
+		err = errors.ServiceError("dal: update failed").WithCause(err)
+		return
+	}
+	return
+}
