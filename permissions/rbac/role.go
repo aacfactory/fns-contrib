@@ -12,12 +12,27 @@ func (p *Policy) match(action string) (ok bool) {
 	return
 }
 
+type Roles []*Role
+
+func (roles Roles) Len() int {
+	return len(roles)
+}
+
+func (roles Roles) Less(i, j int) bool {
+	return roles[i].Id < roles[j].Id
+}
+
+func (roles Roles) Swap(i, j int) {
+	roles[i], roles[j] = roles[j], roles[i]
+	return
+}
+
 type Role struct {
 	Id          string    `json:"id" tree:"ParentId+Children"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	ParentId    string    `json:"parentId"`
-	Children    []*Role   `json:"children"`
+	Children    Roles     `json:"children"`
 	Policies    []*Policy `json:"policies"`
 }
 

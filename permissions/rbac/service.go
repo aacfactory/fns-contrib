@@ -106,7 +106,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.Warning("rbac: get user roles failed").WithCause(paramErr)
 			break
 		}
-		err = svc.store.Bounds(ctx, param)
+		v, err = svc.store.Bounds(ctx, param)
 		break
 	default:
 		err = errors.Warning("rbac: fn was not found")
