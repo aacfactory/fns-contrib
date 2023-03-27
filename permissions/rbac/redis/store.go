@@ -6,6 +6,7 @@ import (
 	rds "github.com/aacfactory/fns-contrib/databases/redis"
 	"github.com/aacfactory/fns-contrib/permissions/rbac"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/container/trees"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
@@ -144,7 +145,11 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 		err = errors.Warning("rbac: get failed").WithCause(rbac.ErrRoleNofFound).WithMeta("id", roleId).WithMeta("store", s.Name())
 		return
 	}
-	roles := s.mapping(all, roleId)
+	roles, mappingErr := s.mapping(all, roleId)
+	if mappingErr != nil {
+		err = errors.Warning("rbac: get failed").WithCause(mappingErr).WithMeta("id", roleId).WithMeta("store", s.Name())
+		return
+	}
 	if roles == nil || len(roles) == 0 {
 		err = errors.Warning("rbac: get failed").WithCause(rbac.ErrRoleNofFound).WithMeta("id", roleId).WithMeta("store", s.Name())
 		return
@@ -154,10 +159,6 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 }
 
 func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role, err errors.CodeError) {
-	if roleIds == nil || len(roleIds) == 0 {
-		err = errors.Warning("rbac: list failed").WithCause(errors.Warning("role ids is required")).WithMeta("store", s.Name())
-		return
-	}
 	if s.database != "" {
 		ctx = rds.WithOptions(ctx, rds.Database(s.database))
 	}
@@ -169,7 +170,14 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 	if all == nil || len(all) == 0 {
 		return
 	}
-	roles = s.mapping(all, roleIds...)
+	if roleIds == nil {
+		roleIds = make([]string, 0, 1)
+	}
+	roles, err = s.mapping(all, roleIds...)
+	if err != nil {
+		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
+		return
+	}
 	return
 }
 
@@ -188,7 +196,44 @@ func (s *store) all(ctx context.Context) (roles []*rbac.Role, err errors.CodeErr
 	return
 }
 
-func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles []*rbac.Role) {
+func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles []*rbac.Role, err errors.CodeError) {
+	if all == nil || len(all) == 0 {
+		return
+	}
+	nodes, convertTreeErr := trees.ConvertListToTree[*rbac.Role](all)
+	if convertTreeErr != nil {
+		err = errors.Warning("rbac: mapping list to tree failed").WithCause(convertTreeErr)
+		return
+	}
+	if rootIds == nil || len(rootIds) == 0 {
+		roles = nodes
+		return
+	}
+	roles = make([]*rbac.Role, 0, 1)
+	for _, id := range rootIds {
+		for _, node := range nodes {
+			target := getRole(node, id)
+			if target != nil {
+				roles = append(roles, target)
+				break
+			}
+		}
+	}
+	return
+}
 
+func getRole(root *rbac.Role, id string) (role *rbac.Role) {
+	if root.Id == id {
+		role = root
+		return
+	}
+	if root.Children != nil && len(root.Children) > 0 {
+		for _, child := range root.Children {
+			role = getRole(child, id)
+			if role != nil {
+				return
+			}
+		}
+	}
 	return
 }
