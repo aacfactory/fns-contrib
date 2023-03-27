@@ -200,7 +200,7 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 		rows, err = dal.QueryTrees[*RoleRow, string](ctx, nil, nil, nil, roleIds...)
 	}
 	if err != nil {
-		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
+		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("roleIds", strings.Join(roleIds, ", "))
 		return
 	}
 	if rows == nil || len(rows) == 0 {
@@ -209,7 +209,7 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 	roles = make([]*rbac.Role, 0, 1)
 	cpErr := copier.Copy(&roles, rows)
 	if cpErr != nil {
-		err = errors.Warning("rbac: list failed").WithCause(cpErr).WithMeta("ids", strings.Join(roleIds, ", ")).WithMeta("store", s.Name())
+		err = errors.Warning("rbac: list failed").WithCause(cpErr).WithMeta("roleIds", strings.Join(roleIds, ", ")).WithMeta("store", s.Name())
 		return
 	}
 	return
@@ -233,14 +233,18 @@ func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.Code
 			if param.RoleIds == nil {
 				param.RoleIds = []string{}
 			}
-			err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
+			err = errors.Warning("rbac: bind failed").WithCause(err).
+				WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).
+				WithMeta("store", s.Name())
 			return
 		}
 		return
 	}
 	row, queryErr := dal.QueryOne[*UserRoleRow](ctx, dal.NewConditions(dal.Eq("ID", param.UserId)))
 	if queryErr != nil {
-		err = errors.Warning("rbac: list failed").WithCause(queryErr).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
+		err = errors.Warning("rbac: bind failed").WithCause(queryErr).
+			WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).
+			WithMeta("store", s.Name())
 		return
 	}
 	sort.Strings(param.RoleIds)
@@ -252,7 +256,7 @@ func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.Code
 		}
 		err = dal.Insert(ctx, row)
 		if err != nil {
-			err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
+			err = errors.Warning("rbac: bind failed").WithCause(err).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
 			return
 		}
 		return
@@ -260,7 +264,7 @@ func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.Code
 	row.RoleIds = param.RoleIds
 	err = dal.Update(ctx, row)
 	if err != nil {
-		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
+		err = errors.Warning("rbac: bind failed").WithCause(err).WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).WithMeta("store", s.Name())
 		return
 	}
 	return

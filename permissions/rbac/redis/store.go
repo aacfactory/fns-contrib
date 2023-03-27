@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"github.com/aacfactory/errors"
 	rds "github.com/aacfactory/fns-contrib/databases/redis"
@@ -164,7 +165,7 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 	}
 	all, allErr := s.all(ctx)
 	if allErr != nil {
-		err = errors.Warning("rbac: list failed").WithCause(allErr).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
+		err = errors.Warning("rbac: list failed").WithCause(allErr).WithMeta("store", s.Name()).WithMeta("roleIds", strings.Join(roleIds, ", "))
 		return
 	}
 	if all == nil || len(all) == 0 {
@@ -175,24 +176,129 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 	}
 	roles, err = s.mapping(all, roleIds...)
 	if err != nil {
-		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("ids", strings.Join(roleIds, ", "))
+		err = errors.Warning("rbac: list failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("roleIds", strings.Join(roleIds, ", "))
 		return
 	}
 	return
 }
 
 func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.CodeError) {
-	//TODO implement me
-	panic("implement me")
+	if param.UserId == "" {
+		err = errors.Warning("rbac: bind failed").WithCause(errors.Warning("user id is required")).WithMeta("store", s.Name())
+		return
+	}
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
+	if param.RoleIds == nil {
+		param.RoleIds = make([]string, 0, 1)
+	}
+	p, encodeErr := json.Marshal(param.RoleIds)
+	if encodeErr != nil {
+		err = errors.Warning("rbac: bind failed").WithCause(encodeErr).
+			WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).
+			WithMeta("store", s.Name())
+		return
+	}
+	setErr := rds.Set(ctx, rds.SetParam{
+		Key:        s.buildUserRoleKey(param.UserId),
+		Value:      bytex.ToString(p),
+		Expiration: 0,
+	})
+	if encodeErr != nil {
+		err = errors.Warning("rbac: bind failed").WithCause(setErr).
+			WithMeta("userId", param.UserId).WithMeta("roleIds", strings.Join(param.RoleIds, ", ")).
+			WithMeta("store", s.Name())
+		return
+	}
+	return
 }
 
 func (s *store) Bounds(ctx context.Context, userId string) (roles []*rbac.Role, err errors.CodeError) {
-	//TODO implement me
-	panic("implement me")
+	if userId == "" {
+		err = errors.Warning("rbac: bounds failed").WithCause(errors.Warning("user id is required")).WithMeta("store", s.Name())
+		return
+	}
+	if s.database != "" {
+		ctx = rds.WithOptions(ctx, rds.Database(s.database))
+	}
+	value, getErr := rds.Get(ctx, s.buildUserRoleKey(userId))
+	if getErr != nil {
+		err = errors.Warning("rbac: bounds failed").WithCause(getErr).WithMeta("store", s.Name()).WithMeta("userId", userId)
+		return
+	}
+	if !value.Has {
+		return
+	}
+	data := bytex.FromString(value.Value)
+	if !json.Validate(data) {
+		return
+	}
+	ids := make([]string, 0, 1)
+	decodeErr := json.Unmarshal(data, &ids)
+	if decodeErr != nil {
+		err = errors.Warning("rbac: bounds failed").WithCause(decodeErr).WithMeta("store", s.Name()).WithMeta("userId", userId)
+		return
+	}
+	if len(ids) == 0 {
+		return
+	}
+	all, allErr := s.all(ctx)
+	if allErr != nil {
+		err = errors.Warning("rbac: bounds failed").WithCause(allErr).WithMeta("store", s.Name()).WithMeta("userId", userId)
+		return
+	}
+	if all == nil || len(all) == 0 {
+		return
+	}
+	roles, err = s.mapping(all, ids...)
+	if err != nil {
+		err = errors.Warning("rbac: bounds failed").WithCause(err).WithMeta("store", s.Name()).WithMeta("userId", userId)
+		return
+	}
+	return
 }
 
 func (s *store) all(ctx context.Context) (roles []*rbac.Role, err errors.CodeError) {
-
+	keys, keysErr := rds.Keys(ctx, s.buildRoleKey("*"))
+	if keysErr != nil {
+		err = errors.Warning("rbac: get role keys failed").WithCause(keysErr)
+		return
+	}
+	roles = make([]*rbac.Role, 0, 1)
+	if keys == nil || len(keys) == 0 {
+		return
+	}
+	values, getErr := rds.MGet(ctx, keys)
+	if getErr != nil {
+		err = errors.Warning("rbac: get role keys failed").WithCause(getErr)
+		return
+	}
+	if values == nil || len(values) == 0 {
+		return
+	}
+	items := make([][]byte, 0, 1)
+	for _, key := range keys {
+		value, has := values[key]
+		if !has {
+			continue
+		}
+		item := bytex.FromString(value)
+		if !json.Validate(item) {
+			continue
+		}
+		items = append(items, item)
+	}
+	if len(items) == 0 {
+		return
+	}
+	p := bytes.Join(items, []byte{','})
+	roles = make([]*rbac.Role, 0, 1)
+	decodeErr := json.Unmarshal(p, &roles)
+	if decodeErr != nil {
+		err = errors.Warning("rbac: get role failed").WithCause(decodeErr)
+		return
+	}
 	return
 }
 
