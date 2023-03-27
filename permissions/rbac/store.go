@@ -30,7 +30,7 @@ type Store interface {
 	Save(ctx context.Context, param SaveRoleParam) (err errors.CodeError)
 	Remove(ctx context.Context, roleId string) (err errors.CodeError)
 	Get(ctx context.Context, roleId string) (role Role, err errors.CodeError)
-	List(ctx context.Context, roleIds []string) (roles []*Role, err errors.CodeError)
+	List(ctx context.Context, roleIds []string) (roles Roles, err errors.CodeError)
 	Bind(ctx context.Context, param BindParam) (err errors.CodeError)
-	Bounds(ctx context.Context, userId string) (roles []*Role, err errors.CodeError)
+	Bounds(ctx context.Context, userId string) (roles Roles, err errors.CodeError)
 }

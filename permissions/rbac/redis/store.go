@@ -11,6 +11,7 @@ import (
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
+	"sort"
 	"strings"
 )
 
@@ -159,7 +160,7 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 	return
 }
 
-func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role, err errors.CodeError) {
+func (s *store) List(ctx context.Context, roleIds []string) (roles rbac.Roles, err errors.CodeError) {
 	if s.database != "" {
 		ctx = rds.WithOptions(ctx, rds.Database(s.database))
 	}
@@ -214,7 +215,7 @@ func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.Code
 	return
 }
 
-func (s *store) Bounds(ctx context.Context, userId string) (roles []*rbac.Role, err errors.CodeError) {
+func (s *store) Bounds(ctx context.Context, userId string) (roles rbac.Roles, err errors.CodeError) {
 	if userId == "" {
 		err = errors.Warning("rbac: bounds failed").WithCause(errors.Warning("user id is required")).WithMeta("store", s.Name())
 		return
@@ -302,7 +303,7 @@ func (s *store) all(ctx context.Context) (roles []*rbac.Role, err errors.CodeErr
 	return
 }
 
-func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles []*rbac.Role, err errors.CodeError) {
+func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles rbac.Roles, err errors.CodeError) {
 	if all == nil || len(all) == 0 {
 		return
 	}
@@ -313,6 +314,7 @@ func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles []*rbac.Role
 	}
 	if rootIds == nil || len(rootIds) == 0 {
 		roles = nodes
+		sort.Sort(roles)
 		return
 	}
 	roles = make([]*rbac.Role, 0, 1)
@@ -325,6 +327,7 @@ func (s *store) mapping(all []*rbac.Role, rootIds ...string) (roles []*rbac.Role
 			}
 		}
 	}
+	sort.Sort(roles)
 	return
 }
 

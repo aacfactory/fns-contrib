@@ -189,7 +189,7 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 	return
 }
 
-func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role, err errors.CodeError) {
+func (s *store) List(ctx context.Context, roleIds []string) (roles rbac.Roles, err errors.CodeError) {
 	if s.database != "" {
 		ctx = db.WithOptions(ctx, db.Database(s.database))
 	}
@@ -212,6 +212,7 @@ func (s *store) List(ctx context.Context, roleIds []string) (roles []*rbac.Role,
 		err = errors.Warning("rbac: list failed").WithCause(cpErr).WithMeta("roleIds", strings.Join(roleIds, ", ")).WithMeta("store", s.Name())
 		return
 	}
+	sort.Sort(roles)
 	return
 }
 
@@ -270,7 +271,7 @@ func (s *store) Bind(ctx context.Context, param rbac.BindParam) (err errors.Code
 	return
 }
 
-func (s *store) Bounds(ctx context.Context, userId string) (roles []*rbac.Role, err errors.CodeError) {
+func (s *store) Bounds(ctx context.Context, userId string) (roles rbac.Roles, err errors.CodeError) {
 	if userId == "" {
 		err = errors.Warning("rbac: bounds failed").WithCause(errors.Warning("user id is required")).WithMeta("store", s.Name())
 		return
@@ -324,5 +325,6 @@ func (s *store) Bounds(ctx context.Context, userId string) (roles []*rbac.Role, 
 		err = errors.Warning("rbac: bounds failed").WithCause(cpErr).WithMeta("userId", userId).WithMeta("store", s.Name())
 		return
 	}
+	sort.Sort(roles)
 	return
 }
