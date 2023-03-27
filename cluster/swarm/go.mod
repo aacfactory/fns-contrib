@@ -4,11 +4,11 @@ go 1.20
 
 require (
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.5
-	github.com/aacfactory/fns-contrib/databases/redis v1.0.3
+	github.com/aacfactory/fns v1.0.6
+	github.com/aacfactory/fns-contrib/databases/redis v1.0.6
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
-	github.com/docker/docker v20.10.17+incompatible
+	github.com/docker/docker v23.0.1+incompatible
 )
 
 require (
