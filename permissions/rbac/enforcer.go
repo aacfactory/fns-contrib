@@ -48,14 +48,6 @@ func (e *enforcer) Enforce(ctx context.Context, param permissions.EnforceParam) 
 		err = errors.Warning("rbac: enforce failed").WithCause(rolesErr)
 		return
 	}
-	if roles == nil || len(roles) == 0 {
-		return
-	}
-	for _, role := range roles {
-		ok = role.CheckPolicy(param.Service, param.Fn)
-		if ok {
-			return
-		}
-	}
+	ok = roles.CheckPolicy(param.Service, param.Fn)
 	return
 }

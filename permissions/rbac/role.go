@@ -27,6 +27,22 @@ func (roles Roles) Swap(i, j int) {
 	return
 }
 
+func (roles Roles) CheckPolicy(object string, action string) (ok bool) {
+	if roles == nil || len(roles) == 0 {
+		return
+	}
+	for _, role := range roles {
+		if role == nil {
+			continue
+		}
+		if role.CheckPolicy(object, action) {
+			ok = true
+			return
+		}
+	}
+	return
+}
+
 type Role struct {
 	Id          string    `json:"id" tree:"ParentId+Children"`
 	Name        string    `json:"name"`
