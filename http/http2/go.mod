@@ -6,7 +6,7 @@ require (
 	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.5
+	github.com/aacfactory/fns v1.0.6
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/rings v1.1.2
 	github.com/dgrr/http2 v0.3.5
