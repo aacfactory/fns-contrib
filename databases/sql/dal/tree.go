@@ -13,8 +13,8 @@ type keyable interface {
 		~float32 | ~float64 | ~string
 }
 
-func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValue N) (result T, err errors.CodeError) {
-	results, queryErr := queryTrees[T, N](ctx, conditions, orders, rng, rootNodeValue)
+func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValue N) (result T, err errors.CodeError) {
+	results, queryErr := queryTrees[T, N](ctx, conditions, orders, rng, nodeValue)
 	if queryErr != nil {
 		err = errors.ServiceError("dal: query tree failed").WithCause(queryErr)
 		return
@@ -26,8 +26,8 @@ func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, 
 	return
 }
 
-func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
-	results, err = queryTrees[T, N](ctx, conditions, orders, rng, rootNodeValues...)
+func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValues ...N) (results []T, err errors.CodeError) {
+	results, err = queryTrees[T, N](ctx, conditions, orders, rng, nodeValues...)
 	if err != nil {
 		err = errors.ServiceError("dal: query trees failed").WithCause(err)
 		return
@@ -35,11 +35,25 @@ func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 	return
 }
 
-func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
-	if rootNodeValues == nil || len(rootNodeValues) == 0 {
-		err = errors.Warning("root node values are required")
+func QueryRootTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (result T, err errors.CodeError) {
+	results, queryErr := QueryRootTrees[T, N](ctx, conditions, orders, rng)
+	if queryErr != nil {
+		err = errors.ServiceError("dal: query tree failed").WithCause(queryErr)
 		return
 	}
+	if results == nil || len(results) == 0 {
+		return
+	}
+	result = results[0]
+	return
+}
+
+func QueryRootTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
+	results, err = QueryTrees[T, N](ctx, conditions, orders, rng)
+	return
+}
+
+func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
 	ctx = NotEagerLoad(ctx)
 	list, queryErr := QueryWithRange[T](ctx, conditions, orders, rng)
 	if queryErr != nil {
@@ -58,6 +72,34 @@ func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T
 	if fieldErr != nil {
 		err = fieldErr
 		return
+	}
+	if rootNodeValues == nil || len(rootNodeValues) == 0 || reflect.ValueOf(rootNodeValues[0]).IsZero() {
+		nodeField, hasNodeField := structure.FindFieldByColumn(field.tree.nodeColumnName)
+		if !hasNodeField {
+			err = errors.Warning("tree node need node field")
+			return
+		}
+		parentField, hasParentField := structure.FindFieldByColumn(field.tree.parentColumnName)
+		if !hasParentField {
+			err = errors.Warning("tree node need parent field")
+			return
+		}
+		rootNodeValues = make([]N, 0, 1)
+		for _, item := range list {
+			rv := reflect.Indirect(reflect.ValueOf(item))
+			parent := rv.FieldByName(parentField.Name())
+			if parent.IsZero() {
+				node := rv.FieldByName(nodeField.Name())
+				if node.IsZero() {
+					continue
+				}
+				nodeValue, isN := node.Interface().(N)
+				if !isN {
+					continue
+				}
+				rootNodeValues = append(rootNodeValues, nodeValue)
+			}
+		}
 	}
 	nodes = make([]T, 0, 1)
 	for _, rootNodeValue := range rootNodeValues {
