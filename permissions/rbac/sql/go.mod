@@ -2,25 +2,18 @@ module github.com/aacfactory/fns-contrib/permissions/rbac/sql
 
 go 1.20
 
-
-replace (
-	github.com/aacfactory/fns-contrib/permissions/rbac v0.0.0 => ../../rbac
-	github.com/aacfactory/fns-contrib/databases/sql v1.0.1 => ../../../databases/sql
-)
-
 require (
-	github.com/aacfactory/fns v1.0.5
-	github.com/aacfactory/fns-contrib/permissions/rbac v0.0.0
+	github.com/aacfactory/copier v1.1.0
+	github.com/aacfactory/errors v1.13.4
+	github.com/aacfactory/fns v1.0.6
+	github.com/aacfactory/fns-contrib/databases/sql v1.0.6
+	github.com/aacfactory/fns-contrib/permissions/rbac v1.0.6
 	github.com/aacfactory/logs v1.13.0
-	github.com/aacfactory/fns-contrib/databases/sql v1.0.1
 )
 
 require (
 	github.com/aacfactory/afssl v1.6.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/aacfactory/copier v1.1.0 // indirect
-	github.com/aacfactory/errors v1.13.4 // indirect
-	github.com/aacfactory/fns-contrib/databases/sql v1.0.1 // indirect
 	github.com/aacfactory/json v1.13.1 // indirect
 	github.com/aacfactory/rings v1.1.2 // indirect
 	github.com/aacfactory/systems v0.2.0 // indirect
