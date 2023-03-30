@@ -189,7 +189,7 @@ func (handler *websocketHandler) Accept(request *http.Request) (ok bool) {
 	if request.Method != http.MethodGet {
 		return
 	}
-	ok = request.Header.Get("Connection") == "Upgrade" && request.Header.Get("Upgrade") == "websocket"
+	ok = websocket.IsWebSocketUpgrade(request)
 	return
 }
 
