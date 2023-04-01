@@ -1,17 +1,25 @@
 package http2
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/dgrr/http2"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpadaptor"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
+)
+
+const (
+	fastHttp2TransportName = "fasthttp2"
 )
 
 func Server() service.Http {
@@ -26,7 +34,7 @@ type server struct {
 }
 
 func (srv *server) Name() (name string) {
-	name = "fasthttp2"
+	name = fastHttp2TransportName
 	return
 }
 
@@ -111,7 +119,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	reduceMemoryUsage := opt.ReduceMemoryUsage
 	// server
 	srv.fast = &fasthttp.Server{
-		Handler:                            fasthttpadaptor.NewFastHTTPHandler(options.Handler),
+		Handler:                            fastHttpTransportHandlerAdaptor(options.Handler),
 		ErrorHandler:                       fastHttpErrorHandler,
 		ReadBufferSize:                     int(readBufferSize),
 		WriteBufferSize:                    int(writeBufferSize),
@@ -172,3 +180,121 @@ func fastHttpErrorHandler(ctx *fasthttp.RequestCtx, err error) {
 	ctx.SetContentType(httpContentTypeJson)
 	ctx.SetBody([]byte(fmt.Sprintf("{\"error\": \"%s\"}", err.Error())))
 }
+
+func fastHttpTransportHandlerAdaptor(h http.Handler) fasthttp.RequestHandler {
+	return func(ctx *fasthttp.RequestCtx) {
+		var r http.Request
+		if err := convertFastHttpRequestToHttpRequest(ctx, &r, true); err != nil {
+			p, _ := json.Marshal(errors.Warning("fns: cannot parse requestURI").WithMeta("uri", r.RequestURI).WithMeta("transport", fastHttp2TransportName).WithCause(err))
+			ctx.Response.Reset()
+			ctx.SetStatusCode(555)
+			ctx.SetContentTypeBytes(bytex.FromString(httpContentTypeJson))
+			ctx.SetBody(p)
+			return
+		}
+
+		w := netHTTPResponseWriter{w: ctx.Response.BodyWriter()}
+		h.ServeHTTP(&w, r.WithContext(ctx))
+
+		ctx.SetStatusCode(w.StatusCode())
+		haveContentType := false
+		for k, vv := range w.Header() {
+			if k == fasthttp.HeaderContentType {
+				haveContentType = true
+			}
+
+			for _, v := range vv {
+				ctx.Response.Header.Add(k, v)
+			}
+		}
+		if !haveContentType {
+			l := 512
+			b := ctx.Response.Body()
+			if len(b) < 512 {
+				l = len(b)
+			}
+			ctx.Response.Header.Set(fasthttp.HeaderContentType, http.DetectContentType(b[:l]))
+		}
+	}
+}
+
+func convertFastHttpRequestToHttpRequest(ctx *fasthttp.RequestCtx, r *http.Request, forServer bool) error {
+	body := ctx.PostBody()
+	strRequestURI := bytex.ToString(ctx.RequestURI())
+
+	rURL, err := url.ParseRequestURI(strRequestURI)
+	if err != nil {
+		return err
+	}
+
+	r.Method = bytex.ToString(ctx.Method())
+	r.Proto = bytex.ToString(ctx.Request.Header.Protocol())
+	if r.Proto == "HTTP/2" {
+		r.ProtoMajor = 2
+	} else {
+		r.ProtoMajor = 1
+	}
+	r.ProtoMinor = 1
+	r.ContentLength = int64(len(body))
+	r.RemoteAddr = ctx.RemoteAddr().String()
+	r.Host = bytex.ToString(ctx.Host())
+	r.TLS = ctx.TLSConnectionState()
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	r.URL = rURL
+
+	if forServer {
+		r.RequestURI = strRequestURI
+	}
+
+	if r.Header == nil {
+		r.Header = make(http.Header)
+	} else if len(r.Header) > 0 {
+		for k := range r.Header {
+			delete(r.Header, k)
+		}
+	}
+
+	ctx.Request.Header.VisitAll(func(k, v []byte) {
+		sk := bytex.ToString(k)
+		sv := bytex.ToString(v)
+
+		switch sk {
+		case "Transfer-Encoding":
+			r.TransferEncoding = append(r.TransferEncoding, sv)
+		default:
+			r.Header.Set(sk, sv)
+		}
+	})
+
+	return nil
+}
+
+type netHTTPResponseWriter struct {
+	statusCode int
+	h          http.Header
+	w          io.Writer
+}
+
+func (w *netHTTPResponseWriter) StatusCode() int {
+	if w.statusCode == 0 {
+		return http.StatusOK
+	}
+	return w.statusCode
+}
+
+func (w *netHTTPResponseWriter) Header() http.Header {
+	if w.h == nil {
+		w.h = make(http.Header)
+	}
+	return w.h
+}
+
+func (w *netHTTPResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+}
+
+func (w *netHTTPResponseWriter) Write(p []byte) (int, error) {
+	return w.w.Write(p)
+}
+
+func (w *netHTTPResponseWriter) Flush() {}
