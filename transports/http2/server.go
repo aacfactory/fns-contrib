@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/dgrr/http2"
@@ -22,7 +22,7 @@ const (
 	fastHttp2TransportName = "fasthttp2"
 )
 
-func Server() service.Http {
+func Server() transports.Transport {
 	return &server{}
 }
 
@@ -38,7 +38,7 @@ func (srv *server) Name() (name string) {
 	return
 }
 
-func (srv *server) Build(options service.HttpOptions) (err error) {
+func (srv *server) Build(options transports.Options) (err error) {
 	srv.log = options.Log
 	if options.ServerTLS == nil {
 		err = errors.Warning("http2: build failed").WithCause(errors.Warning("server tls config is required"))
@@ -52,8 +52,8 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	srv.ln = ln
 	// opt
-	opt := service.FastHttpOptions{}
-	optErr := options.Options.As(&opt)
+	opt := transports.FastHttpTransportOptions{}
+	optErr := options.Config.As(&opt)
 	if optErr != nil {
 		err = errors.Warning("http2: build failed").WithCause(optErr)
 		return
@@ -61,7 +61,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 
 	readBufferSize := uint64(0)
 	if opt.ReadBufferSize != "" {
-		readBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.ReadBufferSize))
+		readBufferSize, err = bytex.ParseBytes(strings.TrimSpace(opt.ReadBufferSize))
 		if err != nil {
 			err = errors.Warning("fns: build server failed").WithCause(errors.Warning("readBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -77,7 +77,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	writeBufferSize := uint64(0)
 	if opt.WriteBufferSize != "" {
-		writeBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.WriteBufferSize))
+		writeBufferSize, err = bytex.ParseBytes(strings.TrimSpace(opt.WriteBufferSize))
 		if err != nil {
 			err = errors.Warning("fns: build server failed").WithCause(errors.Warning("writeBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -110,7 +110,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 
 	maxRequestBodySize := uint64(4 * bytex.MEGABYTE)
 	if opt.MaxRequestBodySize != "" {
-		maxRequestBodySize, err = bytex.ToBytes(strings.TrimSpace(opt.MaxRequestBodySize))
+		maxRequestBodySize, err = bytex.ParseBytes(strings.TrimSpace(opt.MaxRequestBodySize))
 		if err != nil {
 			err = errors.Warning("fns: build server failed").WithCause(errors.Warning("maxRequestBodySize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -119,7 +119,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	reduceMemoryUsage := opt.ReduceMemoryUsage
 	// server
 	srv.fast = &fasthttp.Server{
-		Handler:                            fastHttpTransportHandlerAdaptor(options.Handler),
+		Handler:                            transports.FastHttpTransportHandlerAdaptor(options.Handler),
 		ErrorHandler:                       fastHttpErrorHandler,
 		ReadBufferSize:                     int(readBufferSize),
 		WriteBufferSize:                    int(writeBufferSize),
@@ -151,7 +151,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	return
 }
 
-func (srv *server) Dial(address string) (client service.HttpClient, err error) {
+func (srv *server) Dial(address string) (client transports.Client, err error) {
 	client, err = srv.dialer.Dial(address)
 	return
 }

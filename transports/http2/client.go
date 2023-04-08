@@ -5,10 +5,9 @@ import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/dgrr/http2"
 	"github.com/valyala/fasthttp"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -18,9 +17,9 @@ const (
 	httpContentTypeJson = "application/json"
 )
 
-func NewClientOptions(opt *service.FastHttpClientOptions) (v *ClientOptions, err error) {
+func NewClientOptions(opt *transports.FastHttpClientOptions) (v *ClientOptions, err error) {
 	if opt == nil {
-		opt = &service.FastHttpClientOptions{
+		opt = &transports.FastHttpClientOptions{
 			DialDualStack:             false,
 			MaxConnsPerHost:           0,
 			MaxIdleConnDuration:       "",
@@ -52,7 +51,7 @@ func NewClientOptions(opt *service.FastHttpClientOptions) (v *ClientOptions, err
 	}
 	readBufferSize := uint64(0)
 	if opt.ReadBufferSize != "" {
-		readBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.ReadBufferSize))
+		readBufferSize, err = bytex.ParseBytes(strings.TrimSpace(opt.ReadBufferSize))
 		if err != nil {
 			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("readBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -68,7 +67,7 @@ func NewClientOptions(opt *service.FastHttpClientOptions) (v *ClientOptions, err
 	}
 	writeBufferSize := uint64(0)
 	if opt.WriteBufferSize != "" {
-		writeBufferSize, err = bytex.ToBytes(strings.TrimSpace(opt.WriteBufferSize))
+		writeBufferSize, err = bytex.ParseBytes(strings.TrimSpace(opt.WriteBufferSize))
 		if err != nil {
 			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("writeBufferSize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -84,7 +83,7 @@ func NewClientOptions(opt *service.FastHttpClientOptions) (v *ClientOptions, err
 	}
 	maxResponseBodySize := uint64(4 * bytex.MEGABYTE)
 	if opt.MaxResponseBodySize != "" {
-		maxResponseBodySize, err = bytex.ToBytes(strings.TrimSpace(opt.MaxResponseBodySize))
+		maxResponseBodySize, err = bytex.ParseBytes(strings.TrimSpace(opt.MaxResponseBodySize))
 		if err != nil {
 			err = errors.Warning("fns: build client failed").WithCause(errors.Warning("maxResponseBodySize must be bytes format")).WithCause(err).WithMeta("fns", "http")
 			return
@@ -171,84 +170,68 @@ type Client struct {
 	core    *fasthttp.HostClient
 }
 
-func (client *Client) Key() (key string) {
-	key = client.address
-	return
-}
-
-func (client *Client) Get(ctx context.Context, path string, header http.Header) (status int, respHeader http.Header, respBody []byte, err error) {
-	req := client.prepareRequest(bytex.FromString(http.MethodGet), path, header)
-	resp := fasthttp.AcquireResponse()
-	deadline, hasDeadline := ctx.Deadline()
-	if hasDeadline {
-		err = client.core.DoDeadline(req, resp, deadline)
-	} else {
-		err = client.core.Do(req, resp)
-	}
-	if err != nil {
-		err = errors.Warning("fns: fasthttp client do get failed").WithCause(err)
-		fasthttp.ReleaseRequest(req)
-		fasthttp.ReleaseResponse(resp)
-		return
-	}
-	status = resp.StatusCode()
-	respHeader = http.Header{}
-	resp.Header.VisitAll(func(key, value []byte) {
-		respHeader.Add(bytex.ToString(key), bytex.ToString(value))
-	})
-	respBody = resp.Body()
-	fasthttp.ReleaseRequest(req)
-	fasthttp.ReleaseResponse(resp)
-	return
-}
-
-func (client *Client) Post(ctx context.Context, path string, header http.Header, body []byte) (status int, respHeader http.Header, respBody []byte, err error) {
-	req := client.prepareRequest(bytex.FromString(http.MethodPost), path, header)
-	if body != nil && len(body) > 0 {
-		req.SetBodyRaw(body)
-	}
-	resp := fasthttp.AcquireResponse()
-	deadline, hasDeadline := ctx.Deadline()
-	if hasDeadline {
-		err = client.core.DoDeadline(req, resp, deadline)
-	} else {
-		err = client.core.Do(req, resp)
-	}
-	if err != nil {
-		err = errors.Warning("fns: fasthttp client do post failed").WithCause(err)
-		fasthttp.ReleaseRequest(req)
-		fasthttp.ReleaseResponse(resp)
-		return
-	}
-	status = resp.StatusCode()
-	respHeader = http.Header{}
-	resp.Header.VisitAll(func(key, value []byte) {
-		respHeader.Add(bytex.ToString(key), bytex.ToString(value))
-	})
-	respBody = resp.Body()
-	fasthttp.ReleaseRequest(req)
-	fasthttp.ReleaseResponse(resp)
-	return
-}
-
-func (client *Client) Close() {
-	client.core.CloseIdleConnections()
-}
-
-func (client *Client) prepareRequest(method []byte, path string, header http.Header) (req *fasthttp.Request) {
-	req = fasthttp.AcquireRequest()
-	uri := req.URI()
-	uri.SetSchemeBytes(bytex.FromString("https"))
-	uri.SetPathBytes(bytex.FromString(path))
-	uri.SetHostBytes(bytex.FromString(client.address))
-	req.Header.SetMethodBytes(method)
-	if header != nil && len(header) > 0 {
-		for k, vv := range header {
+func (client *Client) Do(ctx context.Context, request *transports.Request) (response *transports.Response, err error) {
+	req := fasthttp.AcquireRequest()
+	// method
+	req.Header.SetMethodBytes(request.Method())
+	// header
+	if request.Header() != nil && len(request.Header()) > 0 {
+		for k, vv := range request.Header() {
+			if vv == nil || len(vv) == 0 {
+				continue
+			}
 			for _, v := range vv {
 				req.Header.Add(k, v)
 			}
 		}
 	}
-	req.Header.SetBytesKV(bytex.FromString(httpContentType), bytex.FromString(httpContentTypeJson))
+	// uri
+	uri := req.URI()
+	uri.SetSchemeBytes(bytex.FromString("https"))
+	uri.SetHostBytes(bytex.FromString(client.address))
+	uri.SetPathBytes(request.Path())
+	if request.Params() != nil && len(request.Params()) > 0 {
+		uri.SetQueryStringBytes(bytex.FromString(request.Params().String()))
+	}
+	// body
+	if request.Body() != nil && len(request.Body()) > 0 {
+		req.SetBodyRaw(request.Body())
+	}
+	// resp
+	resp := fasthttp.AcquireResponse()
+	// do
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		err = client.core.DoDeadline(req, resp, deadline)
+	} else {
+		err = client.core.Do(req, resp)
+	}
+	if err != nil {
+		err = errors.Warning("fns: transport client do failed").
+			WithCause(err).
+			WithMeta("transport", fastHttp2TransportName).WithMeta("method", bytex.ToString(request.Method())).WithMeta("path", bytex.ToString(request.Path()))
+		fasthttp.ReleaseRequest(req)
+		fasthttp.ReleaseResponse(resp)
+		return
+	}
+	response = &transports.Response{
+		Status: resp.StatusCode(),
+		Header: make(transports.Header),
+		Body:   resp.Body(),
+	}
+	resp.Header.VisitAll(func(key, value []byte) {
+		response.Header.Add(bytex.ToString(key), bytex.ToString(value))
+	})
+	fasthttp.ReleaseRequest(req)
+	fasthttp.ReleaseResponse(resp)
 	return
+}
+
+func (client *Client) Key() (key string) {
+	key = client.address
+	return
+}
+
+func (client *Client) Close() {
+	client.core.CloseIdleConnections()
 }

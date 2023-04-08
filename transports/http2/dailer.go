@@ -3,13 +3,13 @@ package http2
 import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/rings"
 	"golang.org/x/sync/singleflight"
 	"sync"
 )
 
-func NewDialer(cliTLS *tls.Config, config *service.FastHttpClientOptions) (dialer *Dialer, err error) {
+func NewDialer(cliTLS *tls.Config, config *transports.FastHttpClientOptions) (dialer *Dialer, err error) {
 	opts, optsErr := NewClientOptions(config)
 	if optsErr != nil {
 		err = errors.Warning("create dialer failed").WithCause(optsErr)
@@ -37,7 +37,7 @@ type Dialer struct {
 	clients         sync.Map
 }
 
-func (dialer *Dialer) Dial(address string) (client service.HttpClient, err error) {
+func (dialer *Dialer) Dial(address string) (client transports.Client, err error) {
 	cc, doErr, _ := dialer.group.Do(address, func() (clients interface{}, err error) {
 		hosted, has := dialer.clients.Load(address)
 		if has {

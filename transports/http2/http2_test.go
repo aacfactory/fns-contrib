@@ -7,10 +7,9 @@ import (
 	"github.com/aacfactory/afssl"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/http/http2"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns-contrib/transports/http2"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/logs"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -28,24 +27,24 @@ func TestHttp2(t *testing.T) {
 	}
 	srv := http2.Server()
 	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
-	buildErr := srv.Build(service.HttpOptions{
+	buildErr := srv.Build(transports.Options{
 		Port:      18080,
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
+		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return
 		}),
-		Log:     log,
-		Options: opt,
+		Log:    log,
+		Config: opt,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)
 		return
 	}
 	srvErr := make(chan error)
-	go func(srv service.Http, srvErr chan error) {
+	go func(srv transports.Transport, srvErr chan error) {
 		srvErr <- srv.ListenAndServe()
 	}(srv, srvErr)
 	select {
@@ -61,17 +60,19 @@ func TestHttp2(t *testing.T) {
 		t.Errorf("%+v", dialErr)
 		return
 	}
-	status, header, body, getErr := client.Get(context.TODO(), "/hello", http.Header{})
-	if getErr != nil {
+	beg := time.Now()
+	resp, doErr := client.Do(context.TODO(), transports.NewUnsafeRequest(context.TODO(), transports.MethodGET, []byte("/hello")))
+	fmt.Println("cost:", time.Now().Sub(beg))
+	if doErr != nil {
 		_ = srv.Close()
-		t.Errorf("%+v", getErr)
+		t.Errorf("%+v", doErr)
 		return
 	}
 	client.Close()
 
-	fmt.Println(status)
-	fmt.Println(header)
-	fmt.Println(string(body))
+	fmt.Println(resp.Status)
+	fmt.Println(resp.Header)
+	fmt.Println(string(resp.Body))
 
 	_ = srv.Close()
 }
@@ -90,17 +91,17 @@ func TestServer_ListenAndServe(t *testing.T) {
 	srvTLS.ClientAuth = tls.NoClientCert
 	srv := http2.Server()
 	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
-	buildErr := srv.Build(service.HttpOptions{
+	buildErr := srv.Build(transports.Options{
 		Port:      18080,
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
+		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return
 		}),
-		Log:     log,
-		Options: opt,
+		Log:    log,
+		Config: opt,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)
