@@ -12,11 +12,6 @@ import (
 	"strings"
 )
 
-const (
-	httpContentType     = "Content-Type"
-	httpContentTypeJson = "application/json"
-)
-
 func Server() transports.Transport {
 	return &server{}
 }

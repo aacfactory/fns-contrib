@@ -112,12 +112,12 @@ func TestSTD(t *testing.T) {
 	}
 	srvTLS.ClientAuth = tls.NoClientCert
 	config := http3.Config{
-		EnableDatagrams:    false,
-		MaxHeaderBytes:     "",
-		MaxBodyBytes:       "",
-		AdditionalSettings: nil,
-		Quic:               nil,
-		Client:             nil,
+		EnableDatagrams:      false,
+		MaxRequestBodySize:   "",
+		MaxRequestHeaderSize: "",
+		AdditionalSettings:   nil,
+		Quic:                 nil,
+		Client:               nil,
 		Compatible: &http3.CompatibleConfig{
 			Name:    "fasthttp",
 			Options: nil,
