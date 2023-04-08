@@ -7,7 +7,12 @@ go get github.com/aacfactory/fns-contrib/http/fasthttp2
 
 ## Usage
 Make sure tls is used.
-
+```go
+import (
+    _ "github.com/aacfactory/fns-contrib/transports/fasthttp2"
+)
+```
+Setup config
 ```yaml
 transport:
   name: "fasthttp2"
