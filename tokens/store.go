@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrTokenNofFound = fmt.Errorf("token was not found")
+	ErrTokenNotFound = fmt.Errorf("token was not found")
 )
 
 type SaveParam struct {
