@@ -6,8 +6,13 @@ go get github.com/aacfactory/fns-contrib/transports/standard
 ```
 
 ## Usage
-Make sure tls is used.
+```go
+import (
+    _ "github.com/aacfactory/fns-contrib/transports/standard"
+)
 
+```
+Setup config
 ```yaml
 transport:
   name: "http"

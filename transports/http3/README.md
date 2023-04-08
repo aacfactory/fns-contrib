@@ -1,4 +1,4 @@
-# Http3 server for FNS
+_# Http3 server for FNS
 
 ## Install
 ```bash
@@ -7,6 +7,12 @@ go get github.com/aacfactory/fns-contrib/transports/http3
 
 ## Usage
 Make sure tls is used.
+
+```go
+import (
+    _ "github.com/aacfactory/fns-contrib/transports/http3"
+)
+```
 
 Setup config, see [quic](https://github.com/quic-go/quic-go) for more quic config detail. 
 
@@ -56,4 +62,4 @@ transport:
       name: "fasthttp2" 
       options:
         foo: "bar"
-```
+```_
