@@ -62,6 +62,9 @@ func (srv *server) Build(options transports.Options) (err error) {
 			return
 		}
 	}
+	if maxBodyBytes == 0 {
+		maxBodyBytes = 4096
+	}
 	quicConfig, quicConfigErr := config.QuicConfig()
 	if quicConfigErr != nil {
 		err = errors.Warning("http3: build failed").WithCause(quicConfigErr)
@@ -83,7 +86,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 		UniStreamHijacker:  nil,
 	}
 	// compatible
-	if srv.compatible != nil {
+	if config.Compatible != nil {
 		compatible, registered := transports.Registered(config.Compatible.Name)
 		if !registered {
 			err = errors.Warning("http3: build failed").WithCause(errors.Warning("compatible transport was not registered"))
@@ -149,12 +152,13 @@ func (srv *server) ListenAndServe() (err error) {
 	case srvErr := <-sErr:
 		_ = srv.Close()
 		err = errors.Warning("http3: listen and serve failed").WithCause(srvErr).WithMeta("kind", "http")
-		return
+		break
 	case srvErr := <-qErr:
 		_ = srv.Close()
 		err = errors.Warning("http3: listen and serve failed").WithCause(srvErr).WithMeta("kind", "http3")
-		return
+		break
 	}
+	return
 }
 
 func (srv *server) Close() (err error) {

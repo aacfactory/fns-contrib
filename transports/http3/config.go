@@ -99,7 +99,7 @@ type QuicConfig struct {
 	DisableVersionNegotiationPackets bool     `json:"disableVersionNegotiationPackets"`
 }
 
-func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config, err error) {
+func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config, err error) {
 	var versions []quic.VersionNumber
 	if config.Versions != nil && len(config.Versions) > 0 {
 		versions = make([]quic.VersionNumber, 0, 1)
@@ -229,7 +229,7 @@ func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config
 		DisablePathMTUDiscovery:          config.DisablePathMTUDiscovery,
 		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
 		Allow0RTT:                        nil,
-		EnableDatagrams:                  EnableDatagrams,
+		EnableDatagrams:                  enableDatagrams,
 		Tracer:                           nil,
 	}
 	return

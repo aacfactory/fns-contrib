@@ -7,11 +7,10 @@ import (
 	"github.com/aacfactory/afssl"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/http/http3"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns-contrib/transports/http3"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -33,7 +32,7 @@ func TestHttp3(t *testing.T) {
 		return
 	}
 	srvErr := make(chan error)
-	go func(srv service.Http, srvErr chan error) {
+	go func(srv transports.Transport, srvErr chan error) {
 		srvErr <- srv.ListenAndServe()
 	}(srv1, srvErr)
 	select {
@@ -50,24 +49,24 @@ func TestHttp3(t *testing.T) {
 		return
 	}
 	beg := time.Now()
-	status, header, body, getErr := client.Get(context.TODO(), "/hello", http.Header{})
+	resp, doErr := client.Do(context.TODO(), transports.NewUnsafeRequest(context.TODO(), transports.MethodGET, []byte("/hello")))
 	fmt.Println("cost:", time.Now().Sub(beg))
-	if getErr != nil {
+	if doErr != nil {
 		_ = srv1.Close()
-		t.Errorf("%+v", getErr)
+		t.Errorf("%+v", doErr)
 		return
 	}
 	client.Close()
 
-	fmt.Println(status)
-	fmt.Println(header)
-	fmt.Println(string(body))
+	fmt.Println(resp.Status)
+	fmt.Println(resp.Header)
+	fmt.Println(string(resp.Body))
 
 	_ = srv1.Close()
 
 }
 
-func instance(ca []byte, key []byte) (srv service.Http, err error) {
+func instance(ca []byte, key []byte) (srv transports.Transport, err error) {
 	srvTLS, cliTLS, tlsErr := afssl.SSC(ca, key)
 	if tlsErr != nil {
 		err = errors.Warning("http3: create ssl failed").WithCause(tlsErr)
@@ -80,17 +79,17 @@ func instance(ca []byte, key []byte) (srv service.Http, err error) {
 	}
 	srv = http3.Server()
 	options, _ := configures.NewJsonConfig([]byte{'{', '}'})
-	buildErr := srv.Build(service.HttpOptions{
+	buildErr := srv.Build(transports.Options{
 		Port:      18080,
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
+		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return
 		}),
-		Log:     log,
-		Options: options,
+		Log:    log,
+		Config: options,
 	})
 	if buildErr != nil {
 		err = buildErr
@@ -115,9 +114,14 @@ func TestSTD(t *testing.T) {
 	config := http3.Config{
 		EnableDatagrams:    false,
 		MaxHeaderBytes:     "",
+		MaxBodyBytes:       "",
 		AdditionalSettings: nil,
 		Quic:               nil,
 		Client:             nil,
+		Compatible: &http3.CompatibleConfig{
+			Name:    "fasthttp",
+			Options: nil,
+		},
 	}
 	options, encodeErr := json.Marshal(config)
 	if encodeErr != nil {
@@ -125,18 +129,18 @@ func TestSTD(t *testing.T) {
 		return
 	}
 	optionsConfig, _ := configures.NewJsonConfig(options)
-	srv := http3.Compatible(&service.FastHttp{})
-	buildErr := srv.Build(service.HttpOptions{
+	srv := http3.Server()
+	buildErr := srv.Build(transports.Options{
 		Port:      18080,
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
+		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return
 		}),
-		Log:     log,
-		Options: optionsConfig,
+		Log:    log,
+		Config: optionsConfig,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)
