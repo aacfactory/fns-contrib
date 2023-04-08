@@ -1,4 +1,4 @@
-module github.com/aacfactory/fns-contrib/transports/http2
+module github.com/aacfactory/fns-contrib/transports/fasthttp2
 
 go 1.20
 

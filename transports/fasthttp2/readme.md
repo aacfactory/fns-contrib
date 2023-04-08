@@ -2,16 +2,12 @@
 
 ## Install
 ```bash
-go get github.com/aacfactory/fns-contrib/http/http2
+go get github.com/aacfactory/fns-contrib/http/fasthttp2
 ```
 
 ## Usage
 Make sure tls is used.
-```go
-app := fns.New(
-    fns.Server(http2.Server()),
-)
-```
+
 ```yaml
 transport:
   name: "fasthttp2"
@@ -21,6 +17,6 @@ transport:
       ca: "{path of ca}"
       caKey: "{path of ca key}"
   options:
-    
+    maxRequestBodySize: "4MB" # see fasthttp for more
 ```
 

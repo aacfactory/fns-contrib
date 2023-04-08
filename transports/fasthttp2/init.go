@@ -1,4 +1,4 @@
-package http2
+package fasthttp2
 
 import "github.com/aacfactory/fns/service/transports"
 

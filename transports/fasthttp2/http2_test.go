@@ -1,4 +1,4 @@
-package http2_test
+package fasthttp2_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/aacfactory/afssl"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/transports/http2"
+	"github.com/aacfactory/fns-contrib/transports/fasthttp2"
 	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/logs"
 	"testing"
@@ -25,7 +25,7 @@ func TestHttp2(t *testing.T) {
 		t.Errorf("%+v", tlsErr)
 		return
 	}
-	srv := http2.Server()
+	srv := fasthttp2.Server()
 	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
 	buildErr := srv.Build(transports.Options{
 		Port:      18080,
@@ -89,7 +89,7 @@ func TestServer_ListenAndServe(t *testing.T) {
 		return
 	}
 	srvTLS.ClientAuth = tls.NoClientCert
-	srv := http2.Server()
+	srv := fasthttp2.Server()
 	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
 	buildErr := srv.Build(transports.Options{
 		Port:      18080,
