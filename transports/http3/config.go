@@ -10,13 +10,13 @@ import (
 )
 
 type Config struct {
-	EnableDatagrams    bool              `json:"enableDatagrams"`
-	MaxHeaderBytes     string            `json:"maxHeaderBytes"`
-	MaxBodyBytes       string            `json:"maxBodyBytes"`
-	AdditionalSettings map[uint64]uint64 `json:"additionalSettings"`
-	Quic               *QuicConfig       `json:"quic"`
-	Client             *ClientConfig     `json:"client"`
-	Compatible         *CompatibleConfig `json:"compatible"`
+	EnableDatagrams      bool              `json:"enableDatagrams"`
+	MaxRequestHeaderSize string            `json:"maxRequestHeaderSize"`
+	MaxRequestBodySize   string            `json:"maxRequestBodySize"`
+	AdditionalSettings   map[uint64]uint64 `json:"additionalSettings"`
+	Quic                 *QuicConfig       `json:"quic"`
+	Client               *ClientConfig     `json:"client"`
+	Compatible           *CompatibleConfig `json:"compatible"`
 }
 
 func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {
@@ -42,9 +42,9 @@ type CompatibleConfig struct {
 }
 
 type ClientConfig struct {
-	MaxConnsPerHost        int    `json:"maxConnsPerHost"`
-	MaxResponseHeaderBytes string `json:"maxResponseHeaderBytes"`
-	Timeout                string `json:"timeout"`
+	MaxConnsPerHost       int    `json:"maxConnsPerHost"`
+	MaxResponseHeaderSize string `json:"maxResponseHeaderSize"`
+	Timeout               string `json:"timeout"`
 }
 
 func (config *ClientConfig) MaxConnectionsPerHost() (n int) {
@@ -56,11 +56,11 @@ func (config *ClientConfig) MaxConnectionsPerHost() (n int) {
 }
 
 func (config *ClientConfig) MaxResponseHeaderByteSize() (n uint64, err error) {
-	maxResponseHeaderBytes := strings.TrimSpace(config.MaxResponseHeaderBytes)
-	if maxResponseHeaderBytes == "" {
-		maxResponseHeaderBytes = "4KB"
+	maxResponseHeaderSize := strings.TrimSpace(config.MaxResponseHeaderSize)
+	if maxResponseHeaderSize == "" {
+		maxResponseHeaderSize = "4KB"
 	}
-	n, err = bytex.ParseBytes(maxResponseHeaderBytes)
+	n, err = bytex.ParseBytes(maxResponseHeaderSize)
 	if err != nil {
 		err = errors.Warning("maxResponseHeaderBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 		return

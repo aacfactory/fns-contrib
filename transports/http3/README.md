@@ -20,14 +20,14 @@ transport:
       caKey: "{path of ca key}"
   options:
     enableDatagrams: true
-    maxHeaderBytes: "4K"
+    maxRequestHeaderSize: "4K"
     quic:
       handshakeIdleTimeout: "2s"
       maxIdleTimeout: "60s"
       keepAlivePeriod: "60s"
     client:
       maxConnsPerHost: 64
-      maxResponseHeaderBytes: "4K"
+      maxResponseHeaderSize: "4K"
       timeout: "2s"
 ```
 

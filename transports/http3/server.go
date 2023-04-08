@@ -46,24 +46,24 @@ func (srv *server) Build(options transports.Options) (err error) {
 		err = errors.Warning("http3: build failed").WithCause(decodeErr)
 		return
 	}
-	maxHeaderBytes := uint64(0)
-	if config.MaxHeaderBytes != "" {
-		maxHeaderBytes, err = bytex.ParseBytes(strings.TrimSpace(config.MaxHeaderBytes))
+	maxRequestHeaderSize := uint64(0)
+	if config.MaxRequestHeaderSize != "" {
+		maxRequestHeaderSize, err = bytex.ParseBytes(strings.TrimSpace(config.MaxRequestHeaderSize))
 		if err != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxHeaderBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxRequestHeaderSize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
 			return
 		}
 	}
-	maxBodyBytes := uint64(0)
-	if config.MaxBodyBytes != "" {
-		maxBodyBytes, err = bytex.ParseBytes(strings.TrimSpace(config.MaxBodyBytes))
+	maxRequestBodySize := uint64(0)
+	if config.MaxRequestBodySize != "" {
+		maxRequestBodySize, err = bytex.ParseBytes(strings.TrimSpace(config.MaxRequestBodySize))
 		if err != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxBodyBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxRequestBodySize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
 			return
 		}
 	}
-	if maxBodyBytes == 0 {
-		maxBodyBytes = 4096
+	if maxRequestBodySize == 0 {
+		maxRequestBodySize = 4 * bytex.MEGABYTE
 	}
 	quicConfig, quicConfigErr := config.QuicConfig()
 	if quicConfigErr != nil {
@@ -72,7 +72,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 	}
 
 	// server
-	handler := transports.HttpTransportHandlerAdaptor(options.Handler, int(maxBodyBytes))
+	handler := transports.HttpTransportHandlerAdaptor(options.Handler, int(maxRequestBodySize))
 	srv.quic = &http3.Server{
 		Addr:               fmt.Sprintf(":%d", options.Port),
 		Port:               options.Port,
@@ -80,7 +80,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 		QuicConfig:         quicConfig,
 		Handler:            handler,
 		EnableDatagrams:    config.EnableDatagrams,
-		MaxHeaderBytes:     int(maxHeaderBytes),
+		MaxHeaderBytes:     int(maxRequestHeaderSize),
 		AdditionalSettings: config.AdditionalSettings,
 		StreamHijacker:     nil,
 		UniStreamHijacker:  nil,
