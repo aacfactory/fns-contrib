@@ -11,13 +11,11 @@ require (
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/rings v1.1.2
 	github.com/quic-go/quic-go v0.33.0
+	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.1.0
 )
 
 require (
-	github.com/aacfactory/copier v1.1.0 // indirect
-	github.com/aacfactory/systems v0.2.0 // indirect
-	github.com/aacfactory/workers v1.8.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
@@ -42,9 +40,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.45.0 // indirect
-	go.uber.org/automaxprocs v1.5.2 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.8.0 // indirect
