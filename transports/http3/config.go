@@ -12,10 +12,11 @@ import (
 type Config struct {
 	EnableDatagrams    bool              `json:"enableDatagrams"`
 	MaxHeaderBytes     string            `json:"maxHeaderBytes"`
+	MaxBodyBytes       string            `json:"maxBodyBytes"`
 	AdditionalSettings map[uint64]uint64 `json:"additionalSettings"`
 	Quic               *QuicConfig       `json:"quic"`
 	Client             *ClientConfig     `json:"client"`
-	Compatible         json.RawMessage   `json:"compatible"`
+	Compatible         *CompatibleConfig `json:"compatible"`
 }
 
 func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {
@@ -33,6 +34,11 @@ func (config *Config) ClientConfig() (clientConfig *ClientConfig) {
 	}
 	clientConfig = config.Client
 	return
+}
+
+type CompatibleConfig struct {
+	Name    string          `json:"name"`
+	Options json.RawMessage `json:"options"`
 }
 
 type ClientConfig struct {
@@ -54,7 +60,7 @@ func (config *ClientConfig) MaxResponseHeaderByteSize() (n uint64, err error) {
 	if maxResponseHeaderBytes == "" {
 		maxResponseHeaderBytes = "4KB"
 	}
-	n, err = bytex.ToBytes(maxResponseHeaderBytes)
+	n, err = bytex.ParseBytes(maxResponseHeaderBytes)
 	if err != nil {
 		err = errors.Warning("maxResponseHeaderBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 		return
@@ -152,7 +158,7 @@ func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config
 	}
 	initialStreamReceiveWindow := uint64(0)
 	if config.InitialStreamReceiveWindow != "" {
-		initialStreamReceiveWindow, err = bytex.ToBytes(strings.TrimSpace(config.InitialStreamReceiveWindow))
+		initialStreamReceiveWindow, err = bytex.ParseBytes(strings.TrimSpace(config.InitialStreamReceiveWindow))
 		if err != nil {
 			err = errors.Warning("initialStreamReceiveWindow is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 			return
@@ -160,7 +166,7 @@ func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config
 	}
 	maxStreamReceiveWindow := uint64(0)
 	if config.MaxStreamReceiveWindow != "" {
-		maxStreamReceiveWindow, err = bytex.ToBytes(strings.TrimSpace(config.MaxStreamReceiveWindow))
+		maxStreamReceiveWindow, err = bytex.ParseBytes(strings.TrimSpace(config.MaxStreamReceiveWindow))
 		if err != nil {
 			err = errors.Warning("maxStreamReceiveWindow is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 			return
@@ -168,7 +174,7 @@ func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config
 	}
 	initialConnectionReceiveWindow := uint64(0)
 	if config.InitialConnectionReceiveWindow != "" {
-		initialConnectionReceiveWindow, err = bytex.ToBytes(strings.TrimSpace(config.InitialConnectionReceiveWindow))
+		initialConnectionReceiveWindow, err = bytex.ParseBytes(strings.TrimSpace(config.InitialConnectionReceiveWindow))
 		if err != nil {
 			err = errors.Warning("initialConnectionReceiveWindow is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 			return
@@ -176,7 +182,7 @@ func (config *QuicConfig) Convert(EnableDatagrams bool) (quicConfig *quic.Config
 	}
 	maxConnectionReceiveWindow := uint64(0)
 	if config.MaxConnectionReceiveWindow != "" {
-		maxConnectionReceiveWindow, err = bytex.ToBytes(strings.TrimSpace(config.MaxConnectionReceiveWindow))
+		maxConnectionReceiveWindow, err = bytex.ParseBytes(strings.TrimSpace(config.MaxConnectionReceiveWindow))
 		if err != nil {
 			err = errors.Warning("maxConnectionReceiveWindow is invalid").WithCause(err).WithMeta("hit", "format must be bytes")
 			return

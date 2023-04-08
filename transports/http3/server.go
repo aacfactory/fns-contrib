@@ -5,7 +5,7 @@ import (
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/quic-go/quic-go/http3"
@@ -17,19 +17,13 @@ const (
 	httpContentTypeJson = "application/json"
 )
 
-func Server() service.Http {
+func Server() transports.Transport {
 	return &server{}
-}
-
-func Compatible(compatible service.Http) service.Http {
-	return &server{
-		compatible: compatible,
-	}
 }
 
 type server struct {
 	log        logs.Logger
-	compatible service.Http
+	compatible transports.Transport
 	quic       *http3.Server
 	dialer     *Dialer
 }
@@ -39,7 +33,7 @@ func (srv *server) Name() (name string) {
 	return
 }
 
-func (srv *server) Build(options service.HttpOptions) (err error) {
+func (srv *server) Build(options transports.Options) (err error) {
 	srvTLS := options.ServerTLS
 	if srvTLS == nil {
 		err = errors.Warning("http3: build failed").WithCause(errors.Warning("tls is required"))
@@ -47,16 +41,24 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	srv.log = options.Log
 	config := Config{}
-	decodeErr := options.Options.As(&config)
+	decodeErr := options.Config.As(&config)
 	if decodeErr != nil {
 		err = errors.Warning("http3: build failed").WithCause(decodeErr)
 		return
 	}
 	maxHeaderBytes := uint64(0)
 	if config.MaxHeaderBytes != "" {
-		maxHeaderBytes, err = bytex.ToBytes(strings.TrimSpace(config.MaxHeaderBytes))
+		maxHeaderBytes, err = bytex.ParseBytes(strings.TrimSpace(config.MaxHeaderBytes))
 		if err != nil {
 			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxHeaderBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
+			return
+		}
+	}
+	maxBodyBytes := uint64(0)
+	if config.MaxBodyBytes != "" {
+		maxBodyBytes, err = bytex.ParseBytes(strings.TrimSpace(config.MaxBodyBytes))
+		if err != nil {
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxBodyBytes is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
 			return
 		}
 	}
@@ -65,8 +67,9 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 		err = errors.Warning("http3: build failed").WithCause(quicConfigErr)
 		return
 	}
+
 	// server
-	handler := options.Handler
+	handler := transports.HttpTransportHandlerAdaptor(options.Handler, int(maxBodyBytes))
 	srv.quic = &http3.Server{
 		Addr:               fmt.Sprintf(":%d", options.Port),
 		Port:               options.Port,
@@ -81,21 +84,28 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	}
 	// compatible
 	if srv.compatible != nil {
-		if config.Compatible == nil || !json.Validate(config.Compatible) {
-			config.Compatible = []byte{'{', '}'}
+		compatible, registered := transports.Registered(config.Compatible.Name)
+		if !registered {
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("compatible transport was not registered"))
+			return
 		}
-		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Compatible)
+		srv.compatible = compatible
+
+		if config.Compatible.Options == nil || !json.Validate(config.Compatible.Options) {
+			config.Compatible.Options = []byte{'{', '}'}
+		}
+		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Compatible.Options)
 		if compatibleConfigErr != nil {
 			err = errors.Warning("http3: build failed").WithCause(compatibleConfigErr)
 			return
 		}
-		compatibleOptions := service.HttpOptions{
+		compatibleOptions := transports.Options{
 			Port:      options.Port,
 			ServerTLS: options.ServerTLS,
 			ClientTLS: options.ClientTLS,
 			Handler:   newCompatibleHandler(srv.quic, options.Handler),
 			Log:       options.Log.With("compatible", srv.compatible.Name()),
-			Options:   compatibleConfig,
+			Config:    compatibleConfig,
 		}
 		buildCompatibleErr := srv.compatible.Build(compatibleOptions)
 		if buildCompatibleErr != nil {
@@ -113,7 +123,7 @@ func (srv *server) Build(options service.HttpOptions) (err error) {
 	return
 }
 
-func (srv *server) Dial(address string) (client service.HttpClient, err error) {
+func (srv *server) Dial(address string) (client transports.Client, err error) {
 	client, err = srv.dialer.Dial(address)
 	return
 }
@@ -129,7 +139,7 @@ func (srv *server) ListenAndServe() (err error) {
 	}
 	sErr := make(chan error)
 	qErr := make(chan error)
-	go func(compatible service.Http, sErr chan error) {
+	go func(compatible transports.Transport, sErr chan error) {
 		sErr <- compatible.ListenAndServe()
 	}(srv.compatible, sErr)
 	go func(quic *http3.Server, qErr chan error) {

@@ -2,20 +2,17 @@
 
 ## Install
 ```bash
-go get github.com/aacfactory/fns-contrib/http/http3
+go get github.com/aacfactory/fns-contrib/transports/http3
 ```
 
 ## Usage
 Make sure tls is used.
-```go
-app := fns.New(
-    fns.Server(http3.Server()),
-)
-```
 
 Setup config, see [quic](https://github.com/quic-go/quic-go) for more quic config detail. 
+
 ```yaml
-http:
+transport:
+  name: "http3"
   tls:
     kind: "SSC"
     options:
@@ -33,14 +30,12 @@ http:
       maxResponseHeaderBytes: "4K"
       timeout: "2s"
 ```
+
 Enable announce that this server supports HTTP/3.
-```go
-app := fns.New(
-    fns.Server(http3.Compatible(&service.FastHttp{})), // any other service.Http 
-)
-```
+
 ```yaml
-http:
+transport:
+  name: "http3"
   tls:
     kind: "SSC"
     options:
@@ -58,5 +53,7 @@ http:
       maxResponseHeaderBytes: "4K"
       timeout: "2s"
     compatible: # compatible http server config
-      foo: "bar" 
+      name: "fasthttp2" 
+      options:
+        foo: "bar"
 ```

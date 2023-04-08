@@ -3,7 +3,7 @@ package http3
 import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/rings"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
@@ -49,7 +49,7 @@ type Dialer struct {
 	clients                sync.Map
 }
 
-func (dialer *Dialer) Dial(address string) (client service.HttpClient, err error) {
+func (dialer *Dialer) Dial(address string) (client transports.Client, err error) {
 	cc, doErr, _ := dialer.group.Do(address, func() (clients interface{}, err error) {
 		hosted, has := dialer.clients.Load(address)
 		if has {
