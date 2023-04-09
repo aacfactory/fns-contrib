@@ -10,8 +10,8 @@ import (
 	"github.com/aacfactory/logs"
 	"github.com/dgrr/http2"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/prefork"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,10 +27,11 @@ func Server() transports.Transport {
 }
 
 type server struct {
-	log    logs.Logger
-	fast   *fasthttp.Server
-	ln     net.Listener
-	dialer *Dialer
+	log       logs.Logger
+	address   string
+	preforked bool
+	fast      *fasthttp.Server
+	dialer    *Dialer
 }
 
 func (srv *server) Name() (name string) {
@@ -40,17 +41,11 @@ func (srv *server) Name() (name string) {
 
 func (srv *server) Build(options transports.Options) (err error) {
 	srv.log = options.Log
+	srv.address = fmt.Sprintf(":%d", options.Port)
 	if options.ServerTLS == nil {
 		err = errors.Warning("http2: build failed").WithCause(errors.Warning("server tls config is required"))
 		return
 	}
-	// ln
-	ln, lnErr := net.Listen("tcp4", fmt.Sprintf(":%d", options.Port))
-	if lnErr != nil {
-		err = errors.Warning("http2: build failed").WithCause(lnErr)
-		return
-	}
-	srv.ln = ln
 	// opt
 	opt := transports.FastHttpTransportOptions{}
 	optErr := options.Config.As(&opt)
@@ -117,6 +112,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 		}
 	}
 	reduceMemoryUsage := opt.ReduceMemoryUsage
+	srv.preforked = opt.Prefork
 	// server
 	srv.fast = &fasthttp.Server{
 		Handler:                            transports.FastHttpTransportHandlerAdaptor(options.Handler),
@@ -157,7 +153,16 @@ func (srv *server) Dial(address string) (client transports.Client, err error) {
 }
 
 func (srv *server) ListenAndServe() (err error) {
-	err = srv.fast.ServeTLS(srv.ln, "", "")
+	if srv.preforked {
+		pf := prefork.New(srv.fast)
+		err = pf.ListenAndServeTLS(srv.address, "", "")
+		if err != nil {
+			err = errors.Warning("http2: perfork listen and serve failed").WithCause(err)
+			return
+		}
+		return
+	}
+	err = srv.fast.ListenAndServeTLS(srv.address, "", "")
 	if err != nil {
 		err = errors.Warning("http2: listen and serve failed").WithCause(err)
 		return
@@ -167,7 +172,7 @@ func (srv *server) ListenAndServe() (err error) {
 
 func (srv *server) Close() (err error) {
 	srv.dialer.Close()
-	err = srv.ln.Close()
+	err = srv.fast.Shutdown()
 	if err != nil {
 		err = errors.Warning("http2: close failed").WithCause(err)
 		return

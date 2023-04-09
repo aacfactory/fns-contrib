@@ -26,7 +26,8 @@ func TestHttp2(t *testing.T) {
 		return
 	}
 	srv := fasthttp2.Server()
-	opt, _ := configures.NewJsonConfig([]byte{'{', '}'})
+	opts := `{"prefork":false}`
+	opt, _ := configures.NewJsonConfig([]byte(opts))
 	buildErr := srv.Build(transports.Options{
 		Port:      18080,
 		ServerTLS: srvTLS,
@@ -71,7 +72,11 @@ func TestHttp2(t *testing.T) {
 	client.Close()
 
 	fmt.Println(resp.Status)
-	fmt.Println(resp.Header)
+	fmt.Println("-----")
+	for name, value := range resp.Header {
+		fmt.Println("header:", name, value)
+	}
+	fmt.Println("-----")
 	fmt.Println(string(resp.Body))
 
 	_ = srv.Close()
