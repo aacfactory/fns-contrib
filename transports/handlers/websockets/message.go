@@ -6,6 +6,30 @@ import (
 	"github.com/aacfactory/json"
 )
 
+func NewRequest(service string, fn string, payload interface{}) (r *Request, err error) {
+	if service == "" || fn == "" {
+		err = errors.Warning("websockets: new request failed").WithCause(errors.Warning("service and fn is required"))
+		return
+	}
+	var p []byte
+	if payload == nil {
+		p = []byte{'{', '}'}
+	} else {
+		p, err = json.Marshal(payload)
+		if err != nil {
+			err = errors.Warning("websockets: new request failed").WithCause(errors.Warning("encode payload failed").WithCause(err))
+			return
+		}
+	}
+	r = &Request{
+		Service: service,
+		Fn:      fn,
+		Header:  make(transports.Header),
+		Payload: p,
+	}
+	return
+}
+
 type Request struct {
 	Service string            `json:"service"`
 	Fn      string            `json:"fn"`
@@ -14,24 +38,10 @@ type Request struct {
 }
 
 func (request *Request) Validate() (err error) {
-	if request.Service == "" || request.Fn == "" || request.Header == nil || len(request.Header) == 0 {
+	if request.Service == "" || request.Fn == "" {
 		err = errors.Warning("websocket: invalid request")
 		return
 	}
-	if request.DeviceId() == "" {
-		err = errors.Warning("websocket: invalid request")
-		return
-	}
-	return
-}
-
-func (request *Request) DeviceId() (id string) {
-	request.Header.Get("X-Fns-Device-Id")
-	return
-}
-
-func (request *Request) DeviceIp() (id string) {
-	request.Header.Get("X-Fns-Device-Ip")
 	return
 }
 

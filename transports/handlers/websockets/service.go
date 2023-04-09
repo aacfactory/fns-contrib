@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/documents"
-	"github.com/fasthttp/websocket"
 	"sync"
 )
 

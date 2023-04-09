@@ -1,4 +1,4 @@
-package main
+package examples_test
 
 import (
 	"context"
@@ -6,14 +6,15 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns"
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/service"
-	"github.com/fasthttp/websocket"
 	"io"
 	"net/http"
+	"testing"
 	"time"
 )
 
-func main() {
+func TestWebsocket(t *testing.T) {
 	cancel, closed, serveErr := serve(context.Background())
 	if serveErr != nil {
 		fmt.Println(fmt.Sprintf("%+v", serveErr))
@@ -80,24 +81,29 @@ func echo() (err error) {
 		err = errors.Warning("fns: dial failed").WithCause(dialErr)
 		return
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 101 {
 		body, bodyErr := io.ReadAll(resp.Body)
 		if bodyErr != nil {
 			err = errors.Warning("fns: dial failed").WithCause(bodyErr)
 			return
 		}
-		cause := errors.Decode(body)
-		err = errors.Warning("fns: dial failed").WithCause(cause)
+		err = errors.Warning("fns: dial failed").WithCause(errors.Warning(string(body)).WithMeta("status", resp.Status))
 		return
 	}
 	defer conn.Close()
-	writeErr := conn.WriteJSON(HelloParam{
+	req, reqErr := websockets.NewRequest("echos", "hello", HelloParam{
 		World: time.Now().Format(time.RFC3339),
 	})
+	if reqErr != nil {
+		err = reqErr
+		return
+	}
+	writeErr := conn.WriteJSON(req)
 	if writeErr != nil {
 		err = errors.Warning("fns: write failed").WithCause(writeErr)
 		return
 	}
+	fmt.Println("client-write:", writeErr)
 	mt, p, readErr := conn.ReadMessage()
 	if readErr != nil {
 		err = errors.Warning("fns: read failed").WithCause(readErr)
@@ -122,6 +128,7 @@ func (svc *echoService) Build(options service.Options) (err error) {
 }
 
 func (svc *echoService) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
+	svc.Log().Info().Message(fmt.Sprintf("echos: %s", fn))
 	switch fn {
 	case "hello":
 		param := HelloParam{}
@@ -130,6 +137,7 @@ func (svc *echoService) Handle(ctx context.Context, fn string, argument service.
 			err = errors.BadRequest("fns: invalid param").WithCause(paramErr)
 			return
 		}
+		svc.Log().Info().Message(fmt.Sprintf("echo: %s", param.World))
 		v = HelloResult{
 			ConnId: websockets.ConnectionId(ctx),
 			World:  param.World,

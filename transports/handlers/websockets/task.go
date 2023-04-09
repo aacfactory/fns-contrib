@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/workers"
-	"github.com/fasthttp/websocket"
 	"github.com/valyala/bytebufferpool"
 	"io"
-	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -23,6 +22,8 @@ var (
 type Task struct {
 	*workers.AbstractLongTask
 	appId                 string
+	deviceId              string
+	deviceIp              string
 	conn                  *websocket.Conn
 	discovery             service.EndpointDiscovery
 	service               *Service
@@ -45,10 +46,12 @@ func (t *Task) Execute(ctx context.Context) {
 		if err == nil {
 			return
 		}
+		fmt.Println(fmt.Sprintf("panic: %+v", err))
 		_ = t.unmount(ctx, id)
 		t.Close()
 	}(ctx, t, id)
 	for {
+		fmt.Println("reading...")
 		if aborted, abortedCause := t.Aborted(); aborted {
 			cause := abortedCause.Error()
 			if len(cause) > 123 {
@@ -114,16 +117,6 @@ func (t *Task) Execute(ctx context.Context) {
 			}
 			continue
 		}
-		devIp := request.DeviceIp()
-		if devIp == "" {
-			if conn.RemoteAddr() != nil {
-				devIp = conn.RemoteAddr().String()
-				idx := strings.LastIndex(devIp, ":")
-				if idx > 0 {
-					devIp = devIp[0:idx]
-				}
-			}
-		}
 
 		fr := endpoint.Request(
 			ctx,
@@ -131,8 +124,8 @@ func (t *Task) Execute(ctx context.Context) {
 				ctx,
 				request.Service, request.Fn,
 				service.NewArgument(request.Payload),
-				service.WithDeviceId(request.DeviceId()),
-				service.WithDeviceIp(devIp),
+				service.WithDeviceId(t.deviceId),
+				service.WithDeviceIp(t.deviceIp),
 				service.WithRequestHeader(request.Header),
 				service.WithRequestId(uid.UID()),
 			),
@@ -157,6 +150,7 @@ func (t *Task) Execute(ctx context.Context) {
 			break
 		}
 	}
+	fmt.Println("closed.....")
 	_ = conn.Close()
 	_ = t.unmount(ctx, id)
 	t.Close()

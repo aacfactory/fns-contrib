@@ -1,30 +1,21 @@
 package websockets
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/transports"
-	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/aacfactory/workers"
-	"github.com/fasthttp/websocket"
-	"net/http"
 	"time"
 )
 
 const (
-	handleName            = "websockets"
-	httpContentType       = "Content-Type"
-	httpContentTypeJson   = "application/json"
-	httpConnectionHeader  = "Connection"
-	httpConnectionUpgrade = "upgrade"
-	httpUpgradeHeader     = "Upgrade"
-	httpUpgradeWebsocket  = "websocket"
+	handleName = "websockets"
 )
 
 func Websocket(subs ...SubProtocolHandler) (handler service.TransportHandler) {
@@ -61,6 +52,7 @@ type websocketHandler struct {
 	readTimeout           time.Duration
 	writeTimeout          time.Duration
 	maxRequestMessageSize int64
+	originCheckFunc       func(r *transports.Request) bool
 }
 
 func (handler *websocketHandler) Name() (name string) {
@@ -135,23 +127,24 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 		maxRequestMessageSize = uint64(4096)
 	}
 	handler.maxRequestMessageSize = int64(maxRequestMessageSize)
+
+	originCheckFn, originCheckFnErr := config.OriginCheckPolicy.Build()
+	if originCheckFnErr != nil {
+		err = errors.Warning("websocket: build failed").WithCause(originCheckFnErr)
+		return
+	}
+
 	handler.upgrader = &websocket.Upgrader{
 		HandshakeTimeout: handshakeTimeout,
 		ReadBufferSize:   int(readBufferSize),
 		WriteBufferSize:  int(writeBufferSize),
 		WriteBufferPool:  nil,
 		Subprotocols:     nil,
-		Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
-			failed := errors.Warning("websocket: handle failed").WithCause(reason)
-			p, _ := json.Marshal(failed)
-			w.WriteHeader(status)
-			w.Header().Set(httpContentType, httpContentTypeJson)
-			_, _ = w.Write(p)
+		Error: func(w transports.ResponseWriter, r *transports.Request, status int, reason error) {
+			w.Failed(errors.Warning("websocket: handle failed").WithCause(reason))
 			return
 		},
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
+		CheckOrigin:       originCheckFn,
 		EnableCompression: config.EnableCompression,
 	}
 
@@ -195,40 +188,59 @@ func (handler *websocketHandler) Accept(request *transports.Request) (ok bool) {
 	if !request.IsGet() {
 		return
 	}
-	connectionHeader := request.Header().Get(httpConnectionHeader)
-	ok = bytes.Contains(bytex.FromString(connectionHeader), bytex.FromString(httpConnectionUpgrade))
-	if !ok {
-		return
-	}
-	upgradeHeader := request.Header().Get(httpUpgradeHeader)
-	ok = bytes.Contains(bytex.FromString(upgradeHeader), bytex.FromString(httpUpgradeWebsocket))
-	if !ok {
+	ok = websocket.IsWebSocketUpgrade(request)
+	return
+}
+
+func (handler *websocketHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
+	upgradeErr := handler.upgrader.Upgrade(writer, request, handler.handleConn)
+	if upgradeErr != nil {
+		writer.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
 		return
 	}
 	return
 }
 
-func (handler *websocketHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
-	r, rErr := transports.ConvertRequestToHttpRequest(request)
-	if rErr != nil {
-		writer.Failed(errors.Warning("websocket: handle failed").WithCause(rErr))
-		return
-	}
-	w := transports.ConvertResponseWriterToHttpResponseWriter(writer)
-	conn, upgradeErr := handler.upgrader.Upgrade(w, r, nil)
-	if upgradeErr != nil {
-		writer.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
-		return
-	}
+func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket.Conn, header transports.Header) {
+	deviceId := header.Get("X-Fns-Device-Id")
+	deviceIp := header.Get("X-Fns-Device-Ip")
 	conn.SetPingHandler(nil)
 	conn.SetPongHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
 	})
-	protocol := r.Header.Get("Sec-Websocket-Protocol")
+	protocol := header.Get("Sec-Websocket-Protocol")
 	if protocol == "" {
-		dispatched := handler.workers.Dispatch(context.TODO(), &Task{
+		task := &Task{
 			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
 			appId:                 handler.appId,
+			deviceId:              deviceId,
+			deviceIp:              deviceIp,
+			conn:                  conn,
+			discovery:             handler.discovery,
+			service:               handler.service,
+			readTimeout:           handler.readTimeout,
+			writeTimeout:          handler.writeTimeout,
+			maxRequestMessageSize: handler.maxRequestMessageSize,
+		}
+		task.Execute(ctx)
+	}
+	return
+}
+
+func (handler *websocketHandler) handleConn1(ctx context.Context, conn *websocket.Conn, header transports.Header) {
+	deviceId := header.Get("X-Fns-Device-Id")
+	deviceIp := header.Get("X-Fns-Device-Ip")
+	conn.SetPingHandler(nil)
+	conn.SetPongHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
+	})
+	protocol := header.Get("Sec-Websocket-Protocol")
+	if protocol == "" {
+		dispatched := handler.workers.Dispatch(ctx, &Task{
+			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
+			appId:                 handler.appId,
+			deviceId:              deviceId,
+			deviceIp:              deviceIp,
 			conn:                  conn,
 			discovery:             handler.discovery,
 			service:               handler.service,
@@ -245,20 +257,23 @@ func (handler *websocketHandler) Handle(writer transports.ResponseWriter, reques
 	sub, has := handler.subs[protocol]
 	if !has {
 		_ = conn.Close()
-		writer.Failed(errors.Warning("websocket: handler of Sec-Websocket-Protocol was not found").WithMeta("Sec-Websocket-Protocol", protocol))
+		if handler.log.WarnEnabled() {
+			handler.log.Warn().Message(fmt.Sprintf("%+v", errors.Warning("websocket: handler of Sec-Websocket-Protocol was not found").WithMeta("Sec-Websocket-Protocol", protocol)))
+		}
 		return
 	}
-	dispatched := handler.workers.Dispatch(context.TODO(), &SubProtocolHandlerTask{
+	dispatched := handler.workers.Dispatch(ctx, &SubProtocolHandlerTask{
 		handler: sub,
 		conn: &WebsocketConnection{
-			conn,
+			Conn:     conn,
+			deviceId: deviceId,
+			deviceIp: deviceIp,
 		},
 	})
 	if !dispatched {
 		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "no more connection worker"), time.Now().Add(2*time.Second))
 		_ = conn.Close()
 	}
-	return
 }
 
 func (handler *websocketHandler) Services() (services []service.Service) {

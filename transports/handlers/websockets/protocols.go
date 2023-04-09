@@ -3,10 +3,10 @@ package websockets
 import (
 	"context"
 	"github.com/aacfactory/configures"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
-	"github.com/fasthttp/websocket"
 	"io"
 	"net"
 	"time"
@@ -49,7 +49,6 @@ type Connection interface {
 	SetPingHandler(h func(appData string) error)
 	PongHandler() func(appData string) error
 	SetPongHandler(h func(appData string) error)
-	UnderlyingConn() net.Conn
 	EnableWriteCompression(enable bool)
 	SetCompressionLevel(level int) error
 	Subprotocol() (protocol string)
@@ -60,6 +59,16 @@ type Connection interface {
 
 type WebsocketConnection struct {
 	*websocket.Conn
+	deviceId string
+	deviceIp string
+}
+
+func (conn *WebsocketConnection) DeviceId() string {
+	return conn.deviceId
+}
+
+func (conn *WebsocketConnection) DeviceIp() string {
+	return conn.deviceIp
 }
 
 func (conn *WebsocketConnection) ReadMessage() (messageType MessageType, p []byte, err error) {

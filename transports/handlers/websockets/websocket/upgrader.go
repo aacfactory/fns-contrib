@@ -2,12 +2,12 @@ package websocket
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/transports"
-	"github.com/savsgio/gotils/strconv"
-	"github.com/valyala/fasthttp"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,7 +32,7 @@ type HandshakeError struct {
 
 func (e HandshakeError) Error() string { return e.message }
 
-type Handler func(conn *Conn)
+type Handler func(ctx context.Context, conn *Conn, header transports.Header)
 
 type Upgrader struct {
 	HandshakeTimeout  time.Duration
@@ -89,23 +89,23 @@ func (u *Upgrader) isCompressionEnable(r *transports.Request) bool {
 
 func (u *Upgrader) Upgrade(w transports.ResponseWriter, r *transports.Request, handler Handler) error {
 	if !r.IsGet() {
-		return u.responseError(w, r, fasthttp.StatusMethodNotAllowed, fmt.Sprintf("%s request method is not GET", badHandshake))
+		return u.responseError(w, r, http.StatusMethodNotAllowed, fmt.Sprintf("%s request method is not GET", badHandshake))
 	}
 
 	if !tokenContainsValue(r.Header().Get("Connection"), "Upgrade") {
-		return u.responseError(w, r, fasthttp.StatusBadRequest, fmt.Sprintf("%s 'upgrade' token not found in 'Connection' header", badHandshake))
+		return u.responseError(w, r, http.StatusBadRequest, fmt.Sprintf("%s 'upgrade' token not found in 'Connection' header", badHandshake))
 	}
 
 	if !tokenContainsValue(r.Header().Get("Upgrade"), "Websocket") {
-		return u.responseError(w, r, fasthttp.StatusBadRequest, fmt.Sprintf("%s 'websocket' token not found in 'Upgrade' header", badHandshake))
+		return u.responseError(w, r, http.StatusBadRequest, fmt.Sprintf("%s 'websocket' token not found in 'Upgrade' header", badHandshake))
 	}
 
 	if !tokenContainsValue(r.Header().Get("Sec-Websocket-Version"), "13") {
-		return u.responseError(w, r, fasthttp.StatusBadRequest, "websocket: unsupported version: 13 not found in 'Sec-Websocket-Version' header")
+		return u.responseError(w, r, http.StatusBadRequest, "websocket: unsupported version: 13 not found in 'Sec-Websocket-Version' header")
 	}
 
 	if len(w.Header().Get("Sec-Websocket-Extensions")) > 0 {
-		return u.responseError(w, r, fasthttp.StatusInternalServerError, "websocket: application specific 'Sec-WebSocket-Extensions' headers are unsupported")
+		return u.responseError(w, r, http.StatusInternalServerError, "websocket: application specific 'Sec-WebSocket-Extensions' headers are unsupported")
 	}
 
 	checkOrigin := u.CheckOrigin
@@ -113,12 +113,12 @@ func (u *Upgrader) Upgrade(w transports.ResponseWriter, r *transports.Request, h
 		checkOrigin = checkSameOrigin
 	}
 	if !checkOrigin(r) {
-		return u.responseError(w, r, fasthttp.StatusForbidden, "websocket: request origin not allowed by FastHTTPUpgrader.CheckOrigin")
+		return u.responseError(w, r, http.StatusForbidden, "websocket: request origin not allowed by FastHTTPUpgrader.CheckOrigin")
 	}
 
 	challengeKey := r.Header().Get("Sec-Websocket-Key")
 	if len(challengeKey) == 0 {
-		return u.responseError(w, r, fasthttp.StatusBadRequest, "websocket: not a websocket handshake: `Sec-WebSocket-Key' header is missing or blank")
+		return u.responseError(w, r, http.StatusBadRequest, "websocket: not a websocket handshake: `Sec-WebSocket-Key' header is missing or blank")
 	}
 
 	subprotocol := u.selectSubprotocol(w, r)
@@ -139,14 +139,16 @@ func (u *Upgrader) Upgrade(w transports.ResponseWriter, r *transports.Request, h
 		writeBuf := poolWriteBuffer.Get().([]byte)
 		c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, nil, writeBuf)
 		if subprotocol != nil {
-			c.subprotocol = strconv.B2S(subprotocol)
+			c.subprotocol = bytex.ToString(subprotocol)
 		}
 		if compress {
 			c.newCompressionWriter = compressNoContextTakeover
 			c.newDecompressionReader = decompressNoContextTakeover
 		}
 		_ = netConn.SetDeadline(time.Time{})
-		handler(c)
+		rt := service.GetRuntime(r.Context())
+		ctx := rt.SetIntoContext(context.TODO())
+		handler(ctx, c, r.Header())
 		writeBuf = writeBuf[0:0]
 		poolWriteBuffer.Put(writeBuf)
 	})

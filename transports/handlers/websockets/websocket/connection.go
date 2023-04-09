@@ -3,7 +3,9 @@ package websocket
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/json"
 	"io"
 	"net"
 	"strconv"
@@ -142,6 +144,7 @@ func (c *Conn) read(n int) ([]byte, error) {
 	if c == nil {
 		return nil, ErrNilConn
 	}
+	fmt.Println("conn: read->", c.br != nil)
 	p, err := c.br.Peek(n)
 	if err == io.EOF {
 		err = errUnexpectedEOF
@@ -684,4 +687,17 @@ func (c *Conn) SetCompressionLevel(level int) error {
 	}
 	c.compressionLevel = level
 	return nil
+}
+
+func (c *Conn) WriteJSON(v interface{}) error {
+	w, err := c.NextWriter(TextMessage)
+	if err != nil {
+		return err
+	}
+	p, encodeErr := json.Marshal(v)
+	if encodeErr != nil {
+		return errors.Warning("websocket: write json failed").WithCause(encodeErr)
+	}
+	_, _ = w.Write(p)
+	return w.Close()
 }
