@@ -133,7 +133,7 @@ func (t *Task) Execute(ctx context.Context) {
 				service.NewArgument(request.Payload),
 				service.WithDeviceId(request.DeviceId()),
 				service.WithDeviceIp(devIp),
-				service.WithHttpRequestHeader(request.Header),
+				service.WithRequestHeader(request.Header),
 				service.WithRequestId(uid.UID()),
 			),
 		)

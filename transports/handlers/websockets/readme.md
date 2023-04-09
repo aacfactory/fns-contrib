@@ -2,14 +2,14 @@
 
 ## Install
 ```bash
-go get github.com/aacfactory/fns-contrib/http/handlers/websockets
+go get github.com/aacfactory/fns-contrib/transports/handlers/websockets
 ```
 
 ## Usage
 Make sure tls is used.
 ```go
 app := fns.New(
-    fns.Handlers(websockets.Websocket()),
+    fns.Transport(fns.TransportOption().Append(websockets.Websocket()))
 )
 ```
 Setup config
@@ -26,12 +26,7 @@ http:
         enableCompression: false
         maxRequestMessageSize: "4KB"
 ```
-Enable sub protocol handler, such as MQTT.
-```go
-app := fns.New(
-    fns.Handlers(websockets.Websocket(subs...)),
-)
-```
+
 Get connection id in function
 ```go
 connId := websockets.ConnectionId(ctx)

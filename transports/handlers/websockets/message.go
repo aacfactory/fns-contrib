@@ -2,15 +2,15 @@ package websockets
 
 import (
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
-	"net/http"
 )
 
 type Request struct {
-	Service string          `json:"service"`
-	Fn      string          `json:"fn"`
-	Header  http.Header     `json:"header"`
-	Payload json.RawMessage `json:"payload"`
+	Service string            `json:"service"`
+	Fn      string            `json:"fn"`
+	Header  transports.Header `json:"header"`
+	Payload json.RawMessage   `json:"payload"`
 }
 
 func (request *Request) Validate() (err error) {

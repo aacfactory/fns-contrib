@@ -1,12 +1,14 @@
 package websockets
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/aacfactory/workers"
@@ -16,12 +18,16 @@ import (
 )
 
 const (
-	handleName          = "websockets"
-	httpContentType     = "Content-Type"
-	httpContentTypeJson = "application/json"
+	handleName            = "websockets"
+	httpContentType       = "Content-Type"
+	httpContentTypeJson   = "application/json"
+	httpConnectionHeader  = "Connection"
+	httpConnectionUpgrade = "upgrade"
+	httpUpgradeHeader     = "Upgrade"
+	httpUpgradeWebsocket  = "websocket"
 )
 
-func Websocket(subs ...SubProtocolHandler) (handler service.HttpHandler) {
+func Websocket(subs ...SubProtocolHandler) (handler service.TransportHandler) {
 	wh := &websocketHandler{
 		log:     nil,
 		service: newService(),
@@ -62,7 +68,7 @@ func (handler *websocketHandler) Name() (name string) {
 	return
 }
 
-func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err error) {
+func (handler *websocketHandler) Build(options service.TransportHandlerOptions) (err error) {
 	handler.appId = options.AppId
 	handler.log = options.Log
 
@@ -93,7 +99,7 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 	handler.readTimeout = readTimeout
 	readBufferSize := uint64(0)
 	if config.ReadBufferSize != "" {
-		readBufferSize, err = bytex.ToBytes(config.ReadBufferSize)
+		readBufferSize, err = bytex.ParseBytes(config.ReadBufferSize)
 		if err != nil {
 			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("readBufferSize format must be byte"))
 			return
@@ -112,7 +118,7 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 	handler.writeTimeout = writeTimeout
 	writeBufferSize := uint64(0)
 	if config.WriteBufferSize != "" {
-		writeBufferSize, err = bytex.ToBytes(config.WriteBufferSize)
+		writeBufferSize, err = bytex.ParseBytes(config.WriteBufferSize)
 		if err != nil {
 			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("writeBufferSize format must be byte"))
 			return
@@ -120,7 +126,7 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 	}
 	maxRequestMessageSize := uint64(0)
 	if config.MaxRequestMessageSize != "" {
-		maxRequestMessageSize, err = bytex.ToBytes(config.MaxRequestMessageSize)
+		maxRequestMessageSize, err = bytex.ParseBytes(config.MaxRequestMessageSize)
 		if err != nil {
 			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("maxRequestMessageSize format must be byte"))
 			return
@@ -185,29 +191,40 @@ func (handler *websocketHandler) Build(options *service.HttpHandlerOptions) (err
 	return
 }
 
-func (handler *websocketHandler) Accept(request *http.Request) (ok bool) {
-	if request.Method != http.MethodGet {
+func (handler *websocketHandler) Accept(request *transports.Request) (ok bool) {
+	if !request.IsGet() {
 		return
 	}
-	ok = websocket.IsWebSocketUpgrade(request)
+	connectionHeader := request.Header().Get(httpConnectionHeader)
+	ok = bytes.Contains(bytex.FromString(connectionHeader), bytex.FromString(httpConnectionUpgrade))
+	if !ok {
+		return
+	}
+	upgradeHeader := request.Header().Get(httpUpgradeHeader)
+	ok = bytes.Contains(bytex.FromString(upgradeHeader), bytex.FromString(httpUpgradeWebsocket))
+	if !ok {
+		return
+	}
 	return
 }
 
-func (handler *websocketHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	conn, upgradeErr := handler.upgrader.Upgrade(writer, request, nil)
+func (handler *websocketHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
+	r, rErr := transports.ConvertRequestToHttpRequest(request)
+	if rErr != nil {
+		writer.Failed(errors.Warning("websocket: handle failed").WithCause(rErr))
+		return
+	}
+	w := transports.ConvertResponseWriterToHttpResponseWriter(writer)
+	conn, upgradeErr := handler.upgrader.Upgrade(w, r, nil)
 	if upgradeErr != nil {
-		failed := errors.Warning("websocket: upgrade failed").WithCause(upgradeErr)
-		p, _ := json.Marshal(failed)
-		writer.WriteHeader(failed.Code())
-		writer.Header().Set(httpContentType, httpContentTypeJson)
-		_, _ = writer.Write(p)
+		writer.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
 		return
 	}
 	conn.SetPingHandler(nil)
 	conn.SetPongHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
 	})
-	protocol := request.Header.Get("Sec-Websocket-Protocol")
+	protocol := r.Header.Get("Sec-Websocket-Protocol")
 	if protocol == "" {
 		dispatched := handler.workers.Dispatch(context.TODO(), &Task{
 			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
@@ -228,11 +245,7 @@ func (handler *websocketHandler) ServeHTTP(writer http.ResponseWriter, request *
 	sub, has := handler.subs[protocol]
 	if !has {
 		_ = conn.Close()
-		failed := errors.Warning("websocket: handler of Sec-Websocket-Protocol was not found").WithMeta("Sec-Websocket-Protocol", protocol)
-		p, _ := json.Marshal(failed)
-		writer.WriteHeader(failed.Code())
-		writer.Header().Set(httpContentType, httpContentTypeJson)
-		_, _ = writer.Write(p)
+		writer.Failed(errors.Warning("websocket: handler of Sec-Websocket-Protocol was not found").WithMeta("Sec-Websocket-Protocol", protocol))
 		return
 	}
 	dispatched := handler.workers.Dispatch(context.TODO(), &SubProtocolHandlerTask{
@@ -262,14 +275,18 @@ func (handler *websocketHandler) Services() (services []service.Service) {
 	return
 }
 
-func (handler *websocketHandler) Close() {
+func (handler *websocketHandler) Close() (err error) {
+	errs := make(errors.Errors, 0, 1)
 	if handler.subs != nil && len(handler.subs) > 0 {
 		for name, sub := range handler.subs {
 			subErr := sub.Close()
-			if handler.log.ErrorEnabled() {
-				handler.log.Error().Cause(errors.Warning("websocket: close sub protocol handler failed").WithCause(subErr).WithMeta("sub", name)).Message("websocket: close failed")
+			if subErr != nil {
+				errs.Append(errors.Warning("websocket: close sub protocol handler failed").WithCause(subErr).WithMeta("sub", name))
 			}
 		}
+	}
+	if len(errs) > 0 {
+		err = errors.Warning("websocket: close failed").WithCause(errs.Error())
 	}
 	return
 }
