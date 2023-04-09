@@ -1,11 +1,11 @@
 package profiling
 
 import (
+	"bytes"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
-	"net/http"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/service/transports"
 	"net/http/pprof"
-	"strings"
 )
 
 const (
@@ -20,7 +20,7 @@ type Config struct {
 	Enable bool `json:"enable"`
 }
 
-func Handler() (h service.HttpHandler) {
+func Handler() (h transports.Handler) {
 	h = &pprofHandler{}
 	return
 }
@@ -34,7 +34,7 @@ func (h *pprofHandler) Name() (name string) {
 	return
 }
 
-func (h *pprofHandler) Build(options *service.HttpHandlerOptions) (err error) {
+func (h *pprofHandler) Build(options *transports.Options) (err error) {
 	config := &Config{}
 	configErr := options.Config.As(config)
 	if configErr != nil {
@@ -45,31 +45,37 @@ func (h *pprofHandler) Build(options *service.HttpHandlerOptions) (err error) {
 	return
 }
 
-func (h *pprofHandler) Accept(request *http.Request) (ok bool) {
-	ok = strings.Index(request.URL.Path, httpPprofPath) == 0
+func (h *pprofHandler) Accept(request *transports.Request) (ok bool) {
+	ok = bytes.Index(request.Path(), bytex.FromString(httpPprofPath)) == 0
 	return
 }
 
-func (h *pprofHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (h *pprofHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
 	if !h.enable {
-		writer.WriteHeader(http.StatusServiceUnavailable)
+		writer.Failed(errors.Warning("fns: disabled").WithMeta("handler", h.Name()))
 		return
 	}
-	switch request.URL.Path {
+	r, rErr := transports.ConvertRequestToHttpRequest(request)
+	if rErr != nil {
+		writer.Failed(errors.Warning("fns: handle failed").WithCause(rErr).WithMeta("handler", h.Name()))
+		return
+	}
+	w := transports.ConvertResponseWriterToHttpResponseWriter(writer)
+	switch bytex.ToString(request.Path()) {
 	case httpPprofPath:
-		pprof.Index(writer, request)
+		pprof.Index(w, r)
 		break
 	case httpPprofCmdlinePath:
-		pprof.Cmdline(writer, request)
+		pprof.Cmdline(w, r)
 		break
 	case httpPprofProfilePath:
-		pprof.Profile(writer, request)
+		pprof.Profile(w, r)
 		break
 	case httpPprofSymbolPath:
-		pprof.Symbol(writer, request)
+		pprof.Symbol(w, r)
 		break
 	case httpPprofTracePath:
-		pprof.Trace(writer, request)
+		pprof.Trace(w, r)
 		break
 	default:
 		break
