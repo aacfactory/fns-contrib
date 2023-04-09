@@ -1,0 +1,7 @@
+log:
+  level: "debug"
+  formatter: "console"
+  color: true
+transport:
+  name: "fasthttp"
+  port: 18080
