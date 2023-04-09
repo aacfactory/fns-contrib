@@ -9,7 +9,6 @@ require (
 	github.com/aacfactory/fns v1.0.19
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
-	github.com/aacfactory/rings v1.1.2
 	github.com/dgrr/http2 v0.3.5
 	github.com/valyala/fasthttp v1.45.0
 	golang.org/x/sync v0.1.0
@@ -17,7 +16,6 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/goccy/go-yaml v1.10.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

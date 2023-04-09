@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/service/transports"
-	"github.com/aacfactory/rings"
 	"golang.org/x/sync/singleflight"
 	"sync"
 )
@@ -15,26 +14,20 @@ func NewDialer(cliTLS *tls.Config, config *transports.FastHttpClientOptions) (di
 		err = errors.Warning("create dialer failed").WithCause(optsErr)
 		return
 	}
-	maxConnsPerHost := opts.MaxConns
-	if maxConnsPerHost < 1 {
-		maxConnsPerHost = 64
-	}
 	dialer = &Dialer{
-		maxConnsPerHost: maxConnsPerHost,
-		config:          cliTLS,
-		clientOpt:       opts,
-		group:           &singleflight.Group{},
-		clients:         sync.Map{},
+		config:    cliTLS,
+		clientOpt: opts,
+		group:     &singleflight.Group{},
+		clients:   sync.Map{},
 	}
 	return
 }
 
 type Dialer struct {
-	maxConnsPerHost int
-	config          *tls.Config
-	clientOpt       *ClientOptions
-	group           *singleflight.Group
-	clients         sync.Map
+	config    *tls.Config
+	clientOpt *ClientOptions
+	group     *singleflight.Group
+	clients   sync.Map
 }
 
 func (dialer *Dialer) Dial(address string) (client transports.Client, err error) {
@@ -44,7 +37,7 @@ func (dialer *Dialer) Dial(address string) (client transports.Client, err error)
 			clients = hosted
 			return
 		}
-		hosted, err = dialer.createClients(address)
+		hosted, err = dialer.createClient(address)
 		if err != nil {
 			return
 		}
@@ -56,33 +49,23 @@ func (dialer *Dialer) Dial(address string) (client transports.Client, err error)
 		err = errors.Warning("http2: dial failed").WithMeta("address", address).WithCause(doErr)
 		return
 	}
-	clients := cc.(*rings.Ring[*Client])
-	client = clients.Next()
+	client = cc.(*Client)
 	return
 }
 
-func (dialer *Dialer) createClients(address string) (clients *rings.Ring[*Client], err error) {
-	endpoints := make([]*Client, 0, 1)
-	for i := 0; i < dialer.maxConnsPerHost; i++ {
-		client, clientErr := NewClient(address, dialer.config, dialer.clientOpt)
-		if clientErr != nil {
-			err = clientErr
-			return
-		}
-		endpoints = append(endpoints, client)
+func (dialer *Dialer) createClient(address string) (client *Client, err error) {
+	client, err = NewClient(address, dialer.config, dialer.clientOpt)
+	if err != nil {
+		return
 	}
-	clients = rings.New(address, endpoints...)
 	return
 }
 
 func (dialer *Dialer) Close() {
 	dialer.clients.Range(func(key, value any) bool {
-		clients, ok := value.(*rings.Ring[*Client])
+		client, ok := value.(*Client)
 		if ok {
-			n := clients.Len()
-			for i := 0; i < n; i++ {
-				clients.Next().Close()
-			}
+			client.Close()
 		}
 		return true
 	})
