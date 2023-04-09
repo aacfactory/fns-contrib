@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/transports"
 	"net/http/pprof"
 )
@@ -20,7 +21,7 @@ type Config struct {
 	Enable bool `json:"enable"`
 }
 
-func Handler() (h transports.Handler) {
+func Handler() (h service.TransportHandler) {
 	h = &pprofHandler{}
 	return
 }
@@ -34,7 +35,7 @@ func (h *pprofHandler) Name() (name string) {
 	return
 }
 
-func (h *pprofHandler) Build(options *transports.Options) (err error) {
+func (h *pprofHandler) Build(options service.TransportHandlerOptions) (err error) {
 	config := &Config{}
 	configErr := options.Config.As(config)
 	if configErr != nil {
@@ -83,5 +84,6 @@ func (h *pprofHandler) Handle(writer transports.ResponseWriter, request *transpo
 	return
 }
 
-func (h *pprofHandler) Close() {
+func (h *pprofHandler) Close() (err error) {
+	return
 }
