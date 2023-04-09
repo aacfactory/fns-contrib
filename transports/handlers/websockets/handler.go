@@ -12,14 +12,19 @@ import (
 	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
-	"github.com/aacfactory/workers"
 	"io"
+	"net/http"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
 
 const (
 	handleName = "websockets"
+)
+
+var (
+	ErrTooMayConnections = errors.New(http.StatusTooManyRequests, "***TOO MANY CONNECTIONS***", "fns: too may connections, try again later.")
 )
 
 func Websocket(subs ...SubProtocolHandler) (handler service.TransportHandler) {
@@ -52,10 +57,11 @@ type websocketHandler struct {
 	service               *Service
 	discovery             service.EndpointDiscovery
 	subs                  map[string]SubProtocolHandler
-	workers               workers.Workers
 	readTimeout           time.Duration
 	writeTimeout          time.Duration
 	maxRequestMessageSize int64
+	maxConnections        int64
+	connections           *atomic.Int64
 	originCheckFunc       func(r *transports.Request) bool
 }
 
@@ -180,11 +186,11 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 	handler.discovery = options.Discovery
 
 	maxConnections := config.MaxConnections
-	if maxConnections == 0 {
+	if maxConnections < 1 {
 		maxConnections = 10240
 	}
-	handler.workers = workers.New(workers.MaxWorkers(maxConnections))
-
+	handler.maxConnections = int64(maxConnections)
+	handler.connections = new(atomic.Int64)
 	return
 }
 
@@ -197,8 +203,15 @@ func (handler *websocketHandler) Accept(request *transports.Request) (ok bool) {
 }
 
 func (handler *websocketHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
+	handler.connections.Add(1)
+	if handler.connections.Load() > handler.maxConnections {
+		handler.connections.Add(-1)
+		writer.Failed(ErrTooMayConnections)
+		return
+	}
 	upgradeErr := handler.upgrader.Upgrade(writer, request, handler.handleConn)
 	if upgradeErr != nil {
+		handler.connections.Add(-1)
 		writer.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
 		return
 	}
@@ -206,6 +219,7 @@ func (handler *websocketHandler) Handle(writer transports.ResponseWriter, reques
 }
 
 func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket.Conn, header transports.Header) {
+	defer handler.connections.Add(-1)
 	conn.SetPingHandler(nil)
 	conn.SetPongHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
