@@ -1,6 +1,6 @@
 package mqtt
 
-import "github.com/aacfactory/fns-contrib/http/handlers/websockets"
+import "github.com/aacfactory/fns-contrib/transports/handlers/websockets"
 
 func NewConnection(conn websockets.Connection) *Connection {
 	return &Connection{

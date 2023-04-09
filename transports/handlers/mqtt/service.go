@@ -5,6 +5,7 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/documents"
 	"sync"
 )
 
@@ -34,7 +35,7 @@ func (svc *Service) Components() (components map[string]service.Component) {
 	return
 }
 
-func (svc *Service) Document() (doc service.Document) {
+func (svc *Service) Document() (doc *documents.Document) {
 	return
 }
 

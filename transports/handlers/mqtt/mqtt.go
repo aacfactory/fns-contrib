@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/http/handlers/websockets"
+	"github.com/aacfactory/fns-contrib/transports/handlers/websockets"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
