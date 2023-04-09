@@ -84,6 +84,7 @@ func instance(ca []byte, key []byte) (srv transports.Transport, err error) {
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
 		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			fmt.Println("proto:", string(request.Proto()))
 			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return
@@ -112,7 +113,7 @@ func TestSTD(t *testing.T) {
 	}
 	srvTLS.ClientAuth = tls.NoClientCert
 	config := http3.Config{
-		EnableDatagrams:      false,
+		EnableDatagrams:      true,
 		MaxRequestBodySize:   "",
 		MaxRequestHeaderSize: "",
 		AdditionalSettings:   nil,
@@ -135,6 +136,8 @@ func TestSTD(t *testing.T) {
 		ServerTLS: srvTLS,
 		ClientTLS: cliTLS,
 		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
+			fmt.Println(request.Header())
+			fmt.Println(string(request.Proto()))
 			writer.SetStatus(200)
 			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
 			return

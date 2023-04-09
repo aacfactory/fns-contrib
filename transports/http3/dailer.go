@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/service/transports"
-	"github.com/aacfactory/rings"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/sync/singleflight"
@@ -24,7 +23,6 @@ func NewDialer(cliTLS *tls.Config, clientConfig *ClientConfig, enableDatagrams b
 		return
 	}
 	dialer = &Dialer{
-		maxConnsPerHost:        clientConfig.MaxConnectionsPerHost(),
 		config:                 cliTLS,
 		quicConfig:             quicConfig,
 		enableDatagrams:        enableDatagrams,
@@ -38,7 +36,6 @@ func NewDialer(cliTLS *tls.Config, clientConfig *ClientConfig, enableDatagrams b
 }
 
 type Dialer struct {
-	maxConnsPerHost        int
 	config                 *tls.Config
 	quicConfig             *quic.Config
 	enableDatagrams        bool
@@ -50,55 +47,46 @@ type Dialer struct {
 }
 
 func (dialer *Dialer) Dial(address string) (client transports.Client, err error) {
-	cc, doErr, _ := dialer.group.Do(address, func() (clients interface{}, err error) {
+	cc, doErr, _ := dialer.group.Do(address, func() (client interface{}, err error) {
 		hosted, has := dialer.clients.Load(address)
 		if has {
-			clients = hosted
+			client = hosted
 			return
 		}
-		hosted = dialer.createClients(address)
+		hosted = dialer.createClient(address)
 		dialer.clients.Store(address, hosted)
-		clients = hosted
+		client = hosted
 		return
 	})
 	if doErr != nil {
 		err = errors.Warning("http3: dial failed").WithMeta("address", address).WithCause(doErr)
 		return
 	}
-	clients := cc.(*rings.Ring[*Client])
-	client = clients.Next()
+	client = cc.(*Client)
 	return
 }
 
-func (dialer *Dialer) createClients(address string) (clients *rings.Ring[*Client]) {
-	endpoints := make([]*Client, 0, 1)
-	for i := 0; i < dialer.maxConnsPerHost; i++ {
-		roundTripper := &http3.RoundTripper{
-			DisableCompression:     false,
-			TLSClientConfig:        dialer.config,
-			QuicConfig:             dialer.quicConfig,
-			EnableDatagrams:        dialer.enableDatagrams,
-			AdditionalSettings:     dialer.additionalSettings,
-			StreamHijacker:         nil,
-			UniStreamHijacker:      nil,
-			Dial:                   nil,
-			MaxResponseHeaderBytes: dialer.maxResponseHeaderBytes,
-		}
-		client := NewClient(address, roundTripper, dialer.timeout)
-		endpoints = append(endpoints, client)
+func (dialer *Dialer) createClient(address string) (client *Client) {
+	roundTripper := &http3.RoundTripper{
+		DisableCompression:     false,
+		TLSClientConfig:        dialer.config,
+		QuicConfig:             dialer.quicConfig,
+		EnableDatagrams:        dialer.enableDatagrams,
+		AdditionalSettings:     dialer.additionalSettings,
+		StreamHijacker:         nil,
+		UniStreamHijacker:      nil,
+		Dial:                   nil,
+		MaxResponseHeaderBytes: dialer.maxResponseHeaderBytes,
 	}
-	clients = rings.New(address, endpoints...)
+	client = NewClient(address, roundTripper, dialer.timeout)
 	return
 }
 
 func (dialer *Dialer) Close() {
 	dialer.clients.Range(func(key, value any) bool {
-		clients, ok := value.(*rings.Ring[*Client])
+		client, ok := value.(*Client)
 		if ok {
-			n := clients.Len()
-			for i := 0; i < n; i++ {
-				clients.Next().Close()
-			}
+			client.Close()
 		}
 		return true
 	})
