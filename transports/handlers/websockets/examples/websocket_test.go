@@ -23,7 +23,7 @@ func TestWebsocket(t *testing.T) {
 	defer func(cancel context.CancelFunc, closed chan struct{}) {
 		cancel()
 		<-closed
-		fmt.Println("closed")
+		fmt.Println("websocket: closed")
 	}(cancel, closed)
 	echoErr := echo()
 	if echoErr != nil {
@@ -76,7 +76,8 @@ func serve(ctx context.Context) (cancel context.CancelFunc, closed chan struct{}
 func echo() (err error) {
 	header := http.Header{}
 	header.Set("X-Fns-Device-Id", "clientId")
-	conn, resp, dialErr := websocket.DefaultDialer.Dial("ws://127.0.0.1:18080", header)
+	dialer := websocket.DefaultDialer
+	conn, resp, dialErr := dialer.Dial("ws://127.0.0.1:18080", header)
 	if dialErr != nil {
 		err = errors.Warning("fns: dial failed").WithCause(dialErr)
 		return
@@ -91,25 +92,28 @@ func echo() (err error) {
 		return
 	}
 	defer conn.Close()
-	req, reqErr := websockets.NewRequest("echos", "hello", HelloParam{
-		World: time.Now().Format(time.RFC3339),
-	})
-	if reqErr != nil {
-		err = reqErr
-		return
+	for i := 0; i < 5; i++ {
+		req, reqErr := websockets.NewRequest("echos", "hello", HelloParam{
+			World: time.Now().Format(time.RFC3339),
+		})
+		if reqErr != nil {
+			err = reqErr
+			return
+		}
+		writeErr := conn.WriteJSON(req)
+		if writeErr != nil {
+			err = errors.Warning("fns: write failed").WithCause(writeErr)
+			return
+		}
+		mt, p, readErr := conn.ReadMessage()
+		if readErr != nil {
+			err = errors.Warning("fns: read failed").WithCause(readErr)
+			return
+		}
+		fmt.Println("client-read:", mt, string(p))
+		time.Sleep(1 * time.Second)
 	}
-	writeErr := conn.WriteJSON(req)
-	if writeErr != nil {
-		err = errors.Warning("fns: write failed").WithCause(writeErr)
-		return
-	}
-	fmt.Println("client-write:", writeErr)
-	mt, p, readErr := conn.ReadMessage()
-	if readErr != nil {
-		err = errors.Warning("fns: read failed").WithCause(readErr)
-		return
-	}
-	fmt.Println("client-read:", mt, string(p))
+
 	return
 }
 
@@ -124,6 +128,7 @@ type echoService struct {
 }
 
 func (svc *echoService) Build(options service.Options) (err error) {
+	err = svc.Abstract.Build(options)
 	return
 }
 

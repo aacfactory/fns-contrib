@@ -6,6 +6,7 @@ import (
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/service/transports"
 	"github.com/aacfactory/logs"
 	"io"
 	"net"
@@ -59,8 +60,13 @@ type Connection interface {
 
 type WebsocketConnection struct {
 	*websocket.Conn
+	header   transports.Header
 	deviceId string
 	deviceIp string
+}
+
+func (conn *WebsocketConnection) Header() transports.Header {
+	return conn.header
 }
 
 func (conn *WebsocketConnection) DeviceId() string {

@@ -7,11 +7,15 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"github.com/aacfactory/workers"
+	"io"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -202,78 +206,206 @@ func (handler *websocketHandler) Handle(writer transports.ResponseWriter, reques
 }
 
 func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket.Conn, header transports.Header) {
-	deviceId := header.Get("X-Fns-Device-Id")
-	deviceIp := header.Get("X-Fns-Device-Ip")
 	conn.SetPingHandler(nil)
 	conn.SetPongHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
 	})
 	protocol := header.Get("Sec-Websocket-Protocol")
-	if protocol == "" {
-		task := &Task{
-			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
-			appId:                 handler.appId,
-			deviceId:              deviceId,
-			deviceIp:              deviceIp,
-			conn:                  conn,
-			discovery:             handler.discovery,
-			service:               handler.service,
-			readTimeout:           handler.readTimeout,
-			writeTimeout:          handler.writeTimeout,
-			maxRequestMessageSize: handler.maxRequestMessageSize,
+	if protocol != "" {
+		sub, has := handler.subs[protocol]
+		if !has {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseProtocolError, "sub protocol is unsupported"), time.Now().Add(2*time.Second))
+			_ = conn.Close()
+			return
 		}
-		task.Execute(ctx)
+		sub.Handle(ctx, &WebsocketConnection{
+			Conn:     conn,
+			header:   header,
+			deviceId: header.Get("X-Fns-Device-Id"),
+			deviceIp: header.Get("X-Fns-Device-Ip"),
+		})
+		return
+	}
+	handler.handle(ctx, conn, header)
+	return
+}
+
+func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Conn, header transports.Header) {
+	deviceId := header.Get("X-Fns-Device-Id")
+	deviceIp := header.Get("X-Fns-Device-Ip")
+	id, mountErr := handler.mount(ctx, conn, deviceId)
+	if mountErr != nil {
+		failed := Failed(mountErr)
+		_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
+		_ = conn.Close()
+		return
+	}
+	defer func(ctx context.Context, handler *websocketHandler, id string, deviceId string) {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+		err, isErr := recovered.(error)
+		if isErr {
+			if handler.log.WarnEnabled() {
+				handler.log.Warn().Cause(errors.Map(err)).Message("websockets: panic at handling")
+			}
+		}
+		_ = handler.unmount(ctx, id, deviceId)
+	}(ctx, handler, id, deviceId)
+	for {
+		// read
+		mt, reader, nextReadErr := conn.NextReader()
+		if nextReadErr != nil {
+			switch nextReadErr.(type) {
+			case *websocket.CloseError:
+				break
+			default:
+				if nextReadErr != io.EOF {
+					cause := nextReadErr.Error()
+					if len(cause) > 123 {
+						cause = cause[0:123]
+					}
+					_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseAbnormalClosure, cause), time.Now().Add(2*time.Second))
+				} else {
+					_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(2*time.Second))
+				}
+			}
+			break
+		}
+		if mt == websocket.BinaryMessage {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "binary message was unsupported"), time.Now().Add(2*time.Second))
+			break
+		}
+		message, readErr := readMessage(reader, handler.maxRequestMessageSize)
+		if readErr != nil {
+			if readErr == ErrRequestMessageIsTooLarge {
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseMessageTooBig, ErrRequestMessageIsTooLarge.Error()), time.Now().Add(2*time.Second))
+			} else {
+				cause := readErr.Error()
+				if len(cause) > 123 {
+					cause = cause[0:123]
+				}
+				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseAbnormalClosure, cause), time.Now().Add(2*time.Second))
+			}
+			break
+		}
+		if !utf8.Valid(message) {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is not utf-8"), time.Now().Add(2*time.Second))
+			break
+		}
+		// parse request
+		request := Request{}
+		decodeErr := json.Unmarshal(message, &request)
+		if decodeErr != nil {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "decode message failed"), time.Now().Add(2*time.Second))
+			break
+		}
+		validateErr := request.Validate()
+		if validateErr != nil {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is invalid"), time.Now().Add(2*time.Second))
+			break
+		}
+		rvs, rvsErr := request.Versions()
+		if rvsErr != nil {
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "parse X-Fns-Request-Version failed"), time.Now().Add(2*time.Second))
+			break
+		}
+		ctx = context.WithValue(ctx, connectionId, id)
+		endpoint, has := handler.discovery.Get(ctx, request.Service)
+		if !has {
+			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(errors.NotFound("websockets: service was not found").WithMeta("service", request.Service)).Encode())
+			if writeErr != nil {
+				break
+			}
+			continue
+		}
+
+		result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(
+			ctx,
+			request.Service, request.Fn,
+			service.NewArgument(request.Payload),
+			service.WithRequestHeader(request.Header),
+			service.WithDeviceId(deviceId),
+			service.WithDeviceIp(deviceIp),
+			service.WithRequestId(uid.UID()),
+			service.WithRequestVersions(rvs),
+		))
+		if requestErr != nil {
+			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(requestErr).Encode())
+			if writeErr != nil {
+				break
+			}
+			continue
+		}
+		if !result.Exist() {
+			writeErr := conn.WriteMessage(websocket.TextMessage, []byte{'n', 'u', 'l', 'l'})
+			if writeErr != nil {
+				break
+			}
+			continue
+		}
+		writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(result).Encode())
+		if writeErr != nil {
+			break
+		}
+	}
+	_ = handler.unmount(ctx, id, deviceId)
+}
+
+func (handler *websocketHandler) mount(ctx context.Context, conn *websocket.Conn, deviceId string) (id string, err error) {
+	id = handler.service.mount(conn)
+	endpoint, has := handler.discovery.Get(ctx, handleName)
+	if !has {
+		handler.service.unmount(id)
+		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
+		return
+	}
+	fr := endpoint.Request(
+		ctx,
+		service.NewRequest(
+			ctx,
+			handleName, mountFn,
+			service.NewArgument(&mountParam{
+				ConnectionId: id,
+				AppId:        handler.appId,
+			}),
+			service.WithDeviceId(deviceId),
+			service.WithRequestId(uid.UID()),
+			service.WithInternalRequest(),
+		),
+	)
+	_, resultErr := fr.Get(ctx)
+	if resultErr != nil {
+		handler.service.unmount(id)
+		err = errors.Warning("websockets: mount connection failed").WithCause(resultErr)
+		return
 	}
 	return
 }
 
-func (handler *websocketHandler) handleConn1(ctx context.Context, conn *websocket.Conn, header transports.Header) {
-	deviceId := header.Get("X-Fns-Device-Id")
-	deviceIp := header.Get("X-Fns-Device-Ip")
-	conn.SetPingHandler(nil)
-	conn.SetPongHandler(func(appData string) error {
-		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
-	})
-	protocol := header.Get("Sec-Websocket-Protocol")
-	if protocol == "" {
-		dispatched := handler.workers.Dispatch(ctx, &Task{
-			AbstractLongTask:      workers.NewAbstractLongTask(handler.readTimeout),
-			appId:                 handler.appId,
-			deviceId:              deviceId,
-			deviceIp:              deviceIp,
-			conn:                  conn,
-			discovery:             handler.discovery,
-			service:               handler.service,
-			readTimeout:           handler.readTimeout,
-			writeTimeout:          handler.writeTimeout,
-			maxRequestMessageSize: handler.maxRequestMessageSize,
-		})
-		if !dispatched {
-			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "no more connection worker"), time.Now().Add(2*time.Second))
-			_ = conn.Close()
-		}
-		return
-	}
-	sub, has := handler.subs[protocol]
+func (handler *websocketHandler) unmount(ctx context.Context, id string, deviceId string) (err error) {
+	handler.service.unmount(id)
+	endpoint, has := handler.discovery.Get(ctx, handleName)
 	if !has {
-		_ = conn.Close()
-		if handler.log.WarnEnabled() {
-			handler.log.Warn().Message(fmt.Sprintf("%+v", errors.Warning("websocket: handler of Sec-Websocket-Protocol was not found").WithMeta("Sec-Websocket-Protocol", protocol)))
-		}
+		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
 		return
 	}
-	dispatched := handler.workers.Dispatch(ctx, &SubProtocolHandlerTask{
-		handler: sub,
-		conn: &WebsocketConnection{
-			Conn:     conn,
-			deviceId: deviceId,
-			deviceIp: deviceIp,
-		},
-	})
-	if !dispatched {
-		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "no more connection worker"), time.Now().Add(2*time.Second))
-		_ = conn.Close()
-	}
+	fr := endpoint.Request(
+		ctx,
+		service.NewRequest(
+			ctx,
+			handleName, unmountFn,
+			service.NewArgument(&unmountParam{
+				ConnectionId: id,
+			}),
+			service.WithDeviceId(deviceId),
+			service.WithRequestId(uid.UID()),
+			service.WithInternalRequest(),
+		),
+	)
+	_, _ = fr.Get(ctx)
+	return
 }
 
 func (handler *websocketHandler) Services() (services []service.Service) {

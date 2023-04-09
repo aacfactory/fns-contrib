@@ -3,7 +3,6 @@ package websocket
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/json"
 	"io"
@@ -144,7 +143,6 @@ func (c *Conn) read(n int) ([]byte, error) {
 	if c == nil {
 		return nil, ErrNilConn
 	}
-	fmt.Println("conn: read->", c.br != nil)
 	p, err := c.br.Peek(n)
 	if err == io.EOF {
 		err = errUnexpectedEOF

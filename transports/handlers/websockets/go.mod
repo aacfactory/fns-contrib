@@ -2,14 +2,11 @@ module github.com/aacfactory/fns-contrib/transports/handlers/websockets
 
 go 1.20
 
-replace (
-	github.com/aacfactory/fns v1.0.16 => ../../../../fns
-)
-
 require (
+	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.16
+	github.com/aacfactory/fns v1.0.18
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/workers v1.8.1
@@ -18,7 +15,6 @@ require (
 )
 
 require (
-	github.com/aacfactory/afssl v1.6.0 // indirect
 	github.com/aacfactory/copier v1.1.0 // indirect
 	github.com/aacfactory/rings v1.1.2 // indirect
 	github.com/aacfactory/systems v0.2.0 // indirect
