@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -124,20 +125,29 @@ func (u *Upgrader) Upgrade(w transports.ResponseWriter, r *transports.Request, h
 	subprotocol := u.selectSubprotocol(w, r)
 	compress := u.isCompressionEnable(r)
 
-	w.SetStatus(http.StatusSwitchingProtocols)
-	w.Header().Set("Upgrade", "websocket")
-	w.Header().Set("Connection", "Upgrade")
-	w.Header().Set("Sec-WebSocket-Accept", computeAcceptKeyBytes(bytex.FromString(challengeKey)))
-	if compress {
-		w.Header().Set("Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover")
-	}
-	if subprotocol != nil {
-		w.Header().Set("Sec-WebSocket-Protocol", bytex.ToString(subprotocol))
-	}
+	async, hijackErr := w.Hijack(func(netConn net.Conn, rw *bufio.ReadWriter) (err error) {
+		var br *bufio.Reader
+		var writeBuf []byte
+		if rw != nil {
+			if rw.Reader.Buffered() > 0 {
+				_ = netConn.Close()
+				err = errors.Warning("websocket: client sent data before handshake is complete")
+				return
+			}
+			if u.ReadBufferSize == 0 && bufioReaderSize(netConn, rw.Reader) > 256 {
+				// Reuse hijacked buffered reader as connection reader.
+				br = rw.Reader
+			}
+			buf := bufioWriterBuffer(netConn, rw.Writer)
+			if u.WriteBufferPool == nil && u.WriteBufferSize == 0 && len(buf) >= maxFrameHeaderSize+256 {
+				// Reuse hijacked write buffer as connection buffer.
+				writeBuf = buf
+			}
+		} else {
+			writeBuf = poolWriteBuffer.Get().([]byte)
+		}
 
-	hijackErr := w.Hijack(func(netConn net.Conn) {
-		writeBuf := poolWriteBuffer.Get().([]byte)
-		c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, nil, writeBuf)
+		c := newConn(netConn, true, u.ReadBufferSize, u.WriteBufferSize, u.WriteBufferPool, br, writeBuf)
 		if subprotocol != nil {
 			c.subprotocol = bytex.ToString(subprotocol)
 		}
@@ -145,18 +155,80 @@ func (u *Upgrader) Upgrade(w transports.ResponseWriter, r *transports.Request, h
 			c.newCompressionWriter = compressNoContextTakeover
 			c.newDecompressionReader = decompressNoContextTakeover
 		}
-		_ = netConn.SetDeadline(time.Time{})
+		if rw != nil {
+			p := writeBuf
+			if len(c.writeBuf) > len(p) {
+				p = c.writeBuf
+			}
+			p = p[:0]
+			p = append(p, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: "...)
+			p = append(p, computeAcceptKey(challengeKey)...)
+			p = append(p, "\r\n"...)
+			if c.subprotocol != "" {
+				p = append(p, "Sec-WebSocket-Protocol: "...)
+				p = append(p, c.subprotocol...)
+				p = append(p, "\r\n"...)
+			}
+			if compress {
+				p = append(p, "Sec-WebSocket-Extensions: permessage-deflate; server_no_context_takeover; client_no_context_takeover\r\n"...)
+			}
+			for k, vs := range w.Header() {
+				if k == "Sec-Websocket-Protocol" {
+					continue
+				}
+				for _, v := range vs {
+					p = append(p, k...)
+					p = append(p, ": "...)
+					for i := 0; i < len(v); i++ {
+						b := v[i]
+						if b <= 31 {
+							// prevent response splitting.
+							b = ' '
+						}
+						p = append(p, b)
+					}
+					p = append(p, "\r\n"...)
+				}
+			}
+			p = append(p, "\r\n"...)
+			if u.HandshakeTimeout > 0 {
+				_ = netConn.SetWriteDeadline(time.Now().Add(u.HandshakeTimeout))
+			}
+			if _, err = netConn.Write(p); err != nil {
+				_ = netConn.Close()
+				return
+			}
+			if u.HandshakeTimeout > 0 {
+				_ = netConn.SetWriteDeadline(time.Time{})
+			}
+		} else {
+			_ = netConn.SetDeadline(time.Time{})
+		}
+
 		rt := service.GetRuntime(r.Context())
 		ctx := rt.SetIntoContext(context.TODO())
 		handler(ctx, c, r.Header())
-		writeBuf = writeBuf[0:0]
-		poolWriteBuffer.Put(writeBuf)
+		if rw == nil {
+			writeBuf = writeBuf[0:0]
+			poolWriteBuffer.Put(writeBuf)
+		}
+		return
 	})
-
 	if hijackErr != nil {
 		return errors.Warning("websocket: upgrade failed").WithCause(hijackErr)
 	}
-
+	if async {
+		w.SetStatus(http.StatusSwitchingProtocols)
+		w.Header().Set("Upgrade", "websocket")
+		w.Header().Set("Connection", "Upgrade")
+		w.Header().Set("Sec-WebSocket-Accept", computeAcceptKeyBytes(bytex.FromString(challengeKey)))
+		if compress {
+			w.Header().Set("Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover")
+		}
+		if subprotocol != nil {
+			w.Header().Set("Sec-WebSocket-Protocol", bytex.ToString(subprotocol))
+		}
+	}
 	return nil
 }
 

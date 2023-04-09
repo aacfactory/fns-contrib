@@ -6,8 +6,8 @@ github.com/aacfactory/copier v1.1.0 h1:7bdVGV/HrGOMmUpvuLU27YEob4HIAct7sohmApFAU
 github.com/aacfactory/copier v1.1.0/go.mod h1:E8z/tTEuclAnCvzOnIZdVAqMyVWemSjkxs/SYZZ8JuU=
 github.com/aacfactory/errors v1.13.4 h1:VwIvgfhr3izBtMei+dYWQdN4EIXFbwapW7SLgaQeL+A=
 github.com/aacfactory/errors v1.13.4/go.mod h1:WUwbURzkHAraSqTIy6QGhq/W7TL+piTYHzdi/bbpk5s=
-github.com/aacfactory/fns v1.0.18 h1:g5y8/v4yDx3fGbILn9A5ja/fmjqZcKY3UUtu5u6epfA=
-github.com/aacfactory/fns v1.0.18/go.mod h1:VwnczBs1czS+oFLd5+Rrct6Ixob81o5NlG5ahEpcicE=
+github.com/aacfactory/fns v1.0.20 h1:nlbCLEUJxPi0iqL9gg14oHM6Vn5R/yeVnV7TsnT6KpI=
+github.com/aacfactory/fns v1.0.20/go.mod h1:VwnczBs1czS+oFLd5+Rrct6Ixob81o5NlG5ahEpcicE=
 github.com/aacfactory/json v1.13.1 h1:+uI7QmZfat7GHVsLi4r5SQXDMensQwrENG+OJrYrDoA=
 github.com/aacfactory/json v1.13.1/go.mod h1:oZGqyovXYyra6EZPzkdNg2txE5iB8vBunpCTEXwuCpI=
 github.com/aacfactory/logs v1.13.0 h1:7FOV8ne311Z6X1Acr63Bcp4S/ywxLb/qZmANJV17zj8=
@@ -99,6 +99,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.45.0 h1:zPkkzpIn8tdHZUrVa6PzYd0i5verqiPSkgTd3bSUcpA=
 github.com/valyala/fasthttp v1.45.0/go.mod h1:k2zXd82h/7UZc3VOdJ2WaUqt1uZ/XpXAfE9i+HBC3lA=
+github.com/valyala/tcplisten v1.0.0 h1:rBHj/Xf+E1tRGZyWIWwJDiRY0zc1Js+CV5DqwacVSA8=
+github.com/valyala/tcplisten v1.0.0/go.mod h1:T0xQ8SeCZGxckz9qRXTfG43PvQ/mcWh7FwZEA7Ioqkc=
 go.uber.org/automaxprocs v1.5.2 h1:2LxUOGiR3O6tw8ui5sZa2LAaHnsviZdVOUZw4fvbnME=
 go.uber.org/automaxprocs v1.5.2/go.mod h1:eRbA25aqJrxAbsLO0xy5jVwPt7FQnRgjW+efnwa1WM0=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=

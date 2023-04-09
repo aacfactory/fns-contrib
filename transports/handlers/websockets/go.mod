@@ -3,21 +3,21 @@ module github.com/aacfactory/fns-contrib/transports/handlers/websockets
 go 1.20
 
 require (
-	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.18
+	github.com/aacfactory/fns v1.0.20
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
-	github.com/aacfactory/workers v1.8.1
 	github.com/klauspost/compress v1.16.3
 	github.com/valyala/bytebufferpool v1.0.0
 )
 
 require (
+	github.com/aacfactory/afssl v1.6.0 // indirect
 	github.com/aacfactory/copier v1.1.0 // indirect
 	github.com/aacfactory/rings v1.1.2 // indirect
 	github.com/aacfactory/systems v0.2.0 // indirect
+	github.com/aacfactory/workers v1.8.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
@@ -38,6 +38,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/fasthttp v1.45.0 // indirect
+	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/automaxprocs v1.5.2 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect

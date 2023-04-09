@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
@@ -147,4 +148,33 @@ headers:
 		}
 	}
 	return result
+}
+
+func bufioReaderSize(originalReader io.Reader, br *bufio.Reader) int {
+	// This code assumes that peek on a reset reader returns
+	// bufio.Reader.buf[:0].
+	// TODO: Use bufio.Reader.Size() after Go 1.10
+	br.Reset(originalReader)
+	if p, err := br.Peek(0); err == nil {
+		return cap(p)
+	}
+	return 0
+}
+
+type writeHook struct {
+	p []byte
+}
+
+func (wh *writeHook) Write(p []byte) (int, error) {
+	wh.p = p
+	return len(p), nil
+}
+
+func bufioWriterBuffer(originalWriter io.Writer, bw *bufio.Writer) []byte {
+	var wh writeHook
+	bw.Reset(&wh)
+	bw.WriteByte(0)
+	bw.Flush()
+	bw.Reset(originalWriter)
+	return wh.p[:cap(wh.p)]
 }
