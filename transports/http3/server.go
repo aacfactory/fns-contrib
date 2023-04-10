@@ -80,19 +80,19 @@ func (srv *server) Build(options transports.Options) (err error) {
 		StreamHijacker:     nil,
 		UniStreamHijacker:  nil,
 	}
-	// compatible
-	if config.Compatible != nil {
-		compatible, registered := transports.Registered(config.Compatible.Name)
+	// alternative
+	if config.Alternative != nil {
+		compatible, registered := transports.Registered(config.Alternative.Name)
 		if !registered {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("compatible transport was not registered"))
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("alternative transport was not registered"))
 			return
 		}
 		srv.compatible = compatible
 
-		if config.Compatible.Options == nil || !json.Validate(config.Compatible.Options) {
-			config.Compatible.Options = []byte{'{', '}'}
+		if config.Alternative.Options == nil || !json.Validate(config.Alternative.Options) {
+			config.Alternative.Options = []byte{'{', '}'}
 		}
-		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Compatible.Options)
+		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Alternative.Options)
 		if compatibleConfigErr != nil {
 			err = errors.Warning("http3: build failed").WithCause(compatibleConfigErr)
 			return
@@ -101,13 +101,13 @@ func (srv *server) Build(options transports.Options) (err error) {
 			Port:      options.Port,
 			ServerTLS: options.ServerTLS,
 			ClientTLS: options.ClientTLS,
-			Handler:   newCompatibleHandler(srv.quic, options.Handler),
+			Handler:   newAlternativeHandler(srv.quic, options.Handler),
 			Log:       options.Log.With("compatible", srv.compatible.Name()),
 			Config:    compatibleConfig,
 		}
 		buildCompatibleErr := srv.compatible.Build(compatibleOptions)
 		if buildCompatibleErr != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("build compatible failed")).WithCause(buildCompatibleErr)
+			err = errors.Warning("http3: build failed").WithCause(errors.Warning("build alternative failed")).WithCause(buildCompatibleErr)
 			return
 		}
 	}

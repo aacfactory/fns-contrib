@@ -10,13 +10,13 @@ import (
 )
 
 type Config struct {
-	EnableDatagrams      bool              `json:"enableDatagrams"`
-	MaxRequestHeaderSize string            `json:"maxRequestHeaderSize"`
-	MaxRequestBodySize   string            `json:"maxRequestBodySize"`
-	AdditionalSettings   map[uint64]uint64 `json:"additionalSettings"`
-	Quic                 *QuicConfig       `json:"quic"`
-	Client               *ClientConfig     `json:"client"`
-	Compatible           *CompatibleConfig `json:"compatible"`
+	EnableDatagrams      bool               `json:"enableDatagrams"`
+	MaxRequestHeaderSize string             `json:"maxRequestHeaderSize"`
+	MaxRequestBodySize   string             `json:"maxRequestBodySize"`
+	AdditionalSettings   map[uint64]uint64  `json:"additionalSettings"`
+	Quic                 *QuicConfig        `json:"quic"`
+	Client               *ClientConfig      `json:"client"`
+	Alternative          *AlternativeConfig `json:"alternative"`
 }
 
 func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {
@@ -36,7 +36,7 @@ func (config *Config) ClientConfig() (clientConfig *ClientConfig) {
 	return
 }
 
-type CompatibleConfig struct {
+type AlternativeConfig struct {
 	Name    string          `json:"name"`
 	Options json.RawMessage `json:"options"`
 }

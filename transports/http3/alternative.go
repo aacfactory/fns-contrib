@@ -7,25 +7,25 @@ import (
 	"net/http"
 )
 
-func newCompatibleHandler(quic *http3.Server, handler transports.Handler) *compatibleHandler {
-	return &compatibleHandler{
+func newAlternativeHandler(quic *http3.Server, handler transports.Handler) *alternativeHandler {
+	return &alternativeHandler{
 		handler: handler,
 		quic:    quic,
 	}
 }
 
-type compatibleHandler struct {
+type alternativeHandler struct {
 	handler transports.Handler
 	quic    *http3.Server
 }
 
-func (compatible *compatibleHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
-	headerErr := compatible.quic.SetQuicHeaders(http.Header(writer.Header()))
+func (handler *alternativeHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
+	headerErr := handler.quic.SetQuicHeaders(http.Header(writer.Header()))
 	if headerErr != nil {
 		writer.Failed(errors.Warning("http3: announce that this server supports HTTP/3 failed").WithCause(headerErr))
 		return
 	}
 	writer.Header().Set("x-quic", "h3")
-	compatible.handler.Handle(writer, request)
+	handler.handler.Handle(writer, request)
 	return
 }

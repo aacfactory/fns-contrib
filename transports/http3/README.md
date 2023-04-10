@@ -58,8 +58,8 @@ transport:
       maxConnsPerHost: 64
       maxResponseHeaderBytes: "4K"
       timeout: "2s"
-    compatible: # compatible http server config
+    alternative: # alternative http server config
       name: "fasthttp2" 
       options:
         foo: "bar"
-```_
+```

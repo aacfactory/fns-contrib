@@ -119,7 +119,7 @@ func TestSTD(t *testing.T) {
 		AdditionalSettings:   nil,
 		Quic:                 nil,
 		Client:               nil,
-		Compatible: &http3.CompatibleConfig{
+		Alternative: &http3.AlternativeConfig{
 			Name:    "fasthttp",
 			Options: nil,
 		},
