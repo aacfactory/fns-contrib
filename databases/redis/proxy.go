@@ -13,7 +13,7 @@ const (
 
 var (
 	defaultProxyOptions = &ProxyOptions{
-		database: "default",
+		database: "",
 	}
 )
 

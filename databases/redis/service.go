@@ -5,7 +5,6 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis/internal"
 	"github.com/aacfactory/fns/service"
-	"strings"
 )
 
 const (
@@ -17,42 +16,28 @@ func Service(databases ...string) service.Service {
 	if databases == nil || len(databases) == 0 {
 		databases = []string{"db"}
 	}
-	var defaultDB *internal.Database
-	for i, database := range databases {
-		db := internal.NewDatabase(strings.TrimSpace(database))
-		components = append(components, db)
-		if i == 0 {
-			defaultDB = db
-		}
+	defaultDatabaseName := ""
+	if len(databases) == 1 {
+		defaultDatabaseName = databases[0]
 	}
 	return &_service_{
-		Abstract:  service.NewAbstract(name, true, components...),
-		defaultDB: defaultDB,
+		Abstract:            service.NewAbstract(name, true, components...),
+		defaultDatabaseName: defaultDatabaseName,
 	}
 }
 
 type _service_ struct {
 	service.Abstract
-	defaultDB *internal.Database
-}
-
-func (svc *_service_) Build(options service.Options) (err error) {
-	err = svc.Abstract.Build(options)
-	if err != nil {
-		err = errors.Warning("redis: build failed").WithCause(err)
-		return
-	}
-	svc.Components()
-	return
+	defaultDatabaseName string
 }
 
 func (svc *_service_) database(name string) (db *internal.Database, err error) {
 	if name == "" {
-		if svc.defaultDB == nil {
+		if svc.defaultDatabaseName == "" {
 			err = errors.Warning("redis: get default database failed")
 			return
 		}
-		db = svc.defaultDB
+		name = svc.defaultDatabaseName
 		return
 	}
 	v, has := svc.Components()[name]
