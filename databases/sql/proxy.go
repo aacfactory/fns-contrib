@@ -17,7 +17,7 @@ const (
 var (
 	cachedDialect       = new(sync.Map)
 	defaultProxyOptions = &ProxyOptions{
-		database: "default",
+		database: "",
 	}
 )
 

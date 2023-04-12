@@ -52,8 +52,12 @@ type service_ struct {
 }
 
 func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
-	if name == "default" && svc.defaultDatabaseName != "" {
+	if name == "" && svc.defaultDatabaseName == "" {
+		return
+	}
+	if name == "" {
 		name = svc.defaultDatabaseName
+		return
 	}
 	component, exist := svc.Components()[name]
 	if !exist {
@@ -202,9 +206,5 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 		err = errors.NotFound("sql: fn was not found")
 		break
 	}
-	return
-}
-
-func (svc *service_) Document() (doc service.Document) {
 	return
 }
