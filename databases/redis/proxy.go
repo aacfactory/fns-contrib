@@ -23,7 +23,7 @@ type ProxyOptions struct {
 	database string
 }
 
-func newDefaultProxyOptions() *ProxyOptions {
+func newProxyOptions() *ProxyOptions {
 	return &ProxyOptions{
 		database: "",
 	}
@@ -36,7 +36,7 @@ func Database(name string) ProxyOption {
 }
 
 func WithOptions(ctx context.Context, options ...ProxyOption) context.Context {
-	opt := newDefaultProxyOptions()
+	opt := newProxyOptions()
 	if options != nil {
 		for _, option := range options {
 			option(opt)

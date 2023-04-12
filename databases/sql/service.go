@@ -51,7 +51,7 @@ type service_ struct {
 	defaultDatabaseName string
 }
 
-func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
+func (svc *service_) getDatabase(name string) (db internal.Database, err errors.CodeError) {
 	if name == "" && svc.defaultDatabaseName == "" {
 		return
 	}
@@ -61,9 +61,10 @@ func (svc *service_) getDatabase(name string) (db internal.Database, has bool) {
 	}
 	component, exist := svc.Components()[name]
 	if !exist {
+		err = errors.Warning("sql: database was not found").WithMeta("database", name)
 		return
 	}
-	db, has = component.(internal.Database)
+	db = component.(internal.Database)
 	return
 }
 
@@ -76,9 +77,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		v = &dialectResult{
@@ -92,9 +93,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		beginErr := db.BeginTransaction(ctx)
@@ -113,9 +114,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		finished, commitErr := db.CommitTransaction(ctx)
@@ -134,9 +135,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		rollbackErr := db.RollbackTransaction(ctx)
@@ -153,9 +154,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		var queryArgs []interface{}
@@ -181,9 +182,9 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
 			return
 		}
-		db, has := svc.getDatabase(arg.Database)
-		if !has {
-			err = errors.BadRequest("sql: database is invalid")
+		db, dbErr := svc.getDatabase(arg.Database)
+		if dbErr != nil {
+			err = dbErr
 			return
 		}
 		var executeArgs []interface{}
