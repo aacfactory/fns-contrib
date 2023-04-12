@@ -46,10 +46,6 @@ func (svc *_service_) Build(options service.Options) (err error) {
 	return
 }
 
-func (svc *_service_) Document() (doc service.Document) {
-	return
-}
-
 func (svc *_service_) database(name string) (db *internal.Database, err error) {
 	if name == "" {
 		if svc.defaultDB == nil {

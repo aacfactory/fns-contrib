@@ -6,25 +6,25 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service/shared"
+	"github.com/aacfactory/fns/service/shareds"
 	"runtime"
 	"time"
 )
 
-func Lockers() shared.Lockers {
+func Lockers() shareds.Lockers {
 	return &lockers{}
 }
 
 type lockers struct{}
 
-func (l lockers) Acquire(ctx context.Context, key []byte, ttl time.Duration) (locker shared.Locker, err error) {
-	id, incrErr := redis.Incr(ctx, fmt.Sprintf("fns/shared/lockers/%s", bytex.ToString(key)))
+func (l lockers) Acquire(ctx context.Context, key []byte, ttl time.Duration) (locker shareds.Locker, err error) {
+	id, incrErr := redis.Incr(ctx, fmt.Sprintf("fns/shareds/lockers/%s", bytex.ToString(key)))
 	if incrErr != nil {
 		err = errors.Warning("lockers: acquire failed").WithCause(incrErr).WithMeta("kind", "redis")
 		return
 	}
 	setErr := redis.Set(ctx, redis.SetParam{
-		Key:        fmt.Sprintf("fns/shared/lockers/%s/%d", bytex.ToString(key), id),
+		Key:        fmt.Sprintf("fns/shareds/lockers/%s/%d", bytex.ToString(key), id),
 		Value:      "1",
 		Expiration: ttl,
 	})
@@ -58,11 +58,11 @@ func (l *Locker) Lock(ctx context.Context) (err error) {
 			deadline = ctxDeadline
 		}
 	}
-	rk := fmt.Sprintf("fns/shared/lockers/%s/%d", l.key, l.id)
+	rk := fmt.Sprintf("fns/shareds/lockers/%s/%d", l.key, l.id)
 	for {
 		scanResult, scanErr := redis.Scan(ctx, redis.ScanParam{
 			Cursor: 0,
-			Match:  fmt.Sprintf("fns/shared/lockers/%s/*", l.key),
+			Match:  fmt.Sprintf("fns/shareds/lockers/%s/*", l.key),
 			Count:  1,
 		})
 		if scanErr != nil {
@@ -82,7 +82,7 @@ func (l *Locker) Lock(ctx context.Context) (err error) {
 		if times < 0 {
 			if !deadline.IsZero() && time.Now().After(deadline) {
 				err = errors.Warning("lockers: lock failed").
-					WithCause(shared.ErrLockTimeout).
+					WithCause(shareds.ErrLockTimeout).
 					WithMeta("kind", "redis").WithMeta("key", l.key)
 				return
 			}
@@ -94,6 +94,6 @@ func (l *Locker) Lock(ctx context.Context) (err error) {
 }
 
 func (l *Locker) Unlock(ctx context.Context) (err error) {
-	_ = redis.Del(ctx, []string{fmt.Sprintf("fns/shared/lockers/%s/%d", l.key, l.id)})
+	_ = redis.Del(ctx, []string{fmt.Sprintf("fns/shareds/lockers/%s/%d", l.key, l.id)})
 	return
 }
