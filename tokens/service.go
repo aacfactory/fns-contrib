@@ -21,7 +21,7 @@ func Service(store Store) service.Service {
 		return nil
 	}
 	return &service_{
-		Abstract: service.NewAbstract(name, true, store),
+		Abstract: service.NewAbstract(name, true, convertStoreToComponent(store)),
 	}
 }
 
@@ -35,18 +35,21 @@ func (svc service_) Build(options service.Options) (err error) {
 	if err != nil {
 		return
 	}
-	if svc.Components() == nil || len(svc.Components()) != 1 {
+	if svc.Components() == nil {
+		err = errors.Warning("tokens: build failed").WithCause(errors.Warning("tokens: components is required"))
+		return
+	}
+	component, has := svc.Components()[storeComponentName]
+	if !has {
+		err = errors.Warning("tokens: build failed").WithCause(errors.Warning("tokens: store components is required"))
+		return
+	}
+	store, ok := component.(*storeComponent)
+	if !ok {
 		err = errors.Warning("tokens: build failed").WithCause(errors.Warning("tokens: store is required"))
 		return
 	}
-	for _, component := range svc.Components() {
-		store, ok := component.(Store)
-		if !ok {
-			err = errors.Warning("tokens: build failed").WithCause(errors.Warning("tokens: store is required"))
-			return
-		}
-		svc.store = store
-	}
+	svc.store = store.store
 	return
 }
 
@@ -77,7 +80,11 @@ func (svc service_) Handle(ctx context.Context, fn string, argument service.Argu
 			err = errors.Warning("tokens: get token failed").WithCause(paramErr)
 			break
 		}
-		v, err = svc.store.Get(ctx, param)
+		has := false
+		v, has, err = svc.store.Get(ctx, param)
+		if err == nil && !has {
+			err = ErrTokenNotFound
+		}
 		break
 	case listFn:
 		param := ""
