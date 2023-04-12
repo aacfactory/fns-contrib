@@ -23,7 +23,7 @@ func Service(store Store) service.Service {
 		return nil
 	}
 	return &service_{
-		Abstract: service.NewAbstract(name, true, store),
+		Abstract: service.NewAbstract(name, true, convertStoreToComponent(store)),
 	}
 }
 
@@ -37,18 +37,21 @@ func (svc *service_) Build(options service.Options) (err error) {
 	if err != nil {
 		return
 	}
-	if svc.Components() == nil || len(svc.Components()) != 1 {
+	if svc.Components() == nil {
+		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: components is required"))
+		return
+	}
+	component, has := svc.Components()[storeComponentName]
+	if !has {
+		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: store components is required"))
+		return
+	}
+	store, ok := component.(*storeComponent)
+	if !ok {
 		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: store is required"))
 		return
 	}
-	for _, component := range svc.Components() {
-		store, ok := component.(Store)
-		if !ok {
-			err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: store is required"))
-			return
-		}
-		svc.store = store
-	}
+	svc.store = store.store
 	return
 }
 
@@ -70,6 +73,19 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.Warning("rbac: remove role failed").WithCause(paramErr)
 			break
 		}
+		v, has, getErr := svc.store.Get(ctx, param)
+		if getErr != nil {
+			err = errors.Warning("rbac: remove role failed").WithCause(getErr)
+			break
+		}
+		if !has {
+			err = ErrRoleNofFound
+			break
+		}
+		if v.Children != nil && len(v.Children) > 0 {
+			err = ErrCantRemoveHasChildrenRow
+			break
+		}
 		err = svc.store.Remove(ctx, param)
 		break
 	case getFn:
@@ -79,7 +95,11 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.Warning("rbac: get role failed").WithCause(paramErr)
 			break
 		}
-		v, err = svc.store.Get(ctx, param)
+		has := false
+		v, has, err = svc.store.Get(ctx, param)
+		if err == nil && !has {
+			err = ErrRoleNofFound
+		}
 		break
 	case listFn:
 		param := make([]string, 0, 1)
