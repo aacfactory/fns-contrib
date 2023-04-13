@@ -17,10 +17,10 @@ func Server() transports.Transport {
 }
 
 type server struct {
-	log        logs.Logger
-	compatible transports.Transport
-	quic       *http3.Server
-	dialer     *Dialer
+	log         logs.Logger
+	alternative transports.Transport
+	quic        *http3.Server
+	dialer      *Dialer
 }
 
 func (srv *server) Name() (name string) {
@@ -34,6 +34,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 		err = errors.Warning("http3: build failed").WithCause(errors.Warning("tls is required"))
 		return
 	}
+	srvTLS.NextProtos = []string{"h3", "h3-29"}
 	srv.log = options.Log
 	config := Config{}
 	decodeErr := options.Config.As(&config)
@@ -71,7 +72,7 @@ func (srv *server) Build(options transports.Options) (err error) {
 	srv.quic = &http3.Server{
 		Addr:               fmt.Sprintf(":%d", options.Port),
 		Port:               options.Port,
-		TLSConfig:          http3.ConfigureTLSConfig(srvTLS),
+		TLSConfig:          srvTLS,
 		QuicConfig:         quicConfig,
 		Handler:            handler,
 		EnableDatagrams:    config.EnableDatagrams,
@@ -82,30 +83,32 @@ func (srv *server) Build(options transports.Options) (err error) {
 	}
 	// alternative
 	if config.Alternative != nil {
-		compatible, registered := transports.Registered(config.Alternative.Name)
+		alternative, registered := transports.Registered(config.Alternative.Name)
 		if !registered {
 			err = errors.Warning("http3: build failed").WithCause(errors.Warning("alternative transport was not registered"))
 			return
 		}
-		srv.compatible = compatible
+		srv.alternative = alternative
 
 		if config.Alternative.Options == nil || !json.Validate(config.Alternative.Options) {
 			config.Alternative.Options = []byte{'{', '}'}
 		}
-		compatibleConfig, compatibleConfigErr := configures.NewJsonConfig(config.Alternative.Options)
-		if compatibleConfigErr != nil {
-			err = errors.Warning("http3: build failed").WithCause(compatibleConfigErr)
+		alternativeConfig, alternativeConfigErr := configures.NewJsonConfig(config.Alternative.Options)
+		if alternativeConfigErr != nil {
+			err = errors.Warning("http3: build failed").WithCause(alternativeConfigErr)
 			return
 		}
+		alternativeTLSConfig := options.ServerTLS.Clone()
+		alternativeTLSConfig.NextProtos = nil
 		compatibleOptions := transports.Options{
 			Port:      options.Port,
-			ServerTLS: options.ServerTLS,
+			ServerTLS: alternativeTLSConfig,
 			ClientTLS: options.ClientTLS,
 			Handler:   newAlternativeHandler(srv.quic, options.Handler),
-			Log:       options.Log.With("compatible", srv.compatible.Name()),
-			Config:    compatibleConfig,
+			Log:       options.Log.With("compatible", srv.alternative.Name()),
+			Config:    alternativeConfig,
 		}
-		buildCompatibleErr := srv.compatible.Build(compatibleOptions)
+		buildCompatibleErr := srv.alternative.Build(compatibleOptions)
 		if buildCompatibleErr != nil {
 			err = errors.Warning("http3: build failed").WithCause(errors.Warning("build alternative failed")).WithCause(buildCompatibleErr)
 			return
@@ -127,7 +130,7 @@ func (srv *server) Dial(address string) (client transports.Client, err error) {
 }
 
 func (srv *server) ListenAndServe() (err error) {
-	if srv.compatible == nil {
+	if srv.alternative == nil {
 		err = srv.quic.ListenAndServe()
 		if err != nil {
 			err = errors.Warning("http3: listen and serve failed").WithCause(err)
@@ -139,7 +142,7 @@ func (srv *server) ListenAndServe() (err error) {
 	qErr := make(chan error)
 	go func(compatible transports.Transport, sErr chan error) {
 		sErr <- compatible.ListenAndServe()
-	}(srv.compatible, sErr)
+	}(srv.alternative, sErr)
 	go func(quic *http3.Server, qErr chan error) {
 		qErr <- quic.ListenAndServe()
 	}(srv.quic, qErr)
@@ -159,8 +162,8 @@ func (srv *server) ListenAndServe() (err error) {
 func (srv *server) Close() (err error) {
 	srv.dialer.Close()
 	errs := errors.MakeErrors()
-	if srv.compatible != nil {
-		compatibleErr := srv.compatible.Close()
+	if srv.alternative != nil {
+		compatibleErr := srv.alternative.Close()
 		if compatibleErr != nil {
 			errs.Append(compatibleErr)
 		}
