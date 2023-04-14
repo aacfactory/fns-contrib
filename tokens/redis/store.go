@@ -32,7 +32,7 @@ func (s *store) Name() (name string) {
 	return
 }
 
-func (s *store) Build(options service.ComponentOptions) (err error) {
+func (s *store) Build(options tokens.StoreOptions) (err error) {
 	s.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -112,7 +112,7 @@ func (s *store) Remove(ctx context.Context, param tokens.RemoveParam) (err error
 	return
 }
 
-func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err errors.CodeError) {
+func (s *store) Get(ctx context.Context, id string) (token tokens.Token, has bool, err errors.CodeError) {
 	if s.database != "" {
 		ctx = rds.WithOptions(ctx, rds.Database(s.database))
 	}
@@ -122,7 +122,6 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		return
 	}
 	if keys == nil || len(keys) == 0 {
-		err = errors.Warning("tokens: get failed").WithCause(tokens.ErrTokenNofFound).WithMeta("store", s.Name())
 		return
 	}
 	if len(keys) > 1 {
@@ -136,7 +135,6 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		return
 	}
 	if !r.Has {
-		err = errors.Warning("tokens: get failed").WithCause(tokens.ErrTokenNofFound).WithMeta("store", s.Name())
 		return
 	}
 	decodeErr := json.Unmarshal(bytex.FromString(r.Value), &token)
@@ -144,6 +142,7 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		err = errors.Warning("tokens: get failed").WithCause(decodeErr).WithMeta("store", s.Name())
 		return
 	}
+	has = true
 	return
 }
 

@@ -6,7 +6,6 @@ import (
 	db "github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"github.com/aacfactory/fns-contrib/tokens"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
 	"strings"
 	"time"
@@ -26,7 +25,7 @@ func (s *store) Name() (name string) {
 	return
 }
 
-func (s *store) Build(options service.ComponentOptions) (err error) {
+func (s *store) Build(options tokens.StoreOptions) (err error) {
 	s.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -130,7 +129,7 @@ func (s *store) Remove(ctx context.Context, param tokens.RemoveParam) (err error
 	return
 }
 
-func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err errors.CodeError) {
+func (s *store) Get(ctx context.Context, id string) (token tokens.Token, has bool, err errors.CodeError) {
 	if id == "" {
 		err = errors.Warning("tokens: get failed").WithCause(errors.Warning("id is required")).WithMeta("store", s.Name())
 		return
@@ -144,7 +143,6 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		return
 	}
 	if row == nil {
-		err = errors.Warning("tokens: get failed").WithCause(tokens.ErrTokenNofFound).WithMeta("store", s.Name())
 		return
 	}
 	token = tokens.Token{
@@ -153,6 +151,7 @@ func (s *store) Get(ctx context.Context, id string) (token tokens.Token, err err
 		Token:    row.Token,
 		ExpireAT: row.ExpireAT,
 	}
+	has = true
 	return
 }
 
