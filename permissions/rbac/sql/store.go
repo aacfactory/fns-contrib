@@ -7,7 +7,6 @@ import (
 	db "github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"github.com/aacfactory/fns-contrib/permissions/rbac"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/logs"
 	"sort"
 	"strings"
@@ -31,7 +30,7 @@ func (s *store) Name() (name string) {
 	return
 }
 
-func (s *store) Build(options service.ComponentOptions) (err error) {
+func (s *store) Build(options rbac.StoreOptions) (err error) {
 	s.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -164,7 +163,7 @@ func (s *store) Remove(ctx context.Context, roleId string) (err errors.CodeError
 	return
 }
 
-func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err errors.CodeError) {
+func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, has bool, err errors.CodeError) {
 	if roleId == "" {
 		err = errors.Warning("rbac: get failed").WithCause(errors.Warning("role id is required")).WithMeta("store", s.Name())
 		return
@@ -178,7 +177,6 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 		return
 	}
 	if row == nil {
-		err = errors.Warning("rbac: get failed").WithCause(rbac.ErrRoleNofFound).WithMeta("id", roleId).WithMeta("store", s.Name())
 		return
 	}
 	cpErr := copier.Copy(&role, role)
@@ -186,6 +184,7 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 		err = errors.Warning("rbac: get failed").WithCause(cpErr).WithMeta("id", roleId).WithMeta("store", s.Name())
 		return
 	}
+	has = true
 	return
 }
 

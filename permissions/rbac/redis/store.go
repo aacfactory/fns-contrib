@@ -8,7 +8,6 @@ import (
 	"github.com/aacfactory/fns-contrib/permissions/rbac"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/container/trees"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"sort"
@@ -34,7 +33,7 @@ func (s *store) Name() (name string) {
 	return
 }
 
-func (s *store) Build(options service.ComponentOptions) (err error) {
+func (s *store) Build(options rbac.StoreOptions) (err error) {
 	s.log = options.Log
 	config := Config{}
 	configErr := options.Config.As(&config)
@@ -113,9 +112,12 @@ func (s *store) Remove(ctx context.Context, roleId string) (err errors.CodeError
 	if s.database != "" {
 		ctx = rds.WithOptions(ctx, rds.Database(s.database))
 	}
-	role, getErr := s.Get(ctx, roleId)
+	role, has, getErr := s.Get(ctx, roleId)
 	if getErr != nil {
 		err = errors.Warning("rbac: remove failed").WithCause(getErr).WithMeta("store", s.Name())
+		return
+	}
+	if !has {
 		return
 	}
 	if role.Children != nil && len(role.Children) > 0 {
@@ -130,7 +132,7 @@ func (s *store) Remove(ctx context.Context, roleId string) (err errors.CodeError
 	return
 }
 
-func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err errors.CodeError) {
+func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, has bool, err errors.CodeError) {
 	if roleId == "" {
 		err = errors.Warning("rbac: get failed").WithCause(errors.Warning("role id is required")).WithMeta("store", s.Name())
 		return
@@ -144,7 +146,6 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 		return
 	}
 	if all == nil || len(all) == 0 {
-		err = errors.Warning("rbac: get failed").WithCause(rbac.ErrRoleNofFound).WithMeta("id", roleId).WithMeta("store", s.Name())
 		return
 	}
 	roles, mappingErr := s.mapping(all, roleId)
@@ -157,6 +158,7 @@ func (s *store) Get(ctx context.Context, roleId string) (role rbac.Role, err err
 		return
 	}
 	role = *roles[0]
+	has = true
 	return
 }
 
