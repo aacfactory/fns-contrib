@@ -71,7 +71,7 @@ func (handler *websocketHandler) Name() (name string) {
 }
 
 func (handler *websocketHandler) Build(options service.TransportHandlerOptions) (err error) {
-	handler.appId = options.AppId
+	handler.appId = options.Runtime.AppId()
 	handler.log = options.Log
 
 	config := Config{}
@@ -165,15 +165,15 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 				subConfig, _ = configures.NewJsonConfig([]byte{'{', '}'})
 			}
 			subOptions := SubProtocolHandlerOptions{
-				AppId:                 options.AppId,
-				AppName:               options.AppName,
-				AppVersion:            options.AppVersion,
+				AppId:                 options.Runtime.AppId(),
+				AppName:               options.Runtime.AppName(),
+				AppVersion:            options.Runtime.AppVersion(),
 				Log:                   options.Log.With("protocol", name),
 				Config:                subConfig,
 				ReadTimeout:           readTimeout,
 				WriteTimeout:          writeTimeout,
 				MaxRequestMessageSize: handler.maxRequestMessageSize,
-				Discovery:             options.Discovery,
+				Discovery:             options.Runtime.Discovery(),
 			}
 			subErr := sub.Build(subOptions)
 			if subErr != nil {
@@ -183,7 +183,7 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 		}
 	}
 
-	handler.discovery = options.Discovery
+	handler.discovery = options.Runtime.Discovery()
 
 	maxConnections := config.MaxConnections
 	if maxConnections < 1 {
