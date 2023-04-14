@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.22
+	github.com/aacfactory/fns v1.0.30
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/redis/go-redis/v9 v9.0.2

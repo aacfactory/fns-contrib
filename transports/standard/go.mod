@@ -6,7 +6,7 @@ require (
 	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.11
+	github.com/aacfactory/fns v1.0.30
 	github.com/aacfactory/logs v1.13.0
 	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.1.0
@@ -31,6 +31,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/fasthttp v1.45.0 // indirect
+	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )

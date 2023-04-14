@@ -6,7 +6,7 @@ require (
 	github.com/aacfactory/afssl v1.6.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.19
+	github.com/aacfactory/fns v1.0.30
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/quic-go/quic-go v0.33.0

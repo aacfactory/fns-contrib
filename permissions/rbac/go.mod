@@ -3,14 +3,14 @@ module github.com/aacfactory/fns-contrib/permissions/rbac
 go 1.20
 
 require (
+	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.22
+	github.com/aacfactory/fns v1.0.30
 	github.com/aacfactory/logs v1.13.0
 )
 
 require (
 	github.com/aacfactory/afssl v1.6.0 // indirect
-	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/copier v1.1.0 // indirect
 	github.com/aacfactory/json v1.13.1 // indirect
 	github.com/aacfactory/rings v1.1.2 // indirect

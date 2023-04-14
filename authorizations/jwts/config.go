@@ -137,6 +137,5 @@ func readPEM(path string) (pem []byte, err error) {
 		err = errors.Warning("read pem failed").WithCause(err).WithMeta("path", path)
 		return
 	}
-
 	return
 }
