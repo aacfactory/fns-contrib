@@ -25,7 +25,6 @@ func (handler *alternativeHandler) Handle(writer transports.ResponseWriter, requ
 		writer.Failed(errors.Warning("http3: announce that this server supports HTTP/3 failed").WithCause(headerErr))
 		return
 	}
-	writer.Header().Set("x-quic", "h3")
 	handler.handler.Handle(writer, request)
 	return
 }
