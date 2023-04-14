@@ -73,7 +73,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = errors.Warning("rbac: remove role failed").WithCause(paramErr)
 			break
 		}
-		v, has, getErr := svc.store.Get(ctx, param)
+		role, has, getErr := svc.store.Get(ctx, param)
 		if getErr != nil {
 			err = errors.Warning("rbac: remove role failed").WithCause(getErr)
 			break
@@ -82,7 +82,7 @@ func (svc *service_) Handle(ctx context.Context, fn string, argument service.Arg
 			err = ErrRoleNofFound
 			break
 		}
-		if v.Children != nil && len(v.Children) > 0 {
+		if role.Children != nil && len(role.Children) > 0 {
 			err = ErrCantRemoveHasChildrenRow
 			break
 		}
