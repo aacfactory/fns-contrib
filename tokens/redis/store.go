@@ -6,7 +6,6 @@ import (
 	rds "github.com/aacfactory/fns-contrib/databases/redis"
 	"github.com/aacfactory/fns-contrib/tokens"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"strings"
@@ -44,15 +43,6 @@ func (s *store) Build(options tokens.StoreOptions) (err error) {
 	s.prefix = strings.TrimSpace(config.KeyPrefix)
 	if s.prefix != "" {
 		s.prefix, _ = strings.CutSuffix(s.prefix, "/")
-	}
-	return
-}
-
-func (s *store) buildUserKey(userId service.RequestUserId) (key string) {
-	if s.prefix == "" {
-		key = prefix + "/" + userId.String()
-	} else {
-		key = s.prefix + "/" + userId.String()
 	}
 	return
 }
