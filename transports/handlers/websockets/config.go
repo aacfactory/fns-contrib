@@ -1,9 +1,10 @@
 package websockets
 
 import (
+	"bytes"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/wildcard"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
 	"strings"
 )
@@ -25,10 +26,10 @@ type OriginCheckPolicyConfig struct {
 	Options json.RawMessage `json:"options"`
 }
 
-func (config *OriginCheckPolicyConfig) Build() (fn func(r *transports.Request) bool, err error) {
+func (config *OriginCheckPolicyConfig) Build() (fn func(r transports.Request) bool, err error) {
 	switch config.Mode {
 	case "non":
-		fn = func(r *transports.Request) bool {
+		fn = func(r transports.Request) bool {
 			return true
 		}
 		break
@@ -49,12 +50,12 @@ func (config *OriginCheckPolicyConfig) Build() (fn func(r *transports.Request) b
 			return
 		}
 
-		fn = func(r *transports.Request) bool {
-			origin := r.Header().Get("Origin")
+		fn = func(r transports.Request) bool {
+			origin := r.Header().Get(transports.OriginHeaderName)
 			if len(origin) == 0 {
 				return false
 			}
-			return wildcard.Match(pattern, strings.ToLower(origin))
+			return wildcard.Match([]byte(pattern), bytes.ToLower(origin))
 		}
 	case "same":
 		// same as default

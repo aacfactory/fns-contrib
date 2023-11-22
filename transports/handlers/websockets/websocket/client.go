@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/transports"
 	"io"
 	"net"
 	"net/http"
@@ -266,9 +266,17 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		}
 	}
 
+	trh := transports.AcquireHeader()
+	defer transports.ReleaseHeader(trh)
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			trh.Add([]byte(k), []byte(v))
+		}
+	}
+
 	if resp.StatusCode != 101 ||
-		!tokenListContainsValue(transports.Header(resp.Header), "Upgrade", "websocket") ||
-		!tokenListContainsValue(transports.Header(resp.Header), "Connection", "upgrade") ||
+		!tokenListContainsValue(trh, "Upgrade", "websocket") ||
+		!tokenListContainsValue(trh, "Connection", "upgrade") ||
 		resp.Header.Get("Sec-Websocket-Accept") != computeAcceptKey(challengeKey) {
 		buf := make([]byte, 1024)
 		n, _ := io.ReadFull(resp.Body, buf)

@@ -4,9 +4,7 @@ import (
 	"context"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
-	"github.com/aacfactory/fns/commons/versions"
-	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/logs"
 	"io"
 	"net"
@@ -16,22 +14,17 @@ import (
 type MessageType int
 
 type SubProtocolHandlerOptions struct {
-	AppId                 string
-	AppName               string
-	AppVersion            versions.Version
 	Log                   logs.Logger
 	Config                configures.Config
 	ReadTimeout           time.Duration
 	WriteTimeout          time.Duration
 	MaxRequestMessageSize int64
-	Discovery             service.EndpointDiscovery `json:"-"`
 }
 
 type SubProtocolHandler interface {
 	Name() (name string)
 	Build(options SubProtocolHandlerOptions) (err error)
 	Handle(ctx context.Context, conn Connection)
-	Service() (service service.Service)
 	Close() (err error)
 }
 

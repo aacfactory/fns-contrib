@@ -1,11 +1,15 @@
 module github.com/aacfactory/fns-contrib/transports/handlers/websockets
 
-go 1.20
+go 1.21
+
+replace (
+	github.com/aacfactory/fns v1.1.0 => ../../../../fns
+)
 
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.31
+	github.com/aacfactory/fns v1.1.0
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/klauspost/compress v1.16.3

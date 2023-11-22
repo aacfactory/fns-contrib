@@ -1,15 +1,18 @@
 package websockets
 
 import (
-	"context"
+	"bytes"
 	"fmt"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/uid"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"io"
@@ -27,7 +30,7 @@ var (
 	ErrTooMayConnections = errors.New(http.StatusTooManyRequests, "***TOO MANY CONNECTIONS***", "fns: too may connections, try again later.")
 )
 
-func Websocket(subs ...SubProtocolHandler) (handler service.TransportHandler) {
+func Websocket(subs ...SubProtocolHandler) (handler transports.MuxHandler) {
 	wh := &websocketHandler{
 		log:     nil,
 		service: newService(),
@@ -51,11 +54,9 @@ func Websocket(subs ...SubProtocolHandler) (handler service.TransportHandler) {
 }
 
 type websocketHandler struct {
-	appId                 string
 	log                   logs.Logger
 	upgrader              *websocket.Upgrader
 	service               *Service
-	discovery             service.EndpointDiscovery
 	subs                  map[string]SubProtocolHandler
 	readTimeout           time.Duration
 	writeTimeout          time.Duration
@@ -70,21 +71,20 @@ func (handler *websocketHandler) Name() (name string) {
 	return
 }
 
-func (handler *websocketHandler) Build(options service.TransportHandlerOptions) (err error) {
-	handler.appId = options.Runtime.AppId()
+func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions) (err error) {
 	handler.log = options.Log
 
 	config := Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
-		err = errors.Warning("websocket: build failed").WithCause(configErr)
+		err = errors.Warning("websocket: construct failed").WithCause(configErr)
 		return
 	}
 	handshakeTimeout := time.Duration(0)
 	if config.HandshakeTimeout != "" {
 		handshakeTimeout, err = time.ParseDuration(config.HandshakeTimeout)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("handshakeTimeout format must be time.Duration"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("handshakeTimeout format must be time.Duration"))
 			return
 		}
 	}
@@ -150,7 +150,7 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 		WriteBufferSize:  int(writeBufferSize),
 		WriteBufferPool:  nil,
 		Subprotocols:     nil,
-		Error: func(w transports.ResponseWriter, r *transports.Request, status int, reason error) {
+		Error: func(w transports.ResponseWriter, r transports.Request, status int, reason error) {
 			w.Failed(errors.Warning("websocket: handle failed").WithCause(reason))
 			return
 		},
@@ -165,15 +165,11 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 				subConfig, _ = configures.NewJsonConfig([]byte{'{', '}'})
 			}
 			subOptions := SubProtocolHandlerOptions{
-				AppId:                 options.Runtime.AppId(),
-				AppName:               options.Runtime.AppName(),
-				AppVersion:            options.Runtime.AppVersion(),
 				Log:                   options.Log.With("protocol", name),
 				Config:                subConfig,
 				ReadTimeout:           readTimeout,
 				WriteTimeout:          writeTimeout,
 				MaxRequestMessageSize: handler.maxRequestMessageSize,
-				Discovery:             options.Runtime.Discovery(),
 			}
 			subErr := sub.Build(subOptions)
 			if subErr != nil {
@@ -182,8 +178,6 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 			}
 		}
 	}
-
-	handler.discovery = options.Runtime.Discovery()
 
 	maxConnections := config.MaxConnections
 	if maxConnections < 1 {
@@ -194,25 +188,22 @@ func (handler *websocketHandler) Build(options service.TransportHandlerOptions) 
 	return
 }
 
-func (handler *websocketHandler) Accept(request *transports.Request) (ok bool) {
-	if !request.IsGet() {
-		return
-	}
-	ok = websocket.IsWebSocketUpgrade(request)
+func (handler *websocketHandler) Match(_ context.Context, method []byte, _ []byte, header transports.Header) (ok bool) {
+	ok = bytes.Equal(method, transports.MethodGet) && websocket.IsWebSocketUpgrade(header)
 	return
 }
 
-func (handler *websocketHandler) Handle(writer transports.ResponseWriter, request *transports.Request) {
+func (handler *websocketHandler) Handle(w transports.ResponseWriter, r transports.Request) {
 	handler.connections.Add(1)
 	if handler.connections.Load() > handler.maxConnections {
 		handler.connections.Add(-1)
-		writer.Failed(ErrTooMayConnections)
+		w.Failed(ErrTooMayConnections)
 		return
 	}
-	upgradeErr := handler.upgrader.Upgrade(writer, request, handler.handleConn)
+	upgradeErr := handler.upgrader.Upgrade(w, r, handler.handleConn)
 	if upgradeErr != nil {
 		handler.connections.Add(-1)
-		writer.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
+		w.Failed(errors.Warning("websocket: upgrade failed").WithCause(upgradeErr))
 		return
 	}
 	return
@@ -224,9 +215,9 @@ func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket
 	conn.SetPongHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
 	})
-	protocol := header.Get("Sec-Websocket-Protocol")
-	if protocol != "" {
-		sub, has := handler.subs[protocol]
+	protocol := header.Get([]byte("Sec-Websocket-Protocol"))
+	if len(protocol) > 0 {
+		sub, has := handler.subs[string(protocol)]
 		if !has {
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseProtocolError, "sub protocol is unsupported"), time.Now().Add(2*time.Second))
 			_ = conn.Close()
@@ -235,8 +226,8 @@ func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket
 		sub.Handle(ctx, &WebsocketConnection{
 			Conn:     conn,
 			header:   header,
-			deviceId: header.Get("X-Fns-Device-Id"),
-			deviceIp: header.Get("X-Fns-Device-Ip"),
+			deviceId: string(header.Get([]byte("X-Fns-Device-Id"))),
+			deviceIp: string(header.Get([]byte("X-Fns-Device-Ip"))),
 		})
 		return
 	}
@@ -245,9 +236,9 @@ func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket
 }
 
 func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Conn, header transports.Header) {
-	deviceId := header.Get("X-Fns-Device-Id")
-	deviceIp := header.Get("X-Fns-Device-Ip")
-	id, mountErr := handler.mount(ctx, conn, deviceId)
+	deviceId := header.Get(transports.DeviceIdHeaderName)
+	deviceIp := header.Get(transports.DeviceIpHeaderName)
+	id, mountErr := handler.mount(ctx, conn, string(deviceId))
 	if mountErr != nil {
 		failed := Failed(mountErr)
 		_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
@@ -266,7 +257,7 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			}
 		}
 		_ = handler.unmount(ctx, id, deviceId)
-	}(ctx, handler, id, deviceId)
+	}(ctx, handler, id, string(deviceId))
 	for {
 		// read
 		mt, reader, nextReadErr := conn.NextReader()
@@ -325,50 +316,40 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "parse X-Fns-Request-Version failed"), time.Now().Add(2*time.Second))
 			break
 		}
-		ctx = context.WithValue(ctx, connectionId, id)
-		endpoint, has := handler.discovery.Get(ctx, request.Service)
-		if !has {
-			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(errors.NotFound("websockets: service was not found").WithMeta("service", request.Service)).Encode())
-			if writeErr != nil {
-				break
-			}
-			continue
-		}
-
-		result, requestErr := endpoint.RequestSync(ctx, service.NewRequest(
+		ctx.SetLocalValue(connectionId, id)
+		eps := runtime.Endpoints(ctx)
+		response, handleErr := eps.Request(
 			ctx,
-			request.Service, request.Fn,
-			service.NewArgument(request.Payload),
-			service.WithRequestHeader(request.Header),
-			service.WithDeviceId(deviceId),
-			service.WithDeviceIp(deviceIp),
-			service.WithRequestId(uid.UID()),
-			service.WithRequestVersions(rvs),
-		))
-		if requestErr != nil {
-			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(requestErr).Encode())
+			bytex.FromString(request.Service), bytex.FromString(request.Fn), request.Payload,
+			services.WithDeviceId(deviceId), services.WithDeviceIp(deviceIp),
+			services.WithRequestVersions(rvs),
+			services.WithRequestId(uid.Bytes()),
+		)
+		if handleErr != nil {
+			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(handleErr).Encode())
 			if writeErr != nil {
 				break
 			}
 			continue
 		}
-		if !result.Exist() {
+		if !response.Exist() {
 			writeErr := conn.WriteMessage(websocket.TextMessage, []byte{'n', 'u', 'l', 'l'})
 			if writeErr != nil {
 				break
 			}
 			continue
 		}
-		writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(result).Encode())
+		writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(response).Encode())
 		if writeErr != nil {
 			break
 		}
 	}
-	_ = handler.unmount(ctx, id, deviceId)
+	_ = handler.unmount(ctx, id, string(deviceId))
 }
 
 func (handler *websocketHandler) mount(ctx context.Context, conn *websocket.Conn, deviceId string) (id string, err error) {
 	id = handler.service.mount(conn)
+
 	endpoint, has := handler.discovery.Get(ctx, handleName)
 	if !has {
 		handler.service.unmount(id)
@@ -422,20 +403,6 @@ func (handler *websocketHandler) unmount(ctx context.Context, id string, deviceI
 	return
 }
 
-func (handler *websocketHandler) Services() (services []service.Service) {
-	services = make([]service.Service, 0, 1)
-	services = append(services, handler.service)
-	if handler.subs != nil && len(handler.subs) > 0 {
-		for _, sub := range handler.subs {
-			subService := sub.Service()
-			if subService != nil {
-				services = append(services, subService)
-			}
-		}
-	}
-	return
-}
-
 func (handler *websocketHandler) Close() (err error) {
 	errs := make(errors.Errors, 0, 1)
 	if handler.subs != nil && len(handler.subs) > 0 {
@@ -452,12 +419,12 @@ func (handler *websocketHandler) Close() (err error) {
 	return
 }
 
-const (
-	connectionId = "fns@websocketId"
+var (
+	connectionId = []byte("@fns:websocket:connId")
 )
 
 func ConnectionId(ctx context.Context) (id string) {
-	v := ctx.Value(connectionId)
+	v := ctx.LocalValue(connectionId)
 	if v == nil {
 		return
 	}

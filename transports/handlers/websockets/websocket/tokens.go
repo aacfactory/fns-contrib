@@ -1,14 +1,14 @@
 package websocket
 
 import (
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/transports"
 	"strings"
 	"unicode/utf8"
 )
 
-func IsWebSocketUpgrade(r *transports.Request) bool {
-	return tokenListContainsValue(r.Header(), "Connection", "upgrade") &&
-		tokenListContainsValue(r.Header(), "Upgrade", "websocket")
+func IsWebSocketUpgrade(header transports.Header) bool {
+	return tokenListContainsValue(header, "Connection", "upgrade") &&
+		tokenListContainsValue(header, "Upgrade", "websocket")
 }
 
 var isTokenOctet = [256]bool{
@@ -92,8 +92,8 @@ var isTokenOctet = [256]bool{
 }
 
 func tokenListContainsValue(header transports.Header, name string, value string) bool {
-	for _, s := range header[name] {
-		if tokenContainsValue(s, value) {
+	for _, s := range header.Values([]byte(name)) {
+		if tokenContainsValue(string(s), value) {
 			return true
 		}
 	}
