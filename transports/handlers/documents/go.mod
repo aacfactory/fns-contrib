@@ -1,10 +1,11 @@
-module github.com/aacfactory/fns-contrib/transports/middlewares/documents
+module github.com/aacfactory/fns-contrib/transports/handlers/documents
 
-go 1.21
+go 1.21.0
 
 replace (
 	github.com/aacfactory/fns v1.1.0 => ../../../../fns
 )
+
 
 require (
 	github.com/aacfactory/afssl v1.10.0 // indirect
