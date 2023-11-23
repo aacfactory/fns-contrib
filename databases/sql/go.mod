@@ -1,11 +1,15 @@
 module github.com/aacfactory/fns-contrib/databases/sql
 
-go 1.18
+go 1.21
+
+replace (
+	github.com/aacfactory/fns v1.1.2 => ../../../fns
+)
 
 require (
 	github.com/aacfactory/copier v1.1.0
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.30
+	github.com/aacfactory/fns v1.1.2
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0
 	github.com/aacfactory/rings v1.1.2

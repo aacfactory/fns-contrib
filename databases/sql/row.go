@@ -15,6 +15,9 @@ type Row interface {
 	Column(name string, value interface{}) (has bool, err error)
 }
 
+// todo as services.response
+// proxy: check response is Rows,
+// when not, then decode
 type Rows interface {
 	json.Marshaler
 	json.Unmarshaler
@@ -37,6 +40,8 @@ func newRows(raws *stdsql.Rows) (r Rows, err error) {
 	vts := make([]ValueType, 0, 1)
 	scanners := make([]any, 0, 1)
 	for _, columnType := range colTypes {
+		// todo use columnType.ScanType()
+		// if not supported, then use RawBytes{}
 		vt, hasVT := findValueTypeByDatabaseType(columnType.DatabaseTypeName())
 		if !hasVT {
 			err = errors.Warning("sql: value type was not registered").WithMeta("column", columnType.Name()).WithMeta("databaseType", columnType.DatabaseTypeName())
