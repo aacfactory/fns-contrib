@@ -1,14 +1,15 @@
 package http3_test
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/aacfactory/afssl"
-	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/http3"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/transports"
+	"github.com/aacfactory/fns/transports/fast"
+	"github.com/aacfactory/fns/transports/ssl"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
 	"testing"
@@ -42,27 +43,26 @@ func TestHttp3(t *testing.T) {
 		t.Errorf("%+v", sErr)
 		return
 	}
-	client, dialErr := srv2.Dial("127.0.0.1:18080")
+	client, dialErr := srv2.Dial([]byte("127.0.0.1:18080"))
 	if dialErr != nil {
-		_ = srv1.Close()
+		srv1.Shutdown(context.TODO())
 		t.Errorf("%+v", dialErr)
 		return
 	}
 	beg := time.Now()
-	resp, doErr := client.Do(context.TODO(), transports.NewUnsafeRequest(context.TODO(), transports.MethodGET, []byte("/hello")))
+	status, _, respBody, doErr := client.Do(context.TODO(), transports.MethodGet, []byte("/hello"), nil, nil)
 	fmt.Println("cost:", time.Now().Sub(beg))
 	if doErr != nil {
-		_ = srv1.Close()
+		srv1.Shutdown(context.TODO())
 		t.Errorf("%+v", doErr)
 		return
 	}
 	client.Close()
 
-	fmt.Println(resp.Status)
-	fmt.Println(resp.Header)
-	fmt.Println(string(resp.Body))
+	fmt.Println(status)
+	fmt.Println(string(respBody))
 
-	_ = srv1.Close()
+	srv1.Shutdown(context.TODO())
 
 }
 
@@ -77,20 +77,23 @@ func instance(ca []byte, key []byte) (srv transports.Transport, err error) {
 		err = logErr
 		return
 	}
-	srv = http3.Server()
-	options, _ := configures.NewJsonConfig([]byte{'{', '}'})
-	buildErr := srv.Build(transports.Options{
-		Port:      18080,
-		ServerTLS: srvTLS,
-		ClientTLS: cliTLS,
-		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
-			fmt.Println("proto:", string(request.Proto()))
-			writer.SetStatus(200)
-			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
-			return
-		}),
-		Log:    log,
-		Config: options,
+	handler := transports.HandlerFunc(func(w transports.ResponseWriter, r transports.Request) {
+		fmt.Println("proto:", string(r.Proto()))
+		w.SetStatus(200)
+		_, _ = w.Write([]byte(time.Now().Format(time.RFC3339Nano)))
+		return
+	})
+	srv = http3.New()
+	buildErr := srv.Construct(transports.Options{
+		Log: log,
+		Config: transports.Config{
+			Port:        18080,
+			TLS:         transports.FixedTLSConfig(ssl.NewDefaultConfig(srvTLS, cliTLS, nil, nil)),
+			Options:     nil,
+			Middlewares: nil,
+			Handlers:    nil,
+		},
+		Handler: handler,
 	})
 	if buildErr != nil {
 		err = buildErr
@@ -129,21 +132,23 @@ func TestSTD(t *testing.T) {
 		t.Error(encodeErr)
 		return
 	}
-	optionsConfig, _ := configures.NewJsonConfig(options)
-	srv := http3.Server()
-	buildErr := srv.Build(transports.Options{
-		Port:      18080,
-		ServerTLS: srvTLS,
-		ClientTLS: cliTLS,
-		Handler: transports.HandlerFunc(func(writer transports.ResponseWriter, request *transports.Request) {
-			fmt.Println(request.Header())
-			fmt.Println(string(request.Proto()))
-			writer.SetStatus(200)
-			_, _ = writer.Write([]byte(time.Now().Format(time.RFC3339Nano)))
-			return
-		}),
-		Log:    log,
-		Config: optionsConfig,
+	srv := http3.NewWithAlternative(&fast.Transport{})
+	handler := transports.HandlerFunc(func(w transports.ResponseWriter, r transports.Request) {
+		fmt.Println("proto:", string(r.Proto()))
+		w.SetStatus(200)
+		_, _ = w.Write([]byte(time.Now().Format(time.RFC3339Nano)))
+		return
+	})
+	buildErr := srv.Construct(transports.Options{
+		Log: log,
+		Config: transports.Config{
+			Port:        18080,
+			TLS:         transports.FixedTLSConfig(ssl.NewDefaultConfig(srvTLS, cliTLS, nil, nil)),
+			Options:     options,
+			Middlewares: nil,
+			Handlers:    nil,
+		},
+		Handler: handler,
 	})
 	if buildErr != nil {
 		t.Errorf("%+v", buildErr)

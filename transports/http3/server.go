@@ -1,52 +1,31 @@
 package http3
 
 import (
+	"crypto/tls"
 	"fmt"
-	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service/transports"
-	"github.com/aacfactory/json"
-	"github.com/aacfactory/logs"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/transports"
+	"github.com/aacfactory/fns/transports/standard"
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"strings"
+	"time"
 )
 
-func Server() transports.Transport {
-	return &server{}
-}
-
-type server struct {
-	log         logs.Logger
-	alternative transports.Transport
-	quic        *http3.Server
-	dialer      *Dialer
-}
-
-func (srv *server) Name() (name string) {
-	name = "http3"
-	return
-}
-
-func (srv *server) Build(options transports.Options) (err error) {
-	srvTLS := options.ServerTLS
+func newServer(port int, srvTLS *tls.Config, config *Config, quicConfig *quic.Config, handler transports.Handler) (srv *Server, err error) {
 	if srvTLS == nil {
-		err = errors.Warning("http3: build failed").WithCause(errors.Warning("tls is required"))
+		err = errors.Warning("http3: build server failed").WithCause(errors.Warning("tls is required"))
 		return
 	}
 	srvTLS.NextProtos = []string{"h3", "h3-29"}
-	srv.log = options.Log
-	config := Config{}
-	decodeErr := options.Config.As(&config)
-	if decodeErr != nil {
-		err = errors.Warning("http3: build failed").WithCause(decodeErr)
-		return
-	}
+
 	maxRequestHeaderSize := uint64(0)
 	if config.MaxRequestHeaderSize != "" {
 		maxRequestHeaderSize, err = bytex.ParseBytes(strings.TrimSpace(config.MaxRequestHeaderSize))
 		if err != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxRequestHeaderSize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
+			err = errors.Warning("http3: build server failed").WithCause(errors.Warning("maxRequestHeaderSize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
 			return
 		}
 	}
@@ -54,126 +33,45 @@ func (srv *server) Build(options transports.Options) (err error) {
 	if config.MaxRequestBodySize != "" {
 		maxRequestBodySize, err = bytex.ParseBytes(strings.TrimSpace(config.MaxRequestBodySize))
 		if err != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("maxRequestBodySize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
+			err = errors.Warning("http3: build server failed").WithCause(errors.Warning("maxRequestBodySize is invalid").WithCause(err).WithMeta("hit", "format must be bytes"))
 			return
 		}
 	}
 	if maxRequestBodySize == 0 {
 		maxRequestBodySize = 4 * bytex.MEGABYTE
 	}
-	quicConfig, quicConfigErr := config.QuicConfig()
-	if quicConfigErr != nil {
-		err = errors.Warning("http3: build failed").WithCause(quicConfigErr)
-		return
-	}
 
 	// server
-	handler := transports.HttpTransportHandlerAdaptor(options.Handler, int(maxRequestBodySize))
-	srv.quic = &http3.Server{
-		Addr:               fmt.Sprintf(":%d", options.Port),
-		Port:               options.Port,
+	server := &http3.Server{
+		Addr:               fmt.Sprintf(":%d", port),
+		Port:               port,
 		TLSConfig:          srvTLS,
 		QuicConfig:         quicConfig,
-		Handler:            handler,
+		Handler:            standard.HttpTransportHandlerAdaptor(handler, int(maxRequestBodySize), 30*time.Second),
 		EnableDatagrams:    config.EnableDatagrams,
 		MaxHeaderBytes:     int(maxRequestHeaderSize),
 		AdditionalSettings: config.AdditionalSettings,
 		StreamHijacker:     nil,
 		UniStreamHijacker:  nil,
 	}
-	// alternative
-	if config.Alternative != nil {
-		alternative, registered := transports.Registered(config.Alternative.Name)
-		if !registered {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("alternative transport was not registered"))
-			return
-		}
-		srv.alternative = alternative
 
-		if config.Alternative.Options == nil || !json.Validate(config.Alternative.Options) {
-			config.Alternative.Options = []byte{'{', '}'}
-		}
-		alternativeConfig, alternativeConfigErr := configures.NewJsonConfig(config.Alternative.Options)
-		if alternativeConfigErr != nil {
-			err = errors.Warning("http3: build failed").WithCause(alternativeConfigErr)
-			return
-		}
-		alternativeTLSConfig := options.ServerTLS.Clone()
-		alternativeTLSConfig.NextProtos = nil
-		compatibleOptions := transports.Options{
-			Port:      options.Port,
-			ServerTLS: alternativeTLSConfig,
-			ClientTLS: options.ClientTLS,
-			Handler:   newAlternativeHandler(srv.quic, options.Handler),
-			Log:       options.Log.With("compatible", srv.alternative.Name()),
-			Config:    alternativeConfig,
-		}
-		buildCompatibleErr := srv.alternative.Build(compatibleOptions)
-		if buildCompatibleErr != nil {
-			err = errors.Warning("http3: build failed").WithCause(errors.Warning("build alternative failed")).WithCause(buildCompatibleErr)
-			return
-		}
+	srv = &Server{
+		port: port,
+		srv:  server,
 	}
-	// dialer
-	dialer, dialerErr := NewDialer(options.ClientTLS, config.ClientConfig(), config.EnableDatagrams, quicConfig, config.AdditionalSettings)
-	if dialerErr != nil {
-		err = errors.Warning("http3: build failed").WithCause(dialerErr)
-		return
-	}
-	srv.dialer = dialer
+
 	return
 }
 
-func (srv *server) Dial(address string) (client transports.Client, err error) {
-	client, err = srv.dialer.Dial(address)
-	return
+type Server struct {
+	port int
+	srv  *http3.Server
 }
 
-func (srv *server) ListenAndServe() (err error) {
-	if srv.alternative == nil {
-		err = srv.quic.ListenAndServe()
-		if err != nil {
-			err = errors.Warning("http3: listen and serve failed").WithCause(err)
-			return
-		}
-		return
-	}
-	sErr := make(chan error)
-	qErr := make(chan error)
-	go func(compatible transports.Transport, sErr chan error) {
-		sErr <- compatible.ListenAndServe()
-	}(srv.alternative, sErr)
-	go func(quic *http3.Server, qErr chan error) {
-		qErr <- quic.ListenAndServe()
-	}(srv.quic, qErr)
-	select {
-	case srvErr := <-sErr:
-		_ = srv.Close()
-		err = errors.Warning("http3: listen and serve failed").WithCause(srvErr).WithMeta("kind", "http")
-		break
-	case srvErr := <-qErr:
-		_ = srv.Close()
-		err = errors.Warning("http3: listen and serve failed").WithCause(srvErr).WithMeta("kind", "http3")
-		break
-	}
-	return
-}
-
-func (srv *server) Close() (err error) {
-	srv.dialer.Close()
-	errs := errors.MakeErrors()
-	if srv.alternative != nil {
-		compatibleErr := srv.alternative.Close()
-		if compatibleErr != nil {
-			errs.Append(compatibleErr)
-		}
-	}
-	quicErr := srv.quic.Close()
-	if quicErr != nil {
-		errs.Append(quicErr)
-	}
-	if len(errs) > 0 {
-		err = errors.Warning("http3: close failed").WithCause(errs.Error())
+func (srv *Server) Shutdown(_ context.Context) (err error) {
+	err = srv.srv.Close()
+	if err != nil {
+		err = errors.Warning("http3: server shutdown failed").WithCause(err).WithMeta("transport", transportName)
 	}
 	return
 }

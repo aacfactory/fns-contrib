@@ -3,7 +3,8 @@ package http3
 import (
 	"crypto/tls"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/transports"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/sync/singleflight"
@@ -46,7 +47,8 @@ type Dialer struct {
 	clients                sync.Map
 }
 
-func (dialer *Dialer) Dial(address string) (client transports.Client, err error) {
+func (dialer *Dialer) Dial(addressBytes []byte) (client transports.Client, err error) {
+	address := bytex.ToString(addressBytes)
 	cc, doErr, _ := dialer.group.Do(address, func() (client interface{}, err error) {
 		hosted, has := dialer.clients.Load(address)
 		if has {

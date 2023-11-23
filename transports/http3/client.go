@@ -1,11 +1,12 @@
 package http3
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/transports"
+	"github.com/aacfactory/fns/transports/standard"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/valyala/bytebufferpool"
 	"io"
@@ -33,19 +34,27 @@ type Client struct {
 	core         *http.Client
 }
 
-func (c Client) Key() (key string) {
+func (c *Client) Key() (key string) {
 	key = c.address
 	return
 }
 
-func (c Client) Do(ctx context.Context, request *transports.Request) (response *transports.Response, err error) {
-	r, rErr := http.NewRequestWithContext(ctx, bytex.ToString(request.Method()), fmt.Sprintf("https://%s%s", c.address, bytex.ToString(request.Path())), nil)
+func (c *Client) Do(ctx context.Context, method []byte, path []byte, header transports.Header, body []byte) (status int, responseHeader transports.Header, responseBody []byte, err error) {
+	url := fmt.Sprintf("https://%s%s", c.address, bytex.ToString(path))
+	rb := bytex.AcquireBuffer()
+	defer bytex.ReleaseBuffer(rb)
+	_, _ = rb.Write(body)
+	r, rErr := http.NewRequestWithContext(ctx, bytex.ToString(method), url, rb)
 	if rErr != nil {
 		err = errors.Warning("http3: create request failed").WithCause(rErr)
 		return
 	}
-	if request.Header() != nil && len(request.Header()) > 0 {
-		r.Header = http.Header(request.Header())
+	if header != nil && header.Len() > 0 {
+		header.Foreach(func(key []byte, values [][]byte) {
+			for _, value := range values {
+				r.Header.Add(bytex.ToString(key), bytex.ToString(value))
+			}
+		})
 	}
 	resp, doErr := c.core.Do(r)
 	if doErr != nil {
@@ -56,8 +65,8 @@ func (c Client) Do(ctx context.Context, request *transports.Request) (response *
 		err = errors.Warning("http3: do failed").WithCause(doErr)
 		return
 	}
-	buf := acquireBuf()
-	defer releaseBuf(buf)
+	buf := bytex.Acquire4KBuffer()
+	defer bytex.Release4KBuffer(buf)
 	b := bytebufferpool.Get()
 	defer bytebufferpool.Put(b)
 	for {
@@ -72,15 +81,13 @@ func (c Client) Do(ctx context.Context, request *transports.Request) (response *
 			return
 		}
 	}
-	response = &transports.Response{
-		Status: resp.StatusCode,
-		Header: transports.Header(resp.Header),
-		Body:   b.Bytes(),
-	}
+	status = resp.StatusCode
+	responseHeader = standard.WrapHttpHeader(resp.Header)
+	responseBody = b.Bytes()
 	return
 }
 
-func (c Client) Close() {
+func (c *Client) Close() {
 	c.core.CloseIdleConnections()
 	_ = c.roundTripper.Close()
 	return

@@ -97,6 +97,7 @@ type QuicConfig struct {
 	KeepAlivePeriod                  string   `json:"keepAlivePeriod"`
 	DisablePathMTUDiscovery          bool     `json:"disablePathMtuDiscovery"`
 	DisableVersionNegotiationPackets bool     `json:"disableVersionNegotiationPackets"`
+	Allow0RTT                        bool     `json:"allow0RTT"`
 }
 
 func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config, err error) {
@@ -111,9 +112,6 @@ func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config
 				break
 			case "V2":
 				versions = append(versions, quic.Version2)
-				break
-			case "DRAFT29":
-				versions = append(versions, quic.VersionDraft29)
 				break
 			default:
 				break
@@ -140,22 +138,7 @@ func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config
 			return
 		}
 	}
-	maxRetryTokenAge := time.Duration(0)
-	if config.MaxRetryTokenAge != "" {
-		maxIdleTimeout, err = time.ParseDuration(strings.TrimSpace(config.MaxRetryTokenAge))
-		if err != nil {
-			err = errors.Warning("maxRetryTokenAge is invalid").WithCause(err).WithMeta("hit", "format must be time.Duration")
-			return
-		}
-	}
-	maxTokenAge := time.Duration(0)
-	if config.MaxTokenAge != "" {
-		maxTokenAge, err = time.ParseDuration(strings.TrimSpace(config.MaxTokenAge))
-		if err != nil {
-			err = errors.Warning("maxTokenAge is invalid").WithCause(err).WithMeta("hit", "format must be time.Duration")
-			return
-		}
-	}
+
 	initialStreamReceiveWindow := uint64(0)
 	if config.InitialStreamReceiveWindow != "" {
 		initialStreamReceiveWindow, err = bytex.ParseBytes(strings.TrimSpace(config.InitialStreamReceiveWindow))
@@ -188,17 +171,7 @@ func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config
 			return
 		}
 	}
-	var statelessResetKey *quic.StatelessResetKey
-	if config.StatelessResetKey != "" {
-		if len(config.StatelessResetKey) != 32 {
-			err = errors.Warning("statelessResetKey is invalid").WithCause(err).WithMeta("hit", "see quic-go for more details")
-			return
-		}
-		p := make([]byte, 32)
-		copy(p, config.StatelessResetKey)
-		key := quic.StatelessResetKey(p)
-		statelessResetKey = &key
-	}
+
 	keepAlivePeriod := time.Duration(0)
 	if config.KeepAlivePeriod != "" {
 		keepAlivePeriod, err = time.ParseDuration(strings.TrimSpace(config.KeepAlivePeriod))
@@ -208,29 +181,23 @@ func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config
 		}
 	}
 	quicConfig = &quic.Config{
-		Versions:                         versions,
-		ConnectionIDLength:               0,
-		ConnectionIDGenerator:            &ConnectionIDGenerator{},
-		HandshakeIdleTimeout:             handshakeIdleTimeout,
-		MaxIdleTimeout:                   maxIdleTimeout,
-		RequireAddressValidation:         nil,
-		MaxRetryTokenAge:                 maxRetryTokenAge,
-		MaxTokenAge:                      maxTokenAge,
-		TokenStore:                       nil,
-		InitialStreamReceiveWindow:       initialStreamReceiveWindow,
-		MaxStreamReceiveWindow:           maxStreamReceiveWindow,
-		InitialConnectionReceiveWindow:   initialConnectionReceiveWindow,
-		MaxConnectionReceiveWindow:       maxConnectionReceiveWindow,
-		AllowConnectionWindowIncrease:    nil,
-		MaxIncomingStreams:               config.MaxIncomingStreams,
-		MaxIncomingUniStreams:            config.MaxIncomingUniStreams,
-		StatelessResetKey:                statelessResetKey,
-		KeepAlivePeriod:                  keepAlivePeriod,
-		DisablePathMTUDiscovery:          config.DisablePathMTUDiscovery,
-		DisableVersionNegotiationPackets: config.DisableVersionNegotiationPackets,
-		Allow0RTT:                        nil,
-		EnableDatagrams:                  enableDatagrams,
-		Tracer:                           nil,
+		Versions:                       versions,
+		HandshakeIdleTimeout:           handshakeIdleTimeout,
+		MaxIdleTimeout:                 maxIdleTimeout,
+		RequireAddressValidation:       nil,
+		TokenStore:                     nil,
+		InitialStreamReceiveWindow:     initialStreamReceiveWindow,
+		MaxStreamReceiveWindow:         maxStreamReceiveWindow,
+		InitialConnectionReceiveWindow: initialConnectionReceiveWindow,
+		MaxConnectionReceiveWindow:     maxConnectionReceiveWindow,
+		AllowConnectionWindowIncrease:  nil,
+		MaxIncomingStreams:             config.MaxIncomingStreams,
+		MaxIncomingUniStreams:          config.MaxIncomingUniStreams,
+		KeepAlivePeriod:                keepAlivePeriod,
+		DisablePathMTUDiscovery:        config.DisablePathMTUDiscovery,
+		Allow0RTT:                      config.Allow0RTT,
+		EnableDatagrams:                enableDatagrams,
+		Tracer:                         nil,
 	}
 	return
 }
