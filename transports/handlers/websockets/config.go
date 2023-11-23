@@ -19,6 +19,7 @@ type Config struct {
 	EnableCompression     bool                    `json:"enableCompression"`
 	MaxRequestMessageSize string                  `json:"maxRequestMessageSize"`
 	OriginCheckPolicy     OriginCheckPolicyConfig `json:"originCheckPolicy"`
+	ConnectionTTL         string                  `json:"connectionTTL"`
 }
 
 type OriginCheckPolicyConfig struct {

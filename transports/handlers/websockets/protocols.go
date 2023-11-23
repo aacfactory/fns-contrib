@@ -39,10 +39,10 @@ type Connection interface {
 	SetReadLimit(limit int64)
 	CloseHandler() func(code int, text string) error
 	SetCloseHandler(h func(code int, text string) error)
-	PingHandler() func(appData string) error
-	SetPingHandler(h func(appData string) error)
-	PongHandler() func(appData string) error
-	SetPongHandler(h func(appData string) error)
+	PingHandler() func(appData []byte) error
+	SetPingHandler(h func(appData []byte) error)
+	PongHandler() func(appData []byte) error
+	SetPongHandler(h func(appData []byte) error)
 	EnableWriteCompression(enable bool)
 	SetCompressionLevel(level int) error
 	Subprotocol() (protocol string)

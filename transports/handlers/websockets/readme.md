@@ -9,12 +9,12 @@ go get github.com/aacfactory/fns-contrib/transports/handlers/websockets
 Make sure tls is used.
 ```go
 app := fns.New(
-    fns.Transport(fns.TransportOption().Append(websockets.Websocket()))
+    fns.Handler(websockets.New())
 )
 ```
 Setup config
 ```yaml
-http:
+transport:
   handlers:
     - websockets:
         maxConnections: 1024
@@ -25,6 +25,7 @@ http:
         writeBufferSize: "4MB"
         enableCompression: false
         maxRequestMessageSize: "4KB"
+        connectionTTL: "10m0s"
 ```
 
 Get connection id in function

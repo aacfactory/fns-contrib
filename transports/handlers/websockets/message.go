@@ -3,16 +3,22 @@ package websockets
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/fns/service/transports"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/versions"
+	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
 	"github.com/valyala/bytebufferpool"
 	"io"
+	"sync"
 )
 
-func NewRequest(service string, fn string, payload interface{}) (r *Request, err error) {
-	if service == "" || fn == "" {
-		err = errors.Warning("websockets: new request failed").WithCause(errors.Warning("service and fn is required"))
+var (
+	requestPool = sync.Pool{}
+)
+
+func AcquireRequest(endpoint []byte, fn []byte, payload interface{}) (r *Request, err error) {
+	if len(endpoint) == 0 || len(fn) == 0 {
+		err = errors.Warning("websockets: acquire request failed").WithCause(errors.Warning("endpoint and fn is required"))
 		return
 	}
 	var p []byte
@@ -21,44 +27,62 @@ func NewRequest(service string, fn string, payload interface{}) (r *Request, err
 	} else {
 		p, err = json.Marshal(payload)
 		if err != nil {
-			err = errors.Warning("websockets: new request failed").WithCause(errors.Warning("encode payload failed").WithCause(err))
+			err = errors.Warning("websockets: acquire request failed").WithCause(errors.Warning("encode payload failed").WithCause(err))
 			return
 		}
 	}
-	r = &Request{
-		Service: service,
-		Fn:      fn,
-		Header:  make(transports.Header),
-		Payload: p,
+	cr := requestPool.Get()
+	if cr == nil {
+		cr = new(Request)
 	}
+	r = cr.(*Request)
+	r.Endpoint = bytex.ToString(endpoint)
+	r.Fn = bytex.ToString(fn)
+	r.Header = transports.AcquireHeader()
+	r.Payload = p
 	return
 }
 
-type Request struct {
-	Service string            `json:"service"`
-	Fn      string            `json:"fn"`
-	Header  transports.Header `json:"header"`
-	Payload json.RawMessage   `json:"payload"`
+func ReleaseRequest(r *Request) {
+	header := r.Header
+	transports.ReleaseHeader(header)
+	r.Header = nil
+	r.Endpoint = ""
+	r.Fn = ""
+	r.Payload = nil
+	requestPool.Put(r)
 }
 
-func (request *Request) Validate() (err error) {
-	if request.Service == "" || request.Fn == "" {
+type Request struct {
+	Endpoint string            `json:"endpoint"`
+	Fn       string            `json:"fn"`
+	Header   transports.Header `json:"header"`
+	Payload  json.RawMessage   `json:"payload"`
+}
+
+func (r *Request) Validate() (err error) {
+	if len(r.Endpoint) == 0 || len(r.Fn) == 0 {
 		err = errors.Warning("websocket: invalid request")
 		return
 	}
 	return
 }
 
-func (request *Request) Versions() (v service.RequestVersions, err error) {
-	rvs, hasVersion, parseVersionErr := service.ParseRequestVersionFromHeader(request.Header)
-	if parseVersionErr != nil {
-		err = errors.Warning("fns: parse X-Fns-Request-Version failed").WithCause(parseVersionErr)
+func (r *Request) Authorization() (v []byte) {
+	return r.Header.Get(transports.AuthorizationHeaderName)
+}
+
+func (r *Request) Versions() (v versions.Intervals, has bool, err error) {
+	rv := r.Header.Get(transports.RequestVersionsHeaderName)
+	if len(rv) == 0 {
 		return
 	}
-	if !hasVersion {
-		rvs = service.AllowAllRequestVersions()
+	v, err = versions.ParseIntervals(rv)
+	if err != nil {
+		err = errors.Warning("websocket: parse X-Fns-Request-Version failed").WithCause(err)
+		return
 	}
-	v = rvs
+	has = true
 	return
 }
 

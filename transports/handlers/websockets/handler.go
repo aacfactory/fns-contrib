@@ -10,7 +10,6 @@ import (
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
-	"github.com/aacfactory/fns/service"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
@@ -22,19 +21,19 @@ import (
 	"unicode/utf8"
 )
 
-const (
-	handleName = "websockets"
+var (
+	handleName = []byte("websockets")
 )
 
 var (
 	ErrTooMayConnections = errors.New(http.StatusTooManyRequests, "***TOO MANY CONNECTIONS***", "fns: too may connections, try again later.")
 )
 
-func Websocket(subs ...SubProtocolHandler) (handler transports.MuxHandler) {
+func NewWithRegistration(registration Registration, subs ...SubProtocolHandler) (handler transports.MuxHandler) {
 	wh := &websocketHandler{
 		log:     nil,
-		service: newService(),
 		subs:    make(map[string]SubProtocolHandler),
+		service: newService(registration),
 	}
 	if subs != nil && len(subs) > 0 {
 		for _, sub := range subs {
@@ -53,10 +52,13 @@ func Websocket(subs ...SubProtocolHandler) (handler transports.MuxHandler) {
 	return
 }
 
+func New(subs ...SubProtocolHandler) (handler transports.MuxHandler) {
+	return NewWithRegistration(&defaultRegistration{}, subs...)
+}
+
 type websocketHandler struct {
 	log                   logs.Logger
 	upgrader              *websocket.Upgrader
-	service               *Service
 	subs                  map[string]SubProtocolHandler
 	readTimeout           time.Duration
 	writeTimeout          time.Duration
@@ -64,16 +66,21 @@ type websocketHandler struct {
 	maxConnections        int64
 	connections           *atomic.Int64
 	originCheckFunc       func(r *transports.Request) bool
+	service               *service
+	connectionTTL         time.Duration
+}
+
+func (handler *websocketHandler) Services() []services.Service {
+	return []services.Service{handler.service}
 }
 
 func (handler *websocketHandler) Name() (name string) {
-	name = handleName
+	name = string(handleName)
 	return
 }
 
 func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions) (err error) {
 	handler.log = options.Log
-
 	config := Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
@@ -92,7 +99,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 	if config.ReadTimeout != "" {
 		readTimeout, err = time.ParseDuration(config.ReadTimeout)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("readTimeout format must be time.Duration"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("readTimeout format must be time.Duration"))
 			return
 		}
 	} else {
@@ -103,7 +110,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 	if config.ReadBufferSize != "" {
 		readBufferSize, err = bytex.ParseBytes(config.ReadBufferSize)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("readBufferSize format must be byte"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("readBufferSize format must be byte"))
 			return
 		}
 	}
@@ -111,7 +118,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 	if config.WriteTimeout != "" {
 		writeTimeout, err = time.ParseDuration(config.WriteTimeout)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("writeTimeout format must be time.Duration"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("writeTimeout format must be time.Duration"))
 			return
 		}
 	} else {
@@ -122,7 +129,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 	if config.WriteBufferSize != "" {
 		writeBufferSize, err = bytex.ParseBytes(config.WriteBufferSize)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("writeBufferSize format must be byte"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("writeBufferSize format must be byte"))
 			return
 		}
 	}
@@ -130,7 +137,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 	if config.MaxRequestMessageSize != "" {
 		maxRequestMessageSize, err = bytex.ParseBytes(config.MaxRequestMessageSize)
 		if err != nil {
-			err = errors.Warning("websocket: build failed").WithCause(errors.Warning("maxRequestMessageSize format must be byte"))
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("maxRequestMessageSize format must be byte"))
 			return
 		}
 	} else {
@@ -140,10 +147,23 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 
 	originCheckFn, originCheckFnErr := config.OriginCheckPolicy.Build()
 	if originCheckFnErr != nil {
-		err = errors.Warning("websocket: build failed").WithCause(originCheckFnErr)
+		err = errors.Warning("websocket: construct failed").WithCause(originCheckFnErr)
 		return
 	}
 
+	connectionTTL := time.Duration(0)
+	if config.ConnectionTTL != "" {
+		connectionTTL, err = time.ParseDuration(config.ConnectionTTL)
+		if err != nil {
+			err = errors.Warning("websocket: construct failed").WithCause(errors.Warning("connectionTTL format must be time.Duration"))
+			return
+		}
+	}
+	if connectionTTL < 1 {
+		connectionTTL = 10 * time.Minute
+	}
+	handler.connectionTTL = connectionTTL
+	// upgrader
 	handler.upgrader = &websocket.Upgrader{
 		HandshakeTimeout: handshakeTimeout,
 		ReadBufferSize:   int(readBufferSize),
@@ -194,12 +214,11 @@ func (handler *websocketHandler) Match(_ context.Context, method []byte, _ []byt
 }
 
 func (handler *websocketHandler) Handle(w transports.ResponseWriter, r transports.Request) {
-	handler.connections.Add(1)
-	if handler.connections.Load() > handler.maxConnections {
-		handler.connections.Add(-1)
+	if handler.connections.Load() >= handler.maxConnections {
 		w.Failed(ErrTooMayConnections)
 		return
 	}
+	handler.connections.Add(1)
 	upgradeErr := handler.upgrader.Upgrade(w, r, handler.handleConn)
 	if upgradeErr != nil {
 		handler.connections.Add(-1)
@@ -212,9 +231,11 @@ func (handler *websocketHandler) Handle(w transports.ResponseWriter, r transport
 func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket.Conn, header transports.Header) {
 	defer handler.connections.Add(-1)
 	conn.SetPingHandler(nil)
-	conn.SetPongHandler(func(appData string) error {
+	conn.SetPongHandler(func(appData []byte) error {
 		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
 	})
+	deviceId := header.Get(transports.DeviceIdHeaderName)
+	deviceIp := transports.DeviceIp(ctx)
 	protocol := header.Get([]byte("Sec-Websocket-Protocol"))
 	if len(protocol) > 0 {
 		sub, has := handler.subs[string(protocol)]
@@ -226,39 +247,33 @@ func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket
 		sub.Handle(ctx, &WebsocketConnection{
 			Conn:     conn,
 			header:   header,
-			deviceId: string(header.Get([]byte("X-Fns-Device-Id"))),
-			deviceIp: string(header.Get([]byte("X-Fns-Device-Ip"))),
+			deviceId: string(deviceId),
+			deviceIp: string(deviceIp),
 		})
 		return
 	}
-	handler.handle(ctx, conn, header)
+	handler.handle(ctx, conn, deviceId, deviceIp)
 	return
 }
 
-func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Conn, header transports.Header) {
-	deviceId := header.Get(transports.DeviceIdHeaderName)
-	deviceIp := header.Get(transports.DeviceIpHeaderName)
-	id, mountErr := handler.mount(ctx, conn, string(deviceId))
+func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Conn, deviceId []byte, deviceIp []byte) {
+	endpointId := runtime.AppId(ctx)
+	// mount
+	mountErr := handler.service.mount(ctx, conn, endpointId, handler.connectionTTL)
 	if mountErr != nil {
 		failed := Failed(mountErr)
 		_ = conn.WriteControl(websocket.CloseMessage, failed.Encode(), time.Now().Add(2*time.Second))
 		_ = conn.Close()
 		return
 	}
-	defer func(ctx context.Context, handler *websocketHandler, id string, deviceId string) {
-		recovered := recover()
-		if recovered == nil {
-			return
-		}
-		err, isErr := recovered.(error)
-		if isErr {
-			if handler.log.WarnEnabled() {
-				handler.log.Warn().Cause(errors.Map(err)).Message("websockets: panic at handling")
-			}
-		}
-		_ = handler.unmount(ctx, id, deviceId)
-	}(ctx, handler, id, string(deviceId))
+
+	connId := conn.Id()
+	// with conn id
+	withConnectionId(ctx, connId)
+
+	// handle
 	for {
+		handler.service.refreshTTL(ctx, connId, endpointId, handler.connectionTTL)
 		// read
 		mt, reader, nextReadErr := conn.NextReader()
 		if nextReadErr != nil {
@@ -311,20 +326,31 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is invalid"), time.Now().Add(2*time.Second))
 			break
 		}
-		rvs, rvsErr := request.Versions()
-		if rvsErr != nil {
+		// request
+		requestOptions := make([]services.RequestOption, 0, 1)
+		requestOptions = append(requestOptions, services.WithRequestId(uid.Bytes()))
+		requestOptions = append(requestOptions, services.WithDeviceIp(deviceId))
+		requestOptions = append(requestOptions, services.WithDeviceIp(deviceIp))
+		token := request.Authorization()
+		if len(token) > 0 {
+			requestOptions = append(requestOptions, services.WithToken(token))
+		}
+		rvs, hasVersion, parseVersionErr := request.Versions()
+		if parseVersionErr != nil {
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "parse X-Fns-Request-Version failed"), time.Now().Add(2*time.Second))
 			break
 		}
-		ctx.SetLocalValue(connectionId, id)
+		if hasVersion {
+			requestOptions = append(requestOptions, services.WithRequestVersions(rvs))
+		}
 		eps := runtime.Endpoints(ctx)
+		reqCtx := context.Acquire(ctx)
+		transports.WithRequestHeader(reqCtx, request.Header)
 		response, handleErr := eps.Request(
-			ctx,
-			bytex.FromString(request.Service), bytex.FromString(request.Fn), request.Payload,
-			services.WithDeviceId(deviceId), services.WithDeviceIp(deviceIp),
-			services.WithRequestVersions(rvs),
-			services.WithRequestId(uid.Bytes()),
+			reqCtx, bytex.FromString(request.Endpoint), bytex.FromString(request.Fn), request.Payload,
+			requestOptions...,
 		)
+		context.Release(reqCtx)
 		if handleErr != nil {
 			writeErr := conn.WriteMessage(websocket.TextMessage, Failed(handleErr).Encode())
 			if writeErr != nil {
@@ -333,7 +359,7 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			continue
 		}
 		if !response.Exist() {
-			writeErr := conn.WriteMessage(websocket.TextMessage, []byte{'n', 'u', 'l', 'l'})
+			writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(nil).Encode())
 			if writeErr != nil {
 				break
 			}
@@ -344,63 +370,8 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			break
 		}
 	}
-	_ = handler.unmount(ctx, id, string(deviceId))
-}
-
-func (handler *websocketHandler) mount(ctx context.Context, conn *websocket.Conn, deviceId string) (id string, err error) {
-	id = handler.service.mount(conn)
-
-	endpoint, has := handler.discovery.Get(ctx, handleName)
-	if !has {
-		handler.service.unmount(id)
-		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
-		return
-	}
-	fr := endpoint.Request(
-		ctx,
-		service.NewRequest(
-			ctx,
-			handleName, mountFn,
-			service.NewArgument(&mountParam{
-				ConnectionId: id,
-				AppId:        handler.appId,
-			}),
-			service.WithDeviceId(deviceId),
-			service.WithRequestId(uid.UID()),
-			service.WithInternalRequest(),
-		),
-	)
-	_, resultErr := fr.Get(ctx)
-	if resultErr != nil {
-		handler.service.unmount(id)
-		err = errors.Warning("websockets: mount connection failed").WithCause(resultErr)
-		return
-	}
-	return
-}
-
-func (handler *websocketHandler) unmount(ctx context.Context, id string, deviceId string) (err error) {
-	handler.service.unmount(id)
-	endpoint, has := handler.discovery.Get(ctx, handleName)
-	if !has {
-		err = errors.Warning("websockets: mount connection failed").WithCause(errors.Warning("websockets: service was not found").WithMeta("service", handleName))
-		return
-	}
-	fr := endpoint.Request(
-		ctx,
-		service.NewRequest(
-			ctx,
-			handleName, unmountFn,
-			service.NewArgument(&unmountParam{
-				ConnectionId: id,
-			}),
-			service.WithDeviceId(deviceId),
-			service.WithRequestId(uid.UID()),
-			service.WithInternalRequest(),
-		),
-	)
-	_, _ = fr.Get(ctx)
-	return
+	// unmount
+	_ = handler.service.unmount(ctx, conn)
 }
 
 func (handler *websocketHandler) Close() (err error) {
@@ -420,14 +391,18 @@ func (handler *websocketHandler) Close() (err error) {
 }
 
 var (
-	connectionId = []byte("@fns:websocket:connId")
+	connectionIdContextKey = []byte("@fns:websocket:connectionId")
 )
 
-func ConnectionId(ctx context.Context) (id string) {
-	v := ctx.LocalValue(connectionId)
+func withConnectionId(ctx context.Context, id []byte) {
+	ctx.SetLocalValue(connectionIdContextKey, id)
+}
+
+func ConnectionId(ctx context.Context) (id []byte) {
+	v := ctx.LocalValue(connectionIdContextKey)
 	if v == nil {
 		return
 	}
-	id = v.(string)
+	id = v.([]byte)
 	return
 }

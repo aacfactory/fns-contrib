@@ -1,147 +1,88 @@
 package websockets
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
-	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/commons/uid"
-	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/fns/service/documents"
-	"sync"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/fns/services/commons"
+	"time"
 )
 
-const (
-	sendFn    = "send"
-	mountFn   = "mount"
-	unmountFn = "unmount"
+var (
+	_endpointName = handleName
 )
 
-func newService() *Service {
-	return &Service{
-		Abstract: service.NewAbstract(handleName, true),
-		conns:    sync.Map{},
+func newService(registration Registration) *service {
+	return &service{
+		Abstract: services.NewAbstract(string(_endpointName), true, registration, &Connections{}),
 	}
 }
 
-type Service struct {
-	service.Abstract
-	conns sync.Map
+type service struct {
+	services.Abstract
 }
 
-func (svc *Service) Build(options service.Options) (err error) {
-	err = svc.Abstract.Build(options)
-	return
-}
-
-func (svc *Service) Components() (components map[string]service.Component) {
-	return
-}
-
-func (svc *Service) Document() (doc *documents.Document) {
-	return
-}
-
-func (svc *Service) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
-	switch fn {
-	case sendFn:
-		param := sendParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("websockets: decode request argument failed").WithCause(paramErr)
-			return
-		}
-		connId := param.ConnectionId
-		if connId == "" {
-			err = errors.BadRequest("websockets: connection id is required")
-			return
-		}
-		payload := param.Payload
-		if payload == nil || len(payload) == 0 {
-			err = errors.BadRequest("websockets: payload is required")
-			return
-		}
-		conn, has := svc.getConn(connId)
-		if !has {
-			err = errors.Warning("websockets: connection is lost").WithMeta("connection", connId)
-			return
-		}
-		writeErr := conn.WriteMessage(websocket.TextMessage, payload)
-		if writeErr != nil {
-			err = errors.Warning("websockets: send failed").WithMeta("connection", connId).WithCause(writeErr)
-			return
-		}
-		break
-	case mountFn:
-		param := mountParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("websockets: decode request argument failed").WithCause(paramErr)
-			return
-		}
-		connId := param.ConnectionId
-		if connId == "" {
-			err = errors.BadRequest("websockets: connection id is required")
-			return
-		}
-		store := service.SharedStore(ctx)
-		setErr := store.Set(ctx, bytex.FromString(fmt.Sprintf("fns/websockets/%s", connId)), bytex.FromString(param.AppId))
-		if setErr != nil {
-			err = errors.ServiceError("websockets: mount failed").WithMeta("connection", connId).WithCause(setErr)
-			return
-		}
-		break
-	case unmountFn:
-		param := unmountParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("websockets: decode request argument failed").WithCause(paramErr)
-			return
-		}
-		connId := param.ConnectionId
-		if connId == "" {
-			err = errors.BadRequest("websockets: connection id is required")
-			return
-		}
-		store := service.SharedStore(ctx)
-		rmErr := store.Remove(ctx, bytex.FromString(fmt.Sprintf("fns/websockets/%s", connId)))
-		if rmErr != nil {
-			err = errors.ServiceError("websockets: unmount failed").WithMeta("connection", connId).WithCause(rmErr)
-			return
-		}
-		break
-	default:
-		err = errors.Warning("websockets: fn was not found").WithMeta("service", handleName).WithMeta("fn", fn)
-		break
-	}
-	return
-}
-
-func (svc *Service) mount(conn *websocket.Conn) (id string) {
-	id = uid.UID()
-	svc.conns.Store(id, conn)
-	return
-}
-
-func (svc *Service) unmount(id string) {
-	svc.conns.Delete(id)
-}
-
-func (svc *Service) getConn(id string) (conn *websocket.Conn, has bool) {
-	v, exist := svc.conns.Load(id)
-	if !exist {
+func (svc *service) Construct(options services.Options) (err error) {
+	if err = svc.Abstract.Construct(options); err != nil {
 		return
 	}
-	conn, has = v.(*websocket.Conn)
+	svc.AddFunction(commons.NewFn(string(_sendFnName), false, false, true, false, false, false, sendFn))
 	return
 }
 
-type mountParam struct {
-	ConnectionId string `json:"connectionId"`
-	AppId        string `json:"appId"`
+func (svc *service) mount(ctx context.Context, conn *websocket.Conn, endpointId []byte, ttl time.Duration) (err error) {
+	if len(endpointId) == 0 {
+		err = errors.Warning("websockets: mount connection failed").WithCause(fmt.Errorf("host app id is not found"))
+		return
+	}
+	conns, hasConns := LoadConnections(ctx)
+	if !hasConns {
+		err = errors.Warning("websockets: mount connection failed").WithCause(fmt.Errorf("there is no connections in context"))
+		return
+	}
+	registration, hasRegistration := LoadRegistration(ctx)
+	if !hasRegistration {
+		err = errors.Warning("websockets: mount connection failed").WithCause(fmt.Errorf("there is no registration in context"))
+		return
+	}
+	connId := conn.Id()
+	conns.Set(conn)
+	setErr := registration.Set(ctx, connId, endpointId, ttl)
+	if setErr != nil {
+		conns.Remove(connId)
+		err = errors.Warning("websockets: mount connection failed").WithCause(setErr)
+		return
+	}
+	return
 }
 
-type unmountParam struct {
-	ConnectionId string `json:"connectionId"`
+func (svc *service) unmount(ctx context.Context, conn *websocket.Conn) (err error) {
+	conns, hasConns := LoadConnections(ctx)
+	if !hasConns {
+		err = errors.Warning("websockets: unmount connection failed").WithCause(fmt.Errorf("there is no connections in context"))
+		return
+	}
+	registration, hasRegistration := LoadRegistration(ctx)
+	if !hasRegistration {
+		err = errors.Warning("websockets: unmount connection failed").WithCause(fmt.Errorf("there is no registration in context"))
+		return
+	}
+	connId := conn.Id()
+	conns.Remove(connId)
+	removeErr := registration.Remove(ctx, connId)
+	if removeErr != nil {
+		err = errors.Warning("websockets: unmount connection failed").WithCause(removeErr)
+		return
+	}
+	return
+}
+
+func (svc *service) refreshTTL(ctx context.Context, id []byte, endpointId []byte, ttl time.Duration) {
+	registration, hasRegistration := LoadRegistration(ctx)
+	if !hasRegistration {
+		return
+	}
+	_ = registration.Set(ctx, id, endpointId, ttl)
 }

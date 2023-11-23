@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"io"
 )
@@ -87,14 +88,14 @@ func (w *messageWriter) flushFrame(final bool, extra []byte) error {
 	}
 
 	if c.isWriting {
-		panic("concurrent write to websocket connection")
+		return fmt.Errorf("concurrent write to websocket connection")
 	}
 	c.isWriting = true
 
 	err := c.write(w.frameType, c.writeDeadline, c.writeBuf[framePos:w.pos], extra)
 
 	if !c.isWriting {
-		panic("concurrent write to websocket connection")
+		return fmt.Errorf("concurrent write to websocket connection")
 	}
 	c.isWriting = false
 

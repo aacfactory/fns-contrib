@@ -3,7 +3,9 @@ package websocket
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/json"
 	"io"
 	"net"
@@ -36,6 +38,7 @@ func newConn(conn net.Conn, isServer bool, readBufferSize, writeBufferSize int, 
 	mu := make(chan struct{}, 1)
 	mu <- struct{}{}
 	c := &Conn{
+		id:                     uid.Bytes(),
 		isServer:               isServer,
 		br:                     br,
 		conn:                   conn,
@@ -54,6 +57,7 @@ func newConn(conn net.Conn, isServer bool, readBufferSize, writeBufferSize int, 
 }
 
 type Conn struct {
+	id                     []byte
 	conn                   net.Conn
 	isServer               bool
 	subprotocol            string
@@ -78,13 +82,17 @@ type Conn struct {
 	readLimit              int64
 	readMaskPos            int
 	readMaskKey            [4]byte
-	handlePong             func(string) error
-	handlePing             func(string) error
+	handlePong             func([]byte) error
+	handlePing             func([]byte) error
 	handleClose            func(int, string) error
 	readErrCount           int
 	messageReader          *messageReader
 	readDecompress         bool
 	newDecompressionReader func(io.Reader) io.ReadCloser
+}
+
+func (c *Conn) Id() []byte {
+	return c.id
 }
 
 func (c *Conn) setReadRemaining(n int64) error {
@@ -319,12 +327,12 @@ func (c *Conn) WritePreparedMessage(pm *PreparedMessage) error {
 		return err
 	}
 	if c.isWriting {
-		panic("concurrent write to websocket connection")
+		return fmt.Errorf("concurrent write to websocket connection")
 	}
 	c.isWriting = true
 	err = c.write(frameType, c.writeDeadline, frameData, nil)
 	if !c.isWriting {
-		panic("concurrent write to websocket connection")
+		return fmt.Errorf("concurrent write to websocket connection")
 	}
 	c.isWriting = false
 	return err
@@ -491,11 +499,11 @@ func (c *Conn) advanceFrame() (int, error) {
 
 	switch frameType {
 	case PongMessage:
-		if err := c.handlePong(string(payload)); err != nil {
+		if err := c.handlePong(payload); err != nil {
 			return noFrame, err
 		}
 	case PingMessage:
-		if err := c.handlePing(string(payload)); err != nil {
+		if err := c.handlePing(payload); err != nil {
 			return noFrame, err
 		}
 	case CloseMessage:
@@ -563,7 +571,8 @@ func (c *Conn) NextReader() (messageType int, r io.Reader, err error) {
 
 	c.readErrCount++
 	if c.readErrCount >= 1000 {
-		panic("repeated read on failed websocket connection")
+		err = fmt.Errorf("repeated read on failed websocket connection")
+		return
 	}
 
 	return noFrame, nil, c.readErr
@@ -620,20 +629,20 @@ func (c *Conn) SetCloseHandler(h func(code int, text string) error) {
 	c.handleClose = h
 }
 
-func (c *Conn) PingHandler() func(appData string) error {
+func (c *Conn) PingHandler() func(appData []byte) error {
 	if c == nil {
 		return nil
 	}
 	return c.handlePing
 }
 
-func (c *Conn) SetPingHandler(h func(appData string) error) {
+func (c *Conn) SetPingHandler(h func(appData []byte) error) {
 	if c == nil {
 		return
 	}
 	if h == nil {
-		h = func(message string) error {
-			err := c.WriteControl(PongMessage, []byte(message), time.Now().Add(writeWait))
+		h = func(message []byte) error {
+			err := c.WriteControl(PongMessage, message, time.Now().Add(writeWait))
 			if err == ErrCloseSent {
 				return nil
 			} else if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -645,19 +654,19 @@ func (c *Conn) SetPingHandler(h func(appData string) error) {
 	c.handlePing = h
 }
 
-func (c *Conn) PongHandler() func(appData string) error {
+func (c *Conn) PongHandler() func(appData []byte) error {
 	if c == nil {
 		return nil
 	}
 	return c.handlePong
 }
 
-func (c *Conn) SetPongHandler(h func(appData string) error) {
+func (c *Conn) SetPongHandler(h func(appData []byte) error) {
 	if c == nil {
 		return
 	}
 	if h == nil {
-		h = func(string) error { return nil }
+		h = func([]byte) error { return nil }
 	}
 	c.handlePong = h
 }
@@ -695,6 +704,15 @@ func (c *Conn) WriteJSON(v interface{}) error {
 	p, encodeErr := json.Marshal(v)
 	if encodeErr != nil {
 		return errors.Warning("websocket: write json failed").WithCause(encodeErr)
+	}
+	_, _ = w.Write(p)
+	return w.Close()
+}
+
+func (c *Conn) WriteText(p []byte) error {
+	w, err := c.NextWriter(TextMessage)
+	if err != nil {
+		return err
 	}
 	_, _ = w.Write(p)
 	return w.Close()
