@@ -20,4 +20,11 @@ var (
 	byteType     = reflect.TypeOf(byte(0))
 	jsonDateType = reflect.TypeOf(json.Date{})
 	jsonTimeType = reflect.TypeOf(json.Time{})
+	anyType      = reflect.TypeOf(new(any)).Elem()
+)
+
+var (
+	nullBytes  = []byte("null")
+	trueBytes  = []byte("true")
+	falseBytes = []byte("false")
 )

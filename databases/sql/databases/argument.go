@@ -77,9 +77,9 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 	case bool:
 		argument.Type = "bool"
 		if vv {
-			argument.Value = []byte{'t', 'r', 'u', 'e'}
+			argument.Value = trueBytes
 		} else {
-			argument.Value = []byte{'f', 'a', 'l', 's', 'e'}
+			argument.Value = falseBytes
 		}
 		break
 	case int, int8, int16, int32, int64:
@@ -134,9 +134,9 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 		argument.Type = "bool"
 		if vv.Valid {
 			if vv.Bool {
-				argument.Value = []byte{'t', 'r', 'u', 'e'}
+				argument.Value = trueBytes
 			} else {
-				argument.Value = []byte{'f', 'a', 'l', 's', 'e'}
+				argument.Value = falseBytes
 			}
 		} else {
 			argument.Nil = true
@@ -203,9 +203,9 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 		} else if rt.ConvertibleTo(boolType) {
 			argument.Type = "bool"
 			if rv.Convert(boolType).Bool() {
-				argument.Value = []byte{'t', 'r', 'u', 'e'}
+				argument.Value = trueBytes
 			} else {
-				argument.Value = []byte{'f', 'a', 'l', 's', 'e'}
+				argument.Value = falseBytes
 			}
 		} else if rt.ConvertibleTo(intType) {
 			argument.Type = "int"
