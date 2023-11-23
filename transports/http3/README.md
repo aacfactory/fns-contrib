@@ -10,8 +10,14 @@ Make sure tls is used.
 
 ```go
 import (
-    _ "github.com/aacfactory/fns-contrib/transports/http3"
+    "github.com/aacfactory/fns-contrib/transports/http3"
 )
+```
+
+```go
+
+tr := http3.New()
+
 ```
 
 Setup config, see [quic](https://github.com/quic-go/quic-go) for more quic config detail. 
@@ -39,6 +45,12 @@ transport:
 
 Enable announce that this server supports HTTP/3.
 
+```go
+
+tr := http3.NewWithAlternative(fast.New())
+
+```
+
 ```yaml
 transport:
   name: "http3"
@@ -59,7 +71,7 @@ transport:
       maxResponseHeaderBytes: "4K"
       timeout: "2s"
     alternative: # alternative http server config
-      name: "fasthttp2" 
+      name: "fasthttp" 
       options:
         foo: "bar"
 ```

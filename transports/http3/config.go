@@ -82,22 +82,18 @@ func (config *ClientConfig) TimeoutDuration() (n time.Duration, err error) {
 }
 
 type QuicConfig struct {
-	Versions                         []string `json:"versions"`
-	HandshakeIdleTimeout             string   `json:"handshakeIdleTimeout"`
-	MaxIdleTimeout                   string   `json:"maxIdleTimeout"`
-	MaxRetryTokenAge                 string   `json:"maxRetryTokenAge"`
-	MaxTokenAge                      string   `json:"maxTokenAge"`
-	InitialStreamReceiveWindow       string   `json:"initialStreamReceiveWindow"`
-	MaxStreamReceiveWindow           string   `json:"maxStreamReceiveWindow"`
-	InitialConnectionReceiveWindow   string   `json:"initialConnectionReceiveWindow"`
-	MaxConnectionReceiveWindow       string   `json:"maxConnectionReceiveWindow"`
-	MaxIncomingStreams               int64    `json:"maxIncomingStreams"`
-	MaxIncomingUniStreams            int64    `json:"maxIncomingUniStreams"`
-	StatelessResetKey                string   `json:"statelessResetKey"`
-	KeepAlivePeriod                  string   `json:"keepAlivePeriod"`
-	DisablePathMTUDiscovery          bool     `json:"disablePathMtuDiscovery"`
-	DisableVersionNegotiationPackets bool     `json:"disableVersionNegotiationPackets"`
-	Allow0RTT                        bool     `json:"allow0RTT"`
+	Versions                       []string `json:"versions"`
+	HandshakeIdleTimeout           string   `json:"handshakeIdleTimeout"`
+	MaxIdleTimeout                 string   `json:"maxIdleTimeout"`
+	InitialStreamReceiveWindow     string   `json:"initialStreamReceiveWindow"`
+	MaxStreamReceiveWindow         string   `json:"maxStreamReceiveWindow"`
+	InitialConnectionReceiveWindow string   `json:"initialConnectionReceiveWindow"`
+	MaxConnectionReceiveWindow     string   `json:"maxConnectionReceiveWindow"`
+	MaxIncomingStreams             int64    `json:"maxIncomingStreams"`
+	MaxIncomingUniStreams          int64    `json:"maxIncomingUniStreams"`
+	KeepAlivePeriod                string   `json:"keepAlivePeriod"`
+	DisablePathMTUDiscovery        bool     `json:"disablePathMtuDiscovery"`
+	Allow0RTT                      bool     `json:"allow0RTT"`
 }
 
 func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config, err error) {
