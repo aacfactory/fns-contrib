@@ -20,7 +20,7 @@ func NewColumnType(ct *sql.ColumnType) (v ColumnType) {
 		}
 		return
 	}
-
+	// todo
 	return
 }
 
