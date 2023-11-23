@@ -119,8 +119,7 @@ func sendFn(ctx services.Request) (v interface{}, err error) {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(fmt.Errorf("param is required"))
 		return
 	}
-	param := SendParam{}
-	paramErr := ctx.Param().Scan(&param)
+	param, paramErr := services.ValueOfParam[SendParam](ctx.Param())
 	if paramErr != nil {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(paramErr)
 		return
