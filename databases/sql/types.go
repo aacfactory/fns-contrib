@@ -2,6 +2,8 @@ package sql
 
 import (
 	"database/sql"
+	"fmt"
+	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/times"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -30,3 +32,34 @@ var (
 	trueBytes  = []byte("true")
 	falseBytes = []byte("false")
 )
+
+type NullJson[E any] struct {
+	Valid bool
+	Value E
+}
+
+func (n *NullJson[E]) Scan(src any) error {
+	if src == nil {
+		return nil
+	}
+	p, ok := src.([]byte)
+	if !ok {
+		return errors.Warning("sql: null json scan failed").WithCause(fmt.Errorf("src is not bytes"))
+	}
+	if len(p) == 0 {
+		return nil
+	}
+	if reflect.TypeOf(n.Value).Kind() == reflect.Ptr {
+		err := json.Unmarshal(p, n.Value)
+		if err != nil {
+			return errors.Warning("sql: null json scan failed").WithCause(err)
+		}
+	} else {
+		err := json.Unmarshal(p, &n.Value)
+		if err != nil {
+			return errors.Warning("sql: null json scan failed").WithCause(err)
+		}
+	}
+	n.Valid = true
+	return nil
+}
