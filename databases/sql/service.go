@@ -1,211 +1,139 @@
 package sql
 
 import (
-	"context"
+	"fmt"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/internal"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns-contrib/databases/sql/databases"
+	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
+	"github.com/aacfactory/fns/services"
+	"strings"
+	"time"
 )
 
-const (
-	name                  = "sql"
-	beginTransactionFn    = "begin_transaction"
-	commitTransactionFn   = "commit_transaction"
-	rollbackTransactionFn = "rollback_transaction"
-	queryFn               = "query"
-	executeFn             = "execute"
-	databaseDialectFn     = "database_dialect"
+var (
+	endpointName = []byte("sql")
 )
 
-func Service(databases ...string) service.Service {
-	defaultDatabaseName := ""
-	components := make([]service.Component, 0, 1)
-	if databases == nil || len(databases) == 0 {
-		drivers := internal.RegisteredDrivers()
-		if drivers == nil || len(drivers) == 0 {
-			panic("sql: no sql driver was registered")
-			return nil
+func WithName(name string) Option {
+	return func(options *Options) {
+		if name == "" {
+			return
 		}
-		for _, driver := range drivers {
-			components = append(components, internal.New(driver))
-		}
-		if len(drivers) == 1 {
-			defaultDatabaseName = drivers[0]
-		}
-	} else {
-		for _, database := range databases {
-			components = append(components, internal.New(database))
-		}
-		if len(databases) == 1 {
-			defaultDatabaseName = databases[0]
-		}
-	}
-	return &service_{
-		Abstract:            service.NewAbstract(name, true, components...),
-		defaultDatabaseName: defaultDatabaseName,
+		options.name = name
 	}
 }
 
-type service_ struct {
-	service.Abstract
-	defaultDatabaseName string
+func WithDatabase(db databases.Database) Option {
+	return func(options *Options) {
+		options.db = db
+	}
 }
 
-func (svc *service_) getDatabase(name string) (db internal.Database, err errors.CodeError) {
-	if name == "" && svc.defaultDatabaseName == "" {
-		return
+type Options struct {
+	name string
+	db   databases.Database
+}
+
+type Option func(options *Options)
+
+func New(options ...Option) (v services.Service) {
+	opt := Options{
+		name: string(endpointName),
+		db:   nil,
 	}
-	if name == "" {
-		name = svc.defaultDatabaseName
-		return
+	for _, option := range options {
+		option(&opt)
 	}
-	component, exist := svc.Components()[name]
-	if !exist {
-		err = errors.Warning("sql: database was not found").WithMeta("database", name)
-		return
+	v = &service{
+		Abstract: services.NewAbstract(opt.name, true),
+		db:       nil,
+		group:    nil,
 	}
-	db = component.(internal.Database)
 	return
 }
 
-func (svc *service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
-	switch fn {
-	case databaseDialectFn:
-		arg := dialectArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		v = &dialectResult{
-			Dialect: db.Dialect(),
-		}
+type service struct {
+	services.Abstract
+	db        databases.Database
+	group     *transactions.Group
+	isolation databases.Isolation
+}
+
+func (svc *service) Construct(options services.Options) (err error) {
+	err = svc.Abstract.Construct(options)
+	if err != nil {
 		return
-	case beginTransactionFn:
-		arg := transactionBeginArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		beginErr := db.BeginTransaction(ctx)
-		if beginErr != nil {
-			err = errors.ServiceError("sql: begin transaction failed").WithCause(beginErr).WithMeta("database", db.Name())
-			return
-		}
-		v = &transactionRegistration{
-			Id: svc.AppId(),
-		}
+	}
+	config := Config{}
+	configErr := options.Config.As(config)
+	if configErr != nil {
+		err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(configErr)
+		return
+	}
+	if config.Options == nil {
+		config.Options = []byte{'{', '}'}
+	}
+
+	switch strings.ToLower(config.Kind) {
+	case "standalone":
+		svc.db = databases.Standalone()
 		break
-	case commitTransactionFn:
-		arg := transactionCommitArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		finished, commitErr := db.CommitTransaction(ctx)
-		if commitErr != nil {
-			err = errors.ServiceError("sql: commit transaction failed").WithCause(commitErr).WithMeta("database", db.Name())
-			return
-		}
-		v = &transactionStatus{
-			Finished: finished,
-		}
+	case "masterSlave":
+		svc.db = databases.MasterSlave()
 		break
-	case rollbackTransactionFn:
-		arg := transactionRollbackArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		rollbackErr := db.RollbackTransaction(ctx)
-		if rollbackErr != nil {
-			err = errors.ServiceError("sql: rollback transaction failed").WithCause(rollbackErr).WithMeta("database", db.Name())
-			return
-		}
-		v = &service.Empty{}
-		break
-	case queryFn:
-		arg := queryArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		var queryArgs []interface{}
-		if arg.Args != nil && arg.Args.Size() > 0 {
-			queryArgs = arg.Args.Values()
-		}
-		rows0, queryErr := db.Query(ctx, arg.Query, queryArgs)
-		if queryErr != nil {
-			err = errors.ServiceError("sql: query failed").WithCause(queryErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
-			return
-		}
-		result, resultErr := newRows(rows0)
-		if resultErr != nil {
-			err = errors.ServiceError("sql: query failed").WithCause(resultErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
-			return
-		}
-		v = result
-		break
-	case executeFn:
-		arg := executeArgument{}
-		argErr := argument.As(&arg)
-		if argErr != nil {
-			err = errors.BadRequest("sql: parse argument failed").WithCause(argErr)
-			return
-		}
-		db, dbErr := svc.getDatabase(arg.Database)
-		if dbErr != nil {
-			err = dbErr
-			return
-		}
-		var executeArgs []interface{}
-		if arg.Args != nil && arg.Args.Size() > 0 {
-			executeArgs = arg.Args.Values()
-		}
-		result, queryErr := db.Execute(ctx, arg.Query, executeArgs)
-		if queryErr != nil {
-			err = errors.ServiceError("sql: execute failed").WithCause(queryErr).WithMeta("query", arg.Query).WithMeta("database", db.Name())
-			return
-		}
-		affected, _ := result.RowsAffected()
-		lastInsertId, _ := result.LastInsertId()
-		v = &executeResult{
-			Affected:     affected,
-			LastInsertId: lastInsertId,
-		}
+	case "cluster":
+		svc.db = databases.Cluster()
 		break
 	default:
-		err = errors.NotFound("sql: fn was not found")
+		if svc.db == nil {
+			err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(fmt.Errorf("%s database was not found", config.Kind))
+			return
+		}
 		break
 	}
+	dbConfig, dbConfigErr := configures.NewJsonConfig(config.Options)
+	if dbConfigErr != nil {
+		err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(dbConfigErr)
+		return
+	}
+	err = svc.db.Construct(databases.Options{
+		Log:    svc.Log().With("database", svc.db.Name()),
+		Config: dbConfig,
+	})
+	if err != nil {
+		err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(err)
+		return
+	}
+	svc.group = transactions.New(svc.Log(), time.Duration(config.TransactionMaxAge)*time.Second)
+	isolation := config.Isolation
+	if isolation < 0 || isolation > 7 {
+		isolation = databases.LevelReadCommitted
+	}
+	svc.isolation = isolation
+	svc.AddFunction(&transactionBeginFn{
+		endpointId: svc.Id(),
+		isolation:  svc.isolation,
+		db:         svc.db,
+		group:      svc.group,
+	})
+	svc.AddFunction(&transactionCommitFn{
+		endpointId: svc.Id(),
+		db:         svc.db,
+		group:      svc.group,
+	})
+	svc.AddFunction(&transactionRollbackFn{
+		endpointId: svc.Id(),
+		db:         svc.db,
+		group:      svc.group,
+	})
+	svc.AddFunction(&queryFn{
+		db:    svc.db,
+		group: svc.group,
+	})
+	svc.AddFunction(&executeFn{
+		db:    svc.db,
+		group: svc.group,
+	})
 	return
 }

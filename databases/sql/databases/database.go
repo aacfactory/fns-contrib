@@ -2,17 +2,25 @@ package databases
 
 import (
 	"context"
-	"database/sql"
-	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/configures"
+	"github.com/aacfactory/logs"
 )
 
+type Result struct {
+	LastInsertId int64 `json:"lastInsertId"`
+	RowsAffected int64 `json:"rowsAffected"`
+}
+
+type Options struct {
+	Log    logs.Logger
+	Config configures.Config
+}
+
 type Database interface {
-	services.Component
-	Dialect() (name string)
-	BeginTransaction(ctx context.Context) (err errors.CodeError)
-	CommitTransaction(ctx context.Context) (finished bool, err errors.CodeError)
-	RollbackTransaction(ctx context.Context) (err errors.CodeError)
-	Query(ctx context.Context, query string, args []interface{}) (rows *sql.Rows, err errors.CodeError)
-	Execute(ctx context.Context, query string, args []interface{}) (result sql.Result, err errors.CodeError)
+	Name() string
+	Construct(options Options) (err error)
+	Begin(ctx context.Context, options TransactionOptions) (tx Transaction, err error)
+	Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error)
+	Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error)
+	Close(ctx context.Context) (err error)
 }

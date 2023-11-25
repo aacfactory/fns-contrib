@@ -1,6 +1,7 @@
-package databases
+package sql
 
 import (
+	"database/sql"
 	"github.com/aacfactory/fns/commons/times"
 	"github.com/aacfactory/json"
 	"reflect"
@@ -21,6 +22,7 @@ var (
 	jsonDateType = reflect.TypeOf(json.Date{})
 	jsonTimeType = reflect.TypeOf(json.Time{})
 	anyType      = reflect.TypeOf(new(any)).Elem()
+	rawType      = reflect.TypeOf(sql.RawBytes{})
 )
 
 var (
