@@ -34,7 +34,6 @@ func NewRows(rows databases.Rows) (v *Rows, err error) {
 		columnTypes = append(columnTypes, NewColumnType(names[i], strings.ToUpper(ct.DatabaseType), ct.ScanType))
 	}
 	v = &Rows{
-		transferred: false,
 		idx:         0,
 		rows:        rows,
 		columnTypes: columnTypes,
@@ -46,7 +45,6 @@ func NewRows(rows databases.Rows) (v *Rows, err error) {
 }
 
 type Rows struct {
-	transferred bool
 	idx         int
 	rows        databases.Rows
 	columnTypes []ColumnType
@@ -67,7 +65,7 @@ func (rows *Rows) Close() error {
 }
 
 func (rows *Rows) MarshalJSON() (p []byte, err error) {
-	if rows.transferred {
+	if len(rows.values) > 0 {
 		tr := transferRows{
 			ColumnTypes: rows.columnTypes,
 			Values:      rows.values,
@@ -99,7 +97,6 @@ func (rows *Rows) MarshalJSON() (p []byte, err error) {
 		rows.values = append(rows.values, row)
 	}
 	_ = rows.rows.Close()
-	rows.transferred = true
 	rows.size = len(rows.values)
 	tr := transferRows{
 		ColumnTypes: rows.columnTypes,
@@ -120,7 +117,6 @@ func (rows *Rows) UnmarshalJSON(p []byte) (err error) {
 	rows.columnLen = len(rows.columnTypes)
 	rows.values = tr.Values
 	rows.size = len(rows.values)
-	rows.transferred = true
 	return
 }
 
