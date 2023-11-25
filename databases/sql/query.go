@@ -6,9 +6,14 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/json"
+	"github.com/valyala/bytebufferpool"
+	"golang.org/x/sync/singleflight"
+	"strconv"
 )
 
 var (
@@ -71,8 +76,9 @@ type queryParam struct {
 }
 
 type queryFn struct {
-	db    databases.Database
-	group *transactions.Group
+	db      databases.Database
+	group   *transactions.Group
+	barrier singleflight.Group
 }
 
 func (fn *queryFn) Name() string {
@@ -115,15 +121,38 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 			return
 		}
 	}
-	rows, queryErr := fn.db.Query(r, query, param.Arguments)
-	if queryErr != nil {
-		err = errors.Warning("sql: query failed").WithCause(queryErr)
+	buf := bytebufferpool.Get()
+	_, _ = buf.Write(query)
+	ap, encodeErr := json.Marshal(param.Arguments)
+	if encodeErr != nil {
+		rows, queryErr := fn.db.Query(r, query, param.Arguments)
+		if queryErr != nil {
+			err = errors.Warning("sql: query failed").WithCause(queryErr)
+			return
+		}
+		v, err = NewRows(rows)
+		if err != nil {
+			err = errors.Warning("sql: query failed").WithCause(err)
+			return
+		}
 		return
 	}
-	v, err = NewRows(rows)
-	if err != nil {
-		err = errors.Warning("sql: query failed").WithCause(err)
+	_, _ = buf.Write(ap)
+	key := strconv.FormatUint(mmhash.Sum64(buf.Bytes()), 16)
+	bytebufferpool.Put(buf)
+	v, err, _ = fn.barrier.Do(key, func() (v interface{}, err error) {
+		rows, queryErr := fn.db.Query(r, query, param.Arguments)
+		if queryErr != nil {
+			err = errors.Warning("sql: query failed").WithCause(queryErr)
+			return
+		}
+		v, err = NewRows(rows)
+		if err != nil {
+			err = errors.Warning("sql: query failed").WithCause(err)
+			return
+		}
 		return
-	}
+	})
+	fn.barrier.Forget(key)
 	return
 }
