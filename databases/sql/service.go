@@ -173,11 +173,15 @@ func (svc *service) Construct(options services.Options) (err error) {
 		db:    svc.db,
 		group: svc.group,
 	})
+	svc.AddFunction(&dialectFn{
+		dialect: svc.dialect,
+	})
 	return
 }
 
-func EndpointName(ctx context.Context, name []byte) {
+func EndpointName(ctx context.Context, name []byte) context.Context {
 	ctx.SetLocalValue(endpointNameContextKey, name)
+	return ctx
 }
 
 func loadEndpointName(ctx context.Context) []byte {

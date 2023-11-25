@@ -30,16 +30,13 @@ go get github.com/aacfactory/fns-contrib/databases/sql
 Example:
 ```yaml
 sql:
-  masterSlaverMode: false,
-  driver: "postgres",
-  dsn:
-    - "username:password@tcp(ip:port)/databases"
-  maxIdles: 0
-  maxOpens: 0
-  enableDebugLog: true
-  gtmCleanUpSecond: 120
+  kind: "standalone"
   isolation: 2
-  dialect: "postgres"
+  transactionMaxAge: 10
+  options:
+    dsn: "username:password@tcp(ip:port)/databases"
+    maxIdles: 0
+    maxOpens: 0
 ```
 
 ### Import driver
@@ -56,9 +53,9 @@ app.Deply(sql.Service())
 See [proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/proxy.go)
 ```go
 // begin transaction 
-sql.BeginTransaction(ctx)
+sql.Begin(ctx)
 // commit transaction
-sql.CommitTransaction(ctx)
+sql.Commit(ctx)
 // query
 sql.Query(ctx, querySQL, ...)
 // execute
@@ -74,24 +71,18 @@ use multi database service to implements
 Config:
 ```yaml
 postgres1:
-  masterSlaverMode: false,
-  driver: "postgres",
-  dsn:
-    - "username:password@tcp(ip:port)/databases"
+  kind: "standalone"
 
 mysql1:
-  masterSlaverMode: false,
-  driver: "mysql",
-  dsn:
-    - "username:password@tcp(ip:port)/databases"
+  kind: "standalone"
 ```
 Deploy:
 ```yaml
-app.Deploy(sql.Service(sql.Name("postgres1")))
-app.Deploy(sql.Service(sql.Name("mysql1")))
+app.Deploy(sql.Service(sql.WithName("postgres1")))
+app.Deploy(sql.Service(sql.WithName("mysql1")))
 ```
 Proxy
 ```go
-sql.Query(sql.WithOptions(ctx, sql.Database("postgres1")), querySQL, ...)
-sql.Query(sql.WithOptions(ctx, sql.Database("mysql1")), querySQL, ...)
+sql.Query(sql.EndpointName(ctx, "postgres1"), querySQL, ...)
+sql.Query(sql.EndpointName(ctx, "mysql1"), querySQL, ...)
 ```
