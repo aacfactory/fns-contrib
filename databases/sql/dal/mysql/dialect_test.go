@@ -1,11 +1,11 @@
 package mysql_test
 
 import (
-	"context"
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal/mysql"
+	"github.com/aacfactory/fns/commons/times"
+	"github.com/aacfactory/fns/context"
 	"testing"
 	"time"
 )
@@ -29,11 +29,11 @@ type Avatar struct {
 
 type User struct {
 	Audits
-	Name     string   `col:"NAME,conflict" json:"name"`
-	Age      int      `col:"AGE" json:"age"`
-	Birthday sql.Date `col:"BIRTHDAY" json:"birthday"`
-	Avatar   *Avatar  `col:"AVATAR,json" json:"avatar"`
-	Group    *Group   `col:"GROUP,ref,GROUP_ID+ID" json:"group"`
+	Name     string     `col:"NAME,conflict" json:"name"`
+	Age      int        `col:"AGE" json:"age"`
+	Birthday times.Date `col:"BIRTHDAY" json:"birthday"`
+	Avatar   *Avatar    `col:"AVATAR,json" json:"avatar"`
+	Group    *Group     `col:"GROUP,ref,GROUP_ID+ID" json:"group"`
 }
 
 func (user *User) TableName() (schema string, name string) {
@@ -68,7 +68,7 @@ func TestQueryGeneratorBuilder(t *testing.T) {
 		t.Errorf("%+v", buildErr)
 		return
 	}
-	fmt.Println(generator.Query(context.TODO(), dal.NewConditions(dal.Eq("NAME", "NAME")), dal.NewOrders().Desc("AGE"), dal.NewRange(0, 12)))
+	fmt.Println(generator.Select(context.TODO(), dal.NewConditions(dal.Eq("NAME", "NAME")), dal.NewOrders().Desc("AGE"), dal.NewRange(0, 12)))
 	fmt.Println(generator.Count(context.TODO(), dal.NewConditions(dal.Between("AGE", 10, 12))))
 	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(dal.IN("NAME", []string{"foo", "bar"}))))
 	fmt.Println(generator.Exist(context.TODO(), dal.NewConditions(

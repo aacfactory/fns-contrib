@@ -1,9 +1,9 @@
 package dal
 
 import (
-	"context"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 )
 
 func Exist[T Model](ctx context.Context, conditions *Conditions) (has bool, err errors.CodeError) {
@@ -22,9 +22,12 @@ func Exist[T Model](ctx context.Context, conditions *Conditions) (has bool, err 
 	// handle
 	rows, queryErr := sql.Query(ctx, query, arguments...)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: exist failed").WithCause(queryErr)
+		err = errors.Warning("dal: exist failed").WithCause(queryErr)
 		return
 	}
-	has = !rows.Empty()
+	if rows.Next() {
+		has = true
+	}
+	_ = rows.Close()
 	return
 }

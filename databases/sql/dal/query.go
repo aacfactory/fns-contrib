@@ -1,21 +1,21 @@
 package dal
 
 import (
-	"context"
-	stdJson "encoding/json"
+	"fmt"
 	"github.com/aacfactory/copier"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/json"
 	"reflect"
 	"strings"
 )
 
-func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err errors.CodeError) {
+func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, err error) {
 	results := make([]T, 0, 1)
 	queryErr := query0(ctx, conditions, nil, nil, &result)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: query one failed").WithCause(queryErr)
+		err = errors.Warning("dal: query one failed").WithCause(queryErr)
 		return
 	}
 	if len(results) == 0 {
@@ -25,48 +25,48 @@ func QueryOne[T Model](ctx context.Context, conditions *Conditions) (result T, e
 	return
 }
 
-func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, err errors.CodeError) {
+func Query[T Model](ctx context.Context, conditions *Conditions) (results []T, err error) {
 	results = make([]T, 0, 1)
 	err = query0(ctx, conditions, nil, nil, &results)
 	if err != nil {
-		err = errors.ServiceError("dal: query failed").WithCause(err)
+		err = errors.Warning("dal: query failed").WithCause(err)
 		return
 	}
 	return
 }
 
-func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
+func QueryWithRange[T Model](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err error) {
 	results = make([]T, 0, 1)
 	err = query0(ctx, conditions, orders, rng, &results)
 	if err != nil {
-		err = errors.ServiceError("dal: query with range failed").WithCause(err)
+		err = errors.Warning("dal: query with range failed").WithCause(err)
 		return
 	}
 	return
 }
 
-func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}) (results []T, err errors.CodeError) {
+func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}) (results []T, err error) {
 	rows, queryErr := sql.Query(ctx, query, args...)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: query direct failed").WithCause(queryErr)
-		return
-	}
-	if rows.Empty() {
+		err = errors.Warning("dal: query direct failed").WithCause(queryErr)
 		return
 	}
 	results = make([]T, 0, 1)
 	resultsPtrValue := reflect.ValueOf(&results)
-	err = scanQueryResults(ctx, rows, resultsPtrValue)
-	if err != nil {
-		err = errors.ServiceError("dal: query direct failed").WithCause(err)
-		return
+	for rows.Next() {
+		err = scanQueryResults(ctx, rows, resultsPtrValue)
+		if err != nil {
+			err = errors.Warning("dal: query direct failed").WithCause(err)
+			return
+		}
 	}
+	_ = rows.Close()
 	if results == nil || len(results) == 0 {
 		return
 	}
 	structure, _, getGeneratorErr := getModelQueryGenerator(ctx, newModel[T]())
 	if getGeneratorErr != nil {
-		err = errors.ServiceError("dal: query direct failed").WithCause(err).WithCause(getGeneratorErr)
+		err = errors.Warning("dal: query direct failed").WithCause(err).WithCause(getGeneratorErr)
 		return
 	}
 	tryHandleEagerLoadErr := tryHandleEagerLoad(ctx, structure, resultsPtrValue)
@@ -77,7 +77,7 @@ func QueryDirect[T Model](ctx context.Context, query string, args ...interface{}
 	return
 }
 
-func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, resultsPtr interface{}) (err errors.CodeError) {
+func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, resultsPtr interface{}) (err error) {
 	resultsPtrValue := reflect.ValueOf(resultsPtr)
 	resultPtrValue := reflect.New(resultsPtrValue.Elem().Type().Elem().Elem())
 	model := resultPtrValue.Interface().(Model)
@@ -98,10 +98,8 @@ func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Ra
 		err = queryErr
 		return
 	}
-	if rows.Empty() {
-		return
-	}
 	scanErr := scanQueryResults(ctx, rows, resultsPtrValue)
+	_ = rows.Close()
 	if scanErr != nil {
 		err = scanErr
 		return
@@ -117,7 +115,7 @@ func query0(ctx context.Context, conditions *Conditions, orders *Orders, rng *Ra
 	return
 }
 
-func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsPtrValue reflect.Value) (err errors.CodeError) {
+func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsPtrValue reflect.Value) (err error) {
 	if !isEagerLoadMode(ctx) {
 		return
 	}
@@ -192,7 +190,7 @@ func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsP
 	for fieldName, loader := range eagerLoaders {
 		loaded, eagerLoadValues, loadErr := loader.Load(ctx)
 		if loadErr != nil {
-			err = errors.ServiceError("eager load failed").WithCause(loadErr).WithMeta("field", fieldName)
+			err = errors.Warning("eager load failed").WithCause(loadErr).WithMeta("field", fieldName)
 			return
 		}
 		if !loaded {
@@ -212,7 +210,7 @@ func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsP
 				}
 				cpErr := copier.Copy(rf.Interface(), eagerLoadValue)
 				if cpErr != nil {
-					err = errors.ServiceError("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
+					err = errors.Warning("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
 				}
 			} else {
 				// slice
@@ -232,7 +230,7 @@ func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsP
 					}
 					cpErr := copier.Copy(rfe.Interface(), eagerLoadValue)
 					if cpErr != nil {
-						err = errors.ServiceError("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
+						err = errors.Warning("eager load failed").WithCause(cpErr).WithMeta("field", fieldName)
 					}
 				}
 			}
@@ -241,22 +239,11 @@ func tryHandleEagerLoad(ctx context.Context, structure *ModelStructure, resultsP
 	return
 }
 
-var (
-	sqlStringType = reflect.TypeOf("")
-	sqlIntType    = reflect.TypeOf(int64(0))
-	sqlFloatType  = reflect.TypeOf(float64(0))
-	sqlBoolType   = reflect.TypeOf(false)
-)
-
-func scanQueryResults(ctx context.Context, rows sql.Rows, resultsPtrValue reflect.Value) (err errors.CodeError) {
+func scanQueryResults(ctx context.Context, rows *sql.Rows, resultsPtrValue reflect.Value) (err error) {
 	resultsValue := resultsPtrValue.Elem()
-	for {
-		row, has := rows.Next()
-		if !has {
-			break
-		}
+	for rows.Next() {
 		resultPtrValue := reflect.New(resultsValue.Type().Elem().Elem())
-		scanErr := scanQueryResult(ctx, row, resultPtrValue)
+		scanErr := scanQueryResult(ctx, rows, resultPtrValue)
 		if scanErr != nil {
 			err = scanErr
 			return
@@ -267,16 +254,17 @@ func scanQueryResults(ctx context.Context, rows sql.Rows, resultsPtrValue reflec
 	return
 }
 
-func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Value) (err errors.CodeError) {
+func scanQueryResult(ctx context.Context, rows *sql.Rows, resultPtrValue reflect.Value) (err error) {
 	rv := resultPtrValue.Elem()
 	rt := rv.Type()
 	fieldNum := rt.NumField()
-	columns := row.Columns()
-	for _, c := range columns {
-		if c.IsNil() {
-			continue
-		}
-		cName := strings.ToUpper(strings.TrimSpace(c.Name()))
+
+	dst := make([]interface{}, 0, 1)
+	jsonFields := make([]int, 0, 1)
+	valueFields := make([]int, 0, 1)
+	columns := rows.Columns()
+	for idx, c := range columns {
+		cName := strings.ToUpper(strings.TrimSpace(c.Name))
 		field := reflect.StructField{}
 		hasField := false
 		jsonValueField := false
@@ -313,115 +301,67 @@ func scanQueryResult(ctx context.Context, row sql.Row, resultPtrValue reflect.Va
 		if !hasField {
 			continue
 		}
-		rfv := rv.FieldByName(field.Name)
-		value, valueErr := c.Value()
-		if valueErr != nil {
-			err = errors.Warning("sql: scan query result failed").
-				WithMeta("column", cName).
-				WithCause(valueErr)
-			return
-		}
-		reflectValue := reflect.ValueOf(value)
 		if jsonValueField {
-			var jsonRaw []byte
-			switch value.(type) {
-			case []byte:
-				jsonRaw = value.([]byte)
-				break
-			case json.RawMessage:
-				jsonRaw = value.(json.RawMessage)
-				break
-			case stdJson.RawMessage:
-				jsonRaw = value.(stdJson.RawMessage)
-				break
-			default:
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithMeta("type", c.Type()).
-					WithMeta("dbType", c.DatabaseType()).
-					WithCause(errors.Warning("sql: column value type is not json bytes"))
-				return
-			}
-			var jsonValue reflect.Value
-			if field.Type.Kind() == reflect.Ptr {
-				jsonValue = reflect.New(field.Type.Elem())
-			} else {
-				jsonValue = reflect.New(field.Type)
-			}
-			decodeErr := json.Unmarshal(jsonRaw, jsonValue.Interface())
-			if decodeErr != nil {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithMeta("json", string(jsonRaw)).
-					WithCause(decodeErr)
-				return
-			}
-			if rfv.Type().Kind() == reflect.Ptr {
-				rfv.Set(jsonValue)
-			} else {
-				rfv.Set(jsonValue.Elem())
-			}
-		} else if rfv.CanSet() {
-			if reflectValue.Type() == field.Type || reflectValue.Type().AssignableTo(field.Type) {
-				rv.FieldByName(field.Name).Set(reflectValue)
-			} else if reflectValue.Type().ConvertibleTo(field.Type) {
-				rfv.Set(reflectValue.Convert(field.Type))
-			} else {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
-				return
-			}
-		} else if field.Type == sqlStringType || field.Type.ConvertibleTo(sqlStringType) {
-			if reflectValue.Type() == sqlStringType {
-				rfv.SetString(reflectValue.String())
-			} else if reflectValue.Type().ConvertibleTo(sqlStringType) {
-				rfv.SetString(reflectValue.Convert(sqlStringType).String())
-			} else {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
-				return
-			}
-		} else if field.Type == sqlBoolType || field.Type.ConvertibleTo(sqlBoolType) {
-			if reflectValue.Type() == sqlBoolType {
-				rfv.SetBool(reflectValue.Bool())
-			} else if reflectValue.Type().ConvertibleTo(sqlBoolType) {
-				rfv.SetBool(reflectValue.Convert(sqlBoolType).Bool())
-			} else {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
-				return
-			}
-		} else if field.Type == sqlIntType || field.Type.ConvertibleTo(sqlIntType) {
-			if reflectValue.Type() == sqlIntType {
-				rfv.SetInt(reflectValue.Int())
-			} else if reflectValue.Type().ConvertibleTo(sqlIntType) {
-				rfv.SetInt(reflectValue.Convert(sqlIntType).Int())
-			} else {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
-				return
-			}
-		} else if field.Type == sqlFloatType || field.Type.ConvertibleTo(sqlFloatType) {
-			if reflectValue.Type() == sqlFloatType {
-				rfv.SetFloat(reflectValue.Float())
-			} else if reflectValue.Type().ConvertibleTo(sqlFloatType) {
-				rfv.SetFloat(reflectValue.Convert(sqlFloatType).Float())
-			} else {
-				err = errors.Warning("sql: scan query result failed").
-					WithMeta("column", cName).
-					WithCause(errors.Warning("sql: column value type can match row field type").WithMeta("field", field.Name))
-				return
-			}
-		} else {
+			dst = append(dst, &json.RawMessage{})
+			jsonFields = append(jsonFields, idx)
+			valueFields = append(valueFields, idx)
+			continue
+		}
+		rfv := rv.FieldByName(field.Name)
+		if rfv.Type().Kind() == reflect.Ptr {
+			dst = append(dst, rfv.Interface())
+			continue
+		}
+		if !rfv.CanInterface() {
 			err = errors.Warning("sql: scan query result failed").
 				WithMeta("column", cName).
-				WithCause(errors.Warning("sql: field type was not supported").WithMeta("field", field.Name))
+				WithCause(fmt.Errorf("value can not interface"))
 			return
 		}
+		rvi := rfv.Interface()
+		dst = append(dst, &rvi)
+		valueFields = append(valueFields, idx)
+	}
+	scanErr := rows.Scan(dst...)
+	if scanErr != nil {
+		err = errors.Warning("sql: scan query result failed").
+			WithCause(scanErr)
+		return
+	}
+	for _, idx := range valueFields {
+		value := dst[idx]
+		isJson := false
+		for _, jf := range jsonFields {
+			if jf == idx {
+				isJson = true
+				break
+			}
+		}
+		field := rv.Field(idx)
+		if isJson {
+			p := value.(*json.RawMessage)
+			if field.Type().Kind() == reflect.Ptr {
+				fv := field.Interface()
+				decodeErr := json.Unmarshal(*p, fv)
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan query result failed").
+						WithCause(decodeErr)
+					return
+				}
+			} else {
+				fv := field.Interface()
+				decodeErr := json.Unmarshal(*p, &fv)
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan query result failed").
+						WithCause(decodeErr)
+					return
+				}
+				field.Set(reflect.ValueOf(fv))
+			}
+			continue
+		}
+		vv := reflect.Indirect(reflect.ValueOf(value))
+		field.Set(vv)
 	}
 	// load hook
 	hookErr := executeModelLoadHook(ctx, resultPtrValue)

@@ -2,7 +2,7 @@ package dal
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/commons/times"
 	"testing"
 )
 
@@ -14,11 +14,11 @@ type Avatar struct {
 
 type User struct {
 	Audits
-	Name     string   `col:"NAME" json:"NAME"`
-	Age      int      `col:"AGE" json:"AGE"`
-	Birthday sql.Date `col:"BIRTHDAY" json:"BIRTHDAY"`
-	Avatar   *Avatar  `col:"AVATAR,json" json:"AVATAR"`
-	Group    *Group   `col:"GROUP,ref,GROUP_ID+ID" json:"GROUP"`
+	Name     string     `col:"NAME" json:"NAME"`
+	Age      int        `col:"AGE" json:"AGE"`
+	Birthday times.Date `col:"BIRTHDAY" json:"BIRTHDAY"`
+	Avatar   *Avatar    `col:"AVATAR,json" json:"AVATAR"`
+	Group    *Group     `col:"GROUP,ref,GROUP_ID+ID" json:"GROUP"`
 }
 
 func (user *User) TableName() (schema string, name string) {

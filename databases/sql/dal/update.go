@@ -1,20 +1,20 @@
 package dal
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 	"reflect"
 )
 
-func Update(ctx context.Context, model Model) (err errors.CodeError) {
+func Update(ctx context.Context, model Model) (err error) {
 	if model == nil {
 		return
 	}
 	rv := reflect.ValueOf(model)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("dal: update failed").WithCause(fmt.Errorf(" for type of model is not ptr"))
+		err = errors.Warning("dal: update failed").WithCause(fmt.Errorf(" for type of model is not ptr"))
 		return
 	}
 	structure, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
@@ -25,7 +25,7 @@ func Update(ctx context.Context, model Model) (err errors.CodeError) {
 	// audit
 	tryFillModifyErr := tryFillAuditModify(ctx, rv, structure)
 	if tryFillModifyErr != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(tryFillModifyErr)
+		err = errors.Warning("dal: update failed").WithCause(tryFillModifyErr)
 		return
 	}
 	// generator
@@ -35,18 +35,18 @@ func Update(ctx context.Context, model Model) (err errors.CodeError) {
 		return
 	}
 	// handle
-	affected, _, executeErr := sql.Execute(ctx, query, arguments...)
+	result, executeErr := sql.Execute(ctx, query, arguments...)
 	if executeErr != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(executeErr)
+		err = executeErr
 		return
 	}
-	if affected == 0 {
+	if result.RowsAffected == 0 {
 		return
 	}
 	// version
 	tryFillAOLErr := tryFillAOLField(rv, structure)
 	if tryFillAOLErr != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(tryFillAOLErr)
+		err = errors.Warning("dal: update failed").WithCause(tryFillAOLErr)
 		return
 	}
 	return
@@ -80,26 +80,27 @@ type Value struct {
 	Value interface{}
 }
 
-func UpdateWithValues[T Model](ctx context.Context, values Values, cond *Conditions) (affected int64, err errors.CodeError) {
+func UpdateWithValues[T Model](ctx context.Context, values Values, cond *Conditions) (affected int64, err error) {
 	if values == nil || len(values) == 0 {
-		err = errors.ServiceError("dal: update failed").WithCause(errors.Warning("values is required"))
+		err = errors.Warning("dal: update failed").WithCause(errors.Warning("values is required"))
 		return
 	}
 	model := newModel[T]()
 	_, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
 	if getGeneratorErr != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(getGeneratorErr)
+		err = errors.Warning("dal: update failed").WithCause(getGeneratorErr)
 		return
 	}
 	_, query, args, genErr := generator.UpdateWithValues(ctx, values, cond)
 	if genErr != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(genErr)
+		err = errors.Warning("dal: update failed").WithCause(genErr)
 		return
 	}
-	affected, _, err = sql.Execute(ctx, query, args)
-	if err != nil {
-		err = errors.ServiceError("dal: update failed").WithCause(err)
+	result, execErr := sql.Execute(ctx, query, args)
+	if execErr != nil {
+		err = execErr
 		return
 	}
+	affected = result.RowsAffected
 	return
 }

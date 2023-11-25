@@ -1,9 +1,9 @@
 package dal
 
 import (
-	"context"
 	"fmt"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/services/authorizations"
 	"reflect"
 	"time"
 )
@@ -31,14 +31,12 @@ func tryFillByField(ctx context.Context, rv reflect.Value, field *Field) (err er
 	if byStringTypeKind {
 		byString := by.(string)
 		if byString == "" {
-			request, hasRequest := service.GetRequest(ctx)
-			if hasRequest {
-				userId := request.User().Id()
-				if userId != "" {
-					byString = userId.String()
-					rv.Elem().FieldByName(field.Name()).SetString(byString)
-					hasByValue = true
-				}
+			authorization, has, _ := authorizations.Load(ctx)
+			if has && authorization.Validate() {
+				userId := authorization.Id
+				byString = userId.String()
+				rv.Elem().FieldByName(field.Name()).SetString(byString)
+				hasByValue = true
 			}
 		} else {
 			hasByValue = true
@@ -46,14 +44,11 @@ func tryFillByField(ctx context.Context, rv reflect.Value, field *Field) (err er
 	} else {
 		byInt := reflect.ValueOf(by).Int()
 		if byInt <= 0 {
-			request, hasRequest := service.GetRequest(ctx)
-			if hasRequest {
-				userId := request.User().Id()
-				if userId != "" {
-					byInt = userId.Int()
-					rv.Elem().FieldByName(field.Name()).SetInt(byInt)
-					hasByValue = true
-				}
+			authorization, has, _ := authorizations.Load(ctx)
+			if has && authorization.Validate() {
+				byInt = authorization.Id.Int()
+				rv.Elem().FieldByName(field.Name()).SetInt(byInt)
+				hasByValue = true
 			}
 		} else {
 			hasByValue = true

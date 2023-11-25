@@ -1,8 +1,8 @@
 package dal
 
 import (
-	"context"
 	"fmt"
+	"github.com/aacfactory/fns/context"
 )
 
 type Dialect string
@@ -51,7 +51,7 @@ var (
 )
 
 const (
-	defaultQueryGeneratorGettingKey = "@default_query_generator@"
+	defaultQueryGeneratorGettingKey = "@default:query:generator@"
 )
 
 const (

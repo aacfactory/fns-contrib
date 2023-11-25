@@ -1,11 +1,11 @@
 package postgres_test
 
 import (
-	"context"
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal/postgres"
+	"github.com/aacfactory/fns/commons/times"
+	"github.com/aacfactory/fns/context"
 	"testing"
 	"time"
 )
@@ -29,11 +29,11 @@ type Avatar struct {
 
 type User struct {
 	Audits
-	Name     string   `col:"NAME,conflict" json:"name"`
-	Age      int      `col:"AGE" json:"age"`
-	Birthday sql.Date `col:"BIRTHDAY" json:"birthday"`
-	Avatar   *Avatar  `col:"AVATAR,json" json:"avatar"`
-	Group    *Group   `col:"GROUP,ref,GROUP_ID+ID" json:"group"`
+	Name     string     `col:"NAME,conflict" json:"name"`
+	Age      int        `col:"AGE" json:"age"`
+	Birthday times.Date `col:"BIRTHDAY" json:"birthday"`
+	Avatar   *Avatar    `col:"AVATAR,json" json:"avatar"`
+	Group    *Group     `col:"GROUP,ref,GROUP_ID+ID" json:"group"`
 }
 
 func (user *User) TableName() (schema string, name string) {

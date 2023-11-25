@@ -1,13 +1,12 @@
 package dal
 
 import (
-	"context"
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 )
 
-func Count[T Model](ctx context.Context, conditions *Conditions) (num int64, err errors.CodeError) {
+func Count[T Model](ctx context.Context, conditions *Conditions) (num int64, err error) {
 	model := newModel[T]()
 	_, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
 	if getGeneratorErr != nil {
@@ -23,21 +22,17 @@ func Count[T Model](ctx context.Context, conditions *Conditions) (num int64, err
 	// handle
 	rows, queryErr := sql.Query(ctx, query, arguments...)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: count failed").WithCause(queryErr)
+		err = errors.Warning("dal: count failed").WithCause(queryErr)
 		return
 	}
-	result, has := rows.Next()
-	if !has {
-		return
+	if rows.Next() {
+		scanErr := rows.Scan(&num)
+		if scanErr != nil {
+			_ = rows.Close()
+			err = errors.Warning("dal: count failed").WithCause(scanErr)
+			return
+		}
 	}
-	hasColumn, decodeErr := result.Column("_COUNT_", &num)
-	if !hasColumn {
-		err = errors.ServiceError("dal: count failed").WithCause(fmt.Errorf("no named '_COUNT_' column in results"))
-		return
-	}
-	if decodeErr != nil {
-		err = errors.ServiceError("dal: count failed").WithCause(decodeErr)
-		return
-	}
+	_ = rows.Close()
 	return
 }

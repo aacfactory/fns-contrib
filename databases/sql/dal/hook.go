@@ -1,18 +1,18 @@
 package dal
 
 import (
-	"context"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/context"
 	"reflect"
 )
 
 type ModelLoadHook interface {
-	AfterLoaded(ctx context.Context) (err errors.CodeError)
+	AfterLoaded(ctx context.Context) (err error)
 }
 
 var modelLoadHookType = reflect.TypeOf((*ModelLoadHook)(nil)).Elem()
 
-func executeModelLoadHook(ctx context.Context, resultPtrValue reflect.Value) (err errors.CodeError) {
+func executeModelLoadHook(ctx context.Context, resultPtrValue reflect.Value) (err error) {
 	if !resultPtrValue.Type().Implements(modelLoadHookType) {
 		return
 	}

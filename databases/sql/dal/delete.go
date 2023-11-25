@@ -1,20 +1,20 @@
 package dal
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 	"reflect"
 )
 
-func Delete(ctx context.Context, model Model) (err errors.CodeError) {
+func Delete(ctx context.Context, model Model) (err error) {
 	if model == nil {
 		return
 	}
 	rv := reflect.ValueOf(model)
 	if rv.Type().Kind() != reflect.Ptr {
-		err = errors.ServiceError("dal: delete failed").WithCause(fmt.Errorf(" for type of model is not ptr"))
+		err = errors.Warning("dal: delete failed").WithCause(fmt.Errorf(" for type of model is not ptr"))
 		return
 	}
 	structure, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
@@ -25,7 +25,7 @@ func Delete(ctx context.Context, model Model) (err errors.CodeError) {
 	// audit
 	tryFillDeleteErr := tryFillAuditDelete(ctx, rv, structure)
 	if tryFillDeleteErr != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(tryFillDeleteErr)
+		err = errors.Warning("dal: delete failed").WithCause(tryFillDeleteErr)
 		return
 	}
 	// generator
@@ -35,39 +35,40 @@ func Delete(ctx context.Context, model Model) (err errors.CodeError) {
 		return
 	}
 	// handle
-	affected, _, executeErr := sql.Execute(ctx, query, arguments...)
+	result, executeErr := sql.Execute(ctx, query, arguments...)
 	if executeErr != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(executeErr)
+		err = errors.Warning("dal: delete failed").WithCause(executeErr)
 		return
 	}
-	if affected == 0 {
+	if result.RowsAffected == 0 {
 		return
 	}
 	// version
 	tryFillAOLErr := tryFillAOLField(rv, structure)
 	if tryFillAOLErr != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(tryFillAOLErr)
+		err = errors.Warning("dal: delete failed").WithCause(tryFillAOLErr)
 		return
 	}
 	return
 }
 
-func DeleteWithConditions[T Model](ctx context.Context, cond *Conditions) (affected int64, err errors.CodeError) {
+func DeleteWithConditions[T Model](ctx context.Context, cond *Conditions) (affected int64, err error) {
 	model := newModel[T]()
 	_, generator, getGeneratorErr := getModelQueryGenerator(ctx, model)
 	if getGeneratorErr != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(getGeneratorErr)
+		err = errors.Warning("dal: delete failed").WithCause(getGeneratorErr)
 		return
 	}
 	_, query, args, genErr := generator.DeleteWithConditions(ctx, cond)
 	if genErr != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(genErr)
+		err = errors.Warning("dal: delete failed").WithCause(genErr)
 		return
 	}
-	affected, _, err = sql.Execute(ctx, query, args)
-	if err != nil {
-		err = errors.ServiceError("dal: delete failed").WithCause(err)
+	result, execErr := sql.Execute(ctx, query, args)
+	if execErr != nil {
+		err = errors.Warning("dal: delete failed").WithCause(execErr)
 		return
 	}
+	affected = result.RowsAffected
 	return
 }

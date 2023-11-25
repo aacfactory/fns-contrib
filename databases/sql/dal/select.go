@@ -1,23 +1,17 @@
 package dal
 
-import "context"
+import "github.com/aacfactory/fns/context"
 
-const (
-	selectsCtxKey = "@fns_sql_dal_selects"
+var (
+	selectsCtxKey = []byte("@fns:sql:dal:selects")
 )
 
 func DefineSelectColumns(ctx context.Context, columns ...string) context.Context {
-	return context.WithValue(ctx, selectsCtxKey, columns)
+	ctx.SetLocalValue(selectsCtxKey, columns)
+	return ctx
 }
 
 func DefinedSelectColumns(ctx context.Context) (columns []string, has bool) {
-	v := ctx.Value(selectsCtxKey)
-	if v == nil {
-		return
-	}
-	columns, has = v.([]string)
-	if has {
-		has = len(columns) > 0
-	}
+	columns, has, _ = context.LocalValue[[]string](ctx, selectsCtxKey)
 	return
 }

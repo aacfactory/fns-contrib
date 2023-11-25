@@ -1,9 +1,9 @@
 package dal
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/context"
 	"math"
 )
 
@@ -14,14 +14,14 @@ type Pager[T any] struct {
 	Items []T   `json:"items"`
 }
 
-func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, page *PageRequest) (result *Pager[T], err errors.CodeError) {
+func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, page *PageRequest) (result *Pager[T], err error) {
 	if page == nil {
 		err = errors.Warning("dal: query page failed").WithCause(fmt.Errorf("pager is required"))
 		return
 	}
 	results, queryErr := QueryWithRange[T](ctx, conditions, orders, page.MapToRange())
 	if queryErr != nil {
-		err = errors.ServiceError("dal: query page failed").WithCause(queryErr)
+		err = errors.Warning("dal: query page failed").WithCause(queryErr)
 		return
 	}
 	if results == nil || len(results) == 0 {
@@ -34,7 +34,7 @@ func Page[T Model](ctx context.Context, conditions *Conditions, orders *Orders, 
 	}
 	count, countErr := Count[T](ctx, conditions)
 	if countErr != nil {
-		err = errors.ServiceError("dal: query page failed").WithCause(countErr)
+		err = errors.Warning("dal: query page failed").WithCause(countErr)
 		return
 	}
 	result = &Pager[T]{

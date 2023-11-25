@@ -1,10 +1,10 @@
 package postgres
 
 import (
-	"context"
 	"fmt"
-	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dal"
+	"github.com/aacfactory/fns/commons/times"
+	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/json"
 	"strconv"
 	"time"
@@ -70,12 +70,12 @@ func ContainsJsonObjectsOfArray(column string, all bool, elements ...interface{}
 			ele := element.(json.Date)
 			values = append(values, "'"+ele.String()+"'")
 			break
-		case sql.Date:
-			ele := element.(sql.Date)
+		case times.Date:
+			ele := element.(times.Date)
 			values = append(values, "'"+ele.String()+"'")
 			break
-		case sql.Time:
-			ele := element.(sql.Time)
+		case times.Time:
+			ele := element.(times.Time)
 			values = append(values, "'"+ele.String()+"'")
 			break
 		}
@@ -95,17 +95,14 @@ func setGenericConditionsArgumentNum(ctx context.Context, n int) context.Context
 	if getGenericConditionsArgumentNum(ctx) != nil {
 		return ctx
 	}
-	return context.WithValue(ctx, conditionsArgumentNumCtxKey, &genericConditionsArgumentNum{
+	ctx.SetLocalValue([]byte(conditionsArgumentNumCtxKey), &genericConditionsArgumentNum{
 		value: n,
 	})
+	return ctx
 }
 
 func getGenericConditionsArgumentNum(ctx context.Context) (v *genericConditionsArgumentNum) {
-	x := ctx.Value(conditionsArgumentNumCtxKey)
-	if x == nil {
-		return
-	}
-	v = x.(*genericConditionsArgumentNum)
+	v, _, _ = context.LocalValue[*genericConditionsArgumentNum](ctx, []byte(conditionsArgumentNumCtxKey))
 	return
 }
 

@@ -15,14 +15,19 @@ var (
 	queryFnName = []byte("query")
 )
 
-func Query(ctx context.Context, query string, arguments ...interface{}) (rows databases.Rows, err error) {
+func Query(ctx context.Context, query string, arguments ...interface{}) (v *Rows, err error) {
 	tx, hasTx, loadTxErr := loadTransaction(ctx)
 	if loadTxErr != nil {
 		err = errors.Warning("sql: query failed").WithCause(loadTxErr)
 		return
 	}
 	if hasTx {
-		rows, err = tx.Query(ctx, bytex.FromString(query), arguments)
+		rows, queryErr := tx.Query(ctx, bytex.FromString(query), arguments)
+		if queryErr != nil {
+			err = errors.Warning("sql: query failed").WithCause(queryErr)
+			return
+		}
+		v, err = NewRows(rows)
 		if err != nil {
 			err = errors.Warning("sql: query failed").WithCause(err)
 			return
@@ -52,7 +57,7 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (rows da
 		err = handleErr
 		return
 	}
-	rows, err = services.ValueOfResponse[databases.Rows](response)
+	v, err = services.ValueOfResponse[*Rows](response)
 	if err != nil {
 		err = errors.Warning("sql: query failed").WithCause(err)
 		return
@@ -115,6 +120,10 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 		err = errors.Warning("sql: query failed").WithCause(queryErr)
 		return
 	}
-	v = rows
+	v, err = NewRows(rows)
+	if err != nil {
+		err = errors.Warning("sql: query failed").WithCause(err)
+		return
+	}
 	return
 }

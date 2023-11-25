@@ -1,10 +1,10 @@
 package dal
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 	"golang.org/x/sync/singleflight"
 	"reflect"
 	"sort"
@@ -62,7 +62,7 @@ func newModelByType(rt reflect.Type) (model Model) {
 	return
 }
 
-func getModelQueryGenerator(ctx context.Context, model Model) (structure *ModelStructure, generator QueryGenerator, err errors.CodeError) {
+func getModelQueryGenerator(ctx context.Context, model Model) (structure *ModelStructure, generator QueryGenerator, err error) {
 	dialectName, getDialectErr := sql.Dialect(ctx)
 	if getDialectErr != nil {
 		err = errors.Warning("dal: get dialect failed").WithCause(getDialectErr)

@@ -1,12 +1,12 @@
 package dal
 
 import (
-	"context"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/context"
 	"reflect"
 )
 
-func newEagerLoader(model *ModelStructure) (loader *EagerLoader, err errors.CodeError) {
+func newEagerLoader(model *ModelStructure) (loader *EagerLoader, err error) {
 	pks, hasPks := model.Pk()
 	if !hasPks || len(pks) > 1 {
 		err = errors.Warning("eager load mode only support one pk")
@@ -35,13 +35,13 @@ func (el *EagerLoader) AppendKey(key interface{}) {
 	el.keys = append(el.keys, key)
 }
 
-func (el *EagerLoader) Load(ctx context.Context) (has bool, values map[interface{}]interface{}, err errors.CodeError) {
+func (el *EagerLoader) Load(ctx context.Context) (has bool, values map[interface{}]interface{}, err error) {
 	conditions := NewConditions(IN(el.pk.Column(), el.keys))
 	resultsValue := reflect.MakeSlice(reflect.SliceOf(el.model.Type()), 0, 1)
 	results := resultsValue.Interface()
 	queryErr := query0(ctx, conditions, nil, nil, &results)
 	if queryErr != nil {
-		err = errors.ServiceError("eager load failed").WithCause(queryErr)
+		err = errors.Warning("eager load failed").WithCause(queryErr)
 		return
 	}
 	values = make(map[interface{}]interface{})

@@ -15,14 +15,16 @@ import (
 
 type Row []Column
 
-func NewRows(rows databases.Rows) (v Rows, err error) {
+func NewRows(rows databases.Rows) (v *Rows, err error) {
 	names, namesErr := rows.Columns()
 	if namesErr != nil {
+		_ = rows.Close()
 		err = errors.Warning("sql: new rows failed").WithCause(namesErr)
 		return
 	}
 	cts, ctsErr := rows.ColumnTypes()
 	if ctsErr != nil {
+		_ = rows.Close()
 		err = errors.Warning("sql: new rows failed").WithCause(ctsErr)
 		return
 	}
@@ -31,7 +33,7 @@ func NewRows(rows databases.Rows) (v Rows, err error) {
 	for i, ct := range cts {
 		columnTypes = append(columnTypes, NewColumnType(names[i], strings.ToUpper(ct.DatabaseType), ct.ScanType))
 	}
-	v = Rows{
+	v = &Rows{
 		transferred: false,
 		idx:         0,
 		rows:        rows,
@@ -51,6 +53,17 @@ type Rows struct {
 	columnLen   int
 	values      []Row
 	size        int
+}
+
+func (rows *Rows) Columns() []ColumnType {
+	return rows.columnTypes
+}
+
+func (rows *Rows) Close() error {
+	if rows.rows == nil {
+		return nil
+	}
+	return rows.rows.Close()
 }
 
 func (rows *Rows) MarshalJSON() (p []byte, err error) {
@@ -85,6 +98,7 @@ func (rows *Rows) MarshalJSON() (p []byte, err error) {
 		}
 		rows.values = append(rows.values, row)
 	}
+	_ = rows.rows.Close()
 	rows.transferred = true
 	rows.size = len(rows.values)
 	tr := transferRows{
