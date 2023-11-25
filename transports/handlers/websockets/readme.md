@@ -26,6 +26,7 @@ transport:
         enableCompression: false
         maxRequestMessageSize: "4KB"
         connectionTTL: "10m0s"
+        enableEcho: false
 ```
 
 Get connection id in function
