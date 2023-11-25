@@ -20,6 +20,7 @@ type Config struct {
 	MaxRequestMessageSize string                  `json:"maxRequestMessageSize"`
 	OriginCheckPolicy     OriginCheckPolicyConfig `json:"originCheckPolicy"`
 	ConnectionTTL         string                  `json:"connectionTTL"`
+	EnableEcho            bool                    `json:"enableEcho"`
 }
 
 type OriginCheckPolicyConfig struct {

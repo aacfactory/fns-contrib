@@ -68,6 +68,7 @@ type websocketHandler struct {
 	originCheckFunc       func(r *transports.Request) bool
 	service               *service
 	connectionTTL         time.Duration
+	enableEcho            bool
 }
 
 func (handler *websocketHandler) Services() []services.Service {
@@ -163,6 +164,7 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 		connectionTTL = 10 * time.Minute
 	}
 	handler.connectionTTL = connectionTTL
+	handler.enableEcho = config.EnableEcho
 	// upgrader
 	handler.upgrader = &websocket.Upgrader{
 		HandshakeTimeout: handshakeTimeout,
@@ -313,6 +315,11 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 		if !utf8.Valid(message) {
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "message is not utf-8"), time.Now().Add(2*time.Second))
 			break
+		}
+		// echo
+		if handler.enableEcho && bytes.Equal(message, []byte("echo")) {
+			_ = conn.WriteMessage(websocket.TextMessage, Succeed(time.Now().Format(time.RFC3339)).Encode())
+			continue
 		}
 		// parse request
 		request := Request{}
