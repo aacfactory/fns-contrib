@@ -38,6 +38,33 @@ type NullJson[E any] struct {
 	Value E
 }
 
+func (n *NullJson[E]) UnmarshalJSON(p []byte) error {
+	if len(p) == 0 {
+		n.Valid = false
+		return nil
+	}
+	if reflect.TypeOf(n.Value).Kind() == reflect.Ptr {
+		err := json.Unmarshal(p, n.Value)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := json.Unmarshal(p, &n.Value)
+		if err != nil {
+			return err
+		}
+	}
+	n.Valid = true
+	return nil
+}
+
+func (n *NullJson[E]) MarshalJSON() ([]byte, error) {
+	if n.Valid {
+		return json.Marshal(n.Value)
+	}
+	return nil, nil
+}
+
 func (n *NullJson[E]) Scan(src any) error {
 	if src == nil {
 		return nil
@@ -46,20 +73,9 @@ func (n *NullJson[E]) Scan(src any) error {
 	if !ok {
 		return errors.Warning("sql: null json scan failed").WithCause(fmt.Errorf("src is not bytes"))
 	}
-	if len(p) == 0 {
-		return nil
+	err := n.UnmarshalJSON(p)
+	if err != nil {
+		return errors.Warning("sql: null json scan failed").WithCause(err)
 	}
-	if reflect.TypeOf(n.Value).Kind() == reflect.Ptr {
-		err := json.Unmarshal(p, n.Value)
-		if err != nil {
-			return errors.Warning("sql: null json scan failed").WithCause(err)
-		}
-	} else {
-		err := json.Unmarshal(p, &n.Value)
-		if err != nil {
-			return errors.Warning("sql: null json scan failed").WithCause(err)
-		}
-	}
-	n.Valid = true
 	return nil
 }
