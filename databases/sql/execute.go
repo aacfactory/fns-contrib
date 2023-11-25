@@ -43,7 +43,11 @@ func Execute(ctx context.Context, query string, arguments ...interface{}) (resul
 		Query:     query,
 		Arguments: Arguments(arguments),
 	}
-	response, handleErr := eps.Request(ctx, endpointName, executeFnName, param, options...)
+	ep := endpointName
+	if epn := loadEndpointName(ctx); len(epn) > 0 {
+		ep = epn
+	}
+	response, handleErr := eps.Request(ctx, ep, executeFnName, param, options...)
 	if handleErr != nil {
 		err = handleErr
 		return

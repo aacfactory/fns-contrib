@@ -1,22 +1,22 @@
 package dal
 
 import (
-	"context"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/context"
 	"reflect"
 	"sort"
 )
 
-type keyable interface {
+type Keyable interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
 		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
 		~float32 | ~float64 | ~string
 }
 
-func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValue N) (result T, err errors.CodeError) {
+func QueryTree[T Model, N Keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValue N) (result T, err error) {
 	results, queryErr := queryTrees[T, N](ctx, conditions, orders, rng, nodeValue)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: query tree failed").WithCause(queryErr)
+		err = errors.Warning("dal: query tree failed").WithCause(queryErr)
 		return
 	}
 	if results == nil || len(results) == 0 {
@@ -26,19 +26,19 @@ func QueryTree[T Model, N keyable](ctx context.Context, conditions *Conditions, 
 	return
 }
 
-func QueryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValues ...N) (results []T, err errors.CodeError) {
+func QueryTrees[T Model, N Keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, nodeValues ...N) (results []T, err error) {
 	results, err = queryTrees[T, N](ctx, conditions, orders, rng, nodeValues...)
 	if err != nil {
-		err = errors.ServiceError("dal: query trees failed").WithCause(err)
+		err = errors.Warning("dal: query trees failed").WithCause(err)
 		return
 	}
 	return
 }
 
-func QueryRootTree[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (result T, err errors.CodeError) {
+func QueryRootTree[T Model, N Keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (result T, err error) {
 	results, queryErr := QueryRootTrees[T, N](ctx, conditions, orders, rng)
 	if queryErr != nil {
-		err = errors.ServiceError("dal: query tree failed").WithCause(queryErr)
+		err = errors.Warning("dal: query tree failed").WithCause(queryErr)
 		return
 	}
 	if results == nil || len(results) == 0 {
@@ -48,12 +48,12 @@ func QueryRootTree[T Model, N keyable](ctx context.Context, conditions *Conditio
 	return
 }
 
-func QueryRootTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err errors.CodeError) {
+func QueryRootTrees[T Model, N Keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range) (results []T, err error) {
 	results, err = QueryTrees[T, N](ctx, conditions, orders, rng)
 	return
 }
 
-func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err errors.CodeError) {
+func queryTrees[T Model, N Keyable](ctx context.Context, conditions *Conditions, orders *Orders, rng *Range, rootNodeValues ...N) (results []T, err error) {
 	ctx = NotEagerLoad(ctx)
 	list, queryErr := QueryWithRange[T](ctx, conditions, orders, rng)
 	if queryErr != nil {
@@ -67,7 +67,7 @@ func queryTrees[T Model, N keyable](ctx context.Context, conditions *Conditions,
 	return
 }
 
-func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T, err errors.CodeError) {
+func MapListToTrees[T Model, N Keyable](list []T, rootNodeValues []N) (nodes []T, err error) {
 	structure, field, fieldErr := getTreeModelKeyFieldName(list)
 	if fieldErr != nil {
 		err = fieldErr
@@ -154,7 +154,7 @@ func MapListToTrees[T Model, N keyable](list []T, rootNodeValues []N) (nodes []T
 	return
 }
 
-func containsTreeModel[T Model, N keyable](node T, key N, structure *ModelStructure, f *Field) (ok bool) {
+func containsTreeModel[T Model, N Keyable](node T, key N, structure *ModelStructure, f *Field) (ok bool) {
 	rv := reflect.Indirect(reflect.ValueOf(node))
 	nodeField, hasNodeField := structure.FindFieldByColumn(f.tree.nodeColumnName)
 	if !hasNodeField {
@@ -197,7 +197,7 @@ func containsTreeModel[T Model, N keyable](node T, key N, structure *ModelStruct
 	return
 }
 
-func getTreeModelKeyFieldName[T Model](list []T) (structure *ModelStructure, field *Field, err errors.CodeError) {
+func getTreeModelKeyFieldName[T Model](list []T) (structure *ModelStructure, field *Field, err error) {
 	structure0, getStructureErr := getModelStructure(list[0])
 	if getStructureErr != nil {
 		err = errors.Warning("dal: get tree model key field failed").WithCause(getStructureErr)
@@ -217,7 +217,7 @@ func getTreeModelKeyFieldName[T Model](list []T) (structure *ModelStructure, fie
 	return
 }
 
-func MapListToTree[T Model, N keyable](list []T, rootNodeValue N) (node T, err errors.CodeError) {
+func MapListToTree[T Model, N Keyable](list []T, rootNodeValue N) (node T, err error) {
 	if list == nil || len(list) == 0 {
 		return
 	}

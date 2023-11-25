@@ -93,7 +93,11 @@ func Begin(ctx context.Context, options ...databases.TransactionOption) (err err
 		Isolation: opt.Isolation,
 	}
 	eps := runtime.Endpoints(ctx)
-	response, handleErr := eps.Request(ctx, endpointName, transactionBeginFnName, param)
+	ep := endpointName
+	if epn := loadEndpointName(ctx); len(epn) > 0 {
+		ep = epn
+	}
+	response, handleErr := eps.Request(ctx, ep, transactionBeginFnName, param)
 	if handleErr != nil {
 		err = handleErr
 		return
@@ -219,7 +223,11 @@ func Commit(ctx context.Context) (err error) {
 		return
 	}
 	eps := runtime.Endpoints(ctx)
-	response, handleErr := eps.Request(ctx, endpointName, transactionCommitFnName, nil)
+	ep := endpointName
+	if epn := loadEndpointName(ctx); len(epn) > 0 {
+		ep = epn
+	}
+	response, handleErr := eps.Request(ctx, ep, transactionCommitFnName, nil)
 	if handleErr != nil {
 		err = handleErr
 		return
@@ -333,7 +341,11 @@ func Rollback(ctx context.Context) {
 		return
 	}
 	eps := runtime.Endpoints(ctx)
-	_, handleErr := eps.Request(ctx, endpointName, transactionRollbackFnName, nil, services.WithEndpointId(bytex.FromString(info.EndpointId)))
+	ep := endpointName
+	if epn := loadEndpointName(ctx); len(epn) > 0 {
+		ep = epn
+	}
+	_, handleErr := eps.Request(ctx, ep, transactionRollbackFnName, nil, services.WithEndpointId(bytex.FromString(info.EndpointId)))
 	if handleErr != nil {
 		if log.DebugEnabled() {
 			log.Debug().With("transaction", "rollback").Cause(handleErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))

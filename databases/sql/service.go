@@ -6,13 +6,15 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
+	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services"
 	"strings"
 	"time"
 )
 
 var (
-	endpointName = []byte("sql")
+	endpointName           = []byte("sql")
+	endpointNameContextKey = []byte("@fns:sql:endpoint:name")
 )
 
 func WithName(name string) Option {
@@ -136,4 +138,13 @@ func (svc *service) Construct(options services.Options) (err error) {
 		group: svc.group,
 	})
 	return
+}
+
+func EndpointName(ctx context.Context, name []byte) {
+	ctx.SetLocalValue(endpointNameContextKey, name)
+}
+
+func loadEndpointName(ctx context.Context) []byte {
+	name, _, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
+	return name
 }

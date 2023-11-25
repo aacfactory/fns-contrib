@@ -43,7 +43,11 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (rows da
 		Query:     query,
 		Arguments: Arguments(arguments),
 	}
-	response, handleErr := eps.Request(ctx, endpointName, queryFnName, param, options...)
+	ep := endpointName
+	if epn := loadEndpointName(ctx); len(epn) > 0 {
+		ep = epn
+	}
+	response, handleErr := eps.Request(ctx, ep, queryFnName, param, options...)
 	if handleErr != nil {
 		err = handleErr
 		return
