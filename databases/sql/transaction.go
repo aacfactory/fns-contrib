@@ -22,12 +22,8 @@ func withTransaction(ctx context.Context, tx *transactions.Transaction) {
 	ctx.SetLocalValue(transactionContextKey, tx)
 }
 
-func loadTransaction(ctx context.Context) (tx *transactions.Transaction, has bool, err error) {
-	tx, has, err = context.LocalValue[*transactions.Transaction](ctx, transactionContextKey)
-	if err != nil {
-		err = errors.Warning("sql: load transaction from context failed").WithCause(fmt.Errorf("@fns:sql:transaction is not transaction"))
-		return
-	}
+func loadTransaction(ctx context.Context) (tx *transactions.Transaction, has bool) {
+	tx, has = context.LocalValue[*transactions.Transaction](ctx, transactionContextKey)
 	return
 }
 
@@ -312,13 +308,7 @@ var (
 func Rollback(ctx context.Context) {
 	log := logs.Load(ctx)
 	// try load local
-	tx, hasTx, txErr := loadTransaction(ctx)
-	if txErr != nil {
-		if log.DebugEnabled() {
-			log.Debug().With("transaction", "rollback").Cause(txErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
-		}
-		return
-	}
+	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
 		if tx.Closed() {
 			// has rollback or committed

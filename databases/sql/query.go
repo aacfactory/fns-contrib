@@ -21,11 +21,7 @@ var (
 )
 
 func Query(ctx context.Context, query string, arguments ...interface{}) (v *Rows, err error) {
-	tx, hasTx, loadTxErr := loadTransaction(ctx)
-	if loadTxErr != nil {
-		err = errors.Warning("sql: query failed").WithCause(loadTxErr)
-		return
-	}
+	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
 		rows, queryErr := tx.Query(ctx, bytex.FromString(query), arguments)
 		if queryErr != nil {

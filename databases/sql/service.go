@@ -187,7 +187,7 @@ func EndpointName(ctx context.Context, name []byte) context.Context {
 }
 
 func loadEndpointName(ctx context.Context) []byte {
-	name, _, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
+	name, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
 	return name
 }
 
@@ -203,7 +203,7 @@ func Dialect(ctx context.Context) (dialect string, err error) {
 	}
 	key := append(dialectContextKeyPrefix, ep...)
 	has := false
-	dialect, has, _ = context.LocalValue[string](ctx, key)
+	dialect, has = context.LocalValue[string](ctx, key)
 	if has {
 		return
 	}

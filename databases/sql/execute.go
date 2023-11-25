@@ -16,11 +16,7 @@ var (
 )
 
 func Execute(ctx context.Context, query string, arguments ...interface{}) (result databases.Result, err error) {
-	tx, hasTx, loadTxErr := loadTransaction(ctx)
-	if loadTxErr != nil {
-		err = errors.Warning("sql: execute failed").WithCause(loadTxErr)
-		return
-	}
+	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
 		result, err = tx.Execute(ctx, bytex.FromString(query), arguments)
 		if err != nil {
