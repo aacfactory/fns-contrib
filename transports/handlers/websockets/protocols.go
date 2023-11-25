@@ -23,7 +23,7 @@ type SubProtocolHandlerOptions struct {
 
 type SubProtocolHandler interface {
 	Name() (name string)
-	Build(options SubProtocolHandlerOptions) (err error)
+	Construct(options SubProtocolHandlerOptions) (err error)
 	Handle(ctx context.Context, conn Connection)
 	Close() (err error)
 }

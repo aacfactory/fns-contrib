@@ -193,9 +193,9 @@ func (handler *websocketHandler) Construct(options transports.MuxHandlerOptions)
 				WriteTimeout:          writeTimeout,
 				MaxRequestMessageSize: handler.maxRequestMessageSize,
 			}
-			subErr := sub.Build(subOptions)
+			subErr := sub.Construct(subOptions)
 			if subErr != nil {
-				err = errors.Warning("websocket: build failed").WithCause(subErr).WithMeta("sub", name)
+				err = errors.Warning("websocket: construct sub protocol handler failed").WithCause(subErr).WithMeta("sub", name)
 				return
 			}
 		}
