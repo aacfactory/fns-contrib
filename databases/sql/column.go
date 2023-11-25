@@ -2,7 +2,6 @@ package sql
 
 import (
 	"bytes"
-	"database/sql"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/times"
@@ -281,77 +280,6 @@ func (c *Column) Byte() (v byte, err error) {
 	err = json.Unmarshal(p, &v)
 	if err != nil {
 		err = errors.Warning("sql: value of column is not byte")
-		return
-	}
-	return
-}
-
-func (c *Column) Scan(dst any) (err error) {
-	p := *c
-	pLen := len(p)
-	switch d := dst.(type) {
-	case *sql.NullBool:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		d.Bool = bytes.Equal(p, trueBytes)
-		break
-	case *sql.NullString:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		d.String = bytex.ToString(p[1 : pLen-1])
-		break
-	case *sql.NullTime:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Time)
-		break
-	case *sql.NullInt16:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Int16)
-		break
-	case *sql.NullInt32:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Int32)
-		break
-	case *sql.NullInt64:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Int64)
-		break
-	case *sql.NullFloat64:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Float64)
-		break
-	case *sql.NullByte:
-		if pLen == 0 || bytes.Equal(p, nullBytes) {
-			break
-		}
-		d.Valid = true
-		err = json.Unmarshal(p, &d.Byte)
-		break
-	default:
-		err = json.Unmarshal(p, dst)
-		break
-	}
-	if err != nil {
-		err = errors.Warning("sql: column scan failed").WithCause(err)
 		return
 	}
 	return
