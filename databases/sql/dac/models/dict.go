@@ -7,7 +7,26 @@ import (
 
 type Dict map[string][]byte
 
-func (dict Dict) Set(dialect Dialect, table Table) (ok bool) {
+func (dict Dict) Get(key ...any) (value []byte, has bool) {
+	keyLen := len(key)
+	if keyLen == 0 || keyLen > 2 {
+		return
+	}
+	rv := reflect.Indirect(reflect.ValueOf(key[0]))
+	rt := rv.Type()
+	if rt.Kind() != reflect.Struct {
+		return
+	}
+	st := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
+	if keyLen == 1 {
+		value, has = dict[st]
+		return
+	}
+	value, has = dict[fmt.Sprintf("%s:%s", st, key[1])]
+	return
+}
+
+func (dict Dict) set(dialect Dialect, table Table) (ok bool) {
 	if table == nil {
 		return
 	}
@@ -40,25 +59,6 @@ func (dict Dict) Set(dialect Dialect, table Table) (ok bool) {
 		dict[fmt.Sprintf("%s:%s", st, field)] = []byte(dialect.FormatIdent(column))
 	}
 	ok = true
-	return
-}
-
-func (dict Dict) Get(key ...any) (value []byte, has bool) {
-	keyLen := len(key)
-	if keyLen == 0 || keyLen > 2 {
-		return
-	}
-	rv := reflect.Indirect(reflect.ValueOf(key[0]))
-	rt := rv.Type()
-	if rt.Kind() != reflect.Struct {
-		return
-	}
-	st := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
-	if keyLen == 1 {
-		value, has = dict[st]
-		return
-	}
-	value, has = dict[fmt.Sprintf("%s:%s", st, key[1])]
 	return
 }
 

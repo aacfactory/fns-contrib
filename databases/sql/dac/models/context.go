@@ -1,8 +1,6 @@
-package conditions
+package models
 
-import (
-	"context"
-)
+import "context"
 
 type Context interface {
 	context.Context
@@ -13,14 +11,6 @@ type Context interface {
 	// when value then return table name
 	// when [struct value, struct value] then return column name of table name
 	Localization(key any) (content []byte, has bool)
-}
-
-type Dict interface {
-	Get(key ...any) (value []byte, has bool)
-}
-
-type QueryPlaceholder interface {
-	Next() (v []byte)
 }
 
 func Todo(ctx context.Context, key any, dict Dict, ph QueryPlaceholder) Context {
