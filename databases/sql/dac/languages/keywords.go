@@ -11,5 +11,5 @@ var (
 	AT     = []byte("@")
 	LB     = []byte("(")
 	RB     = []byte(")")
-	COMMA  = []byte(" ,")
+	COMMA  = []byte(", ")
 )

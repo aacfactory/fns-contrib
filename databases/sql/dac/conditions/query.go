@@ -65,6 +65,7 @@ func (expr QueryExpr) Render(ctx RenderContext, w io.Writer) (argument []any, er
 		_, _ = buf.Write(languages.SELECT)
 		_, _ = buf.Write(languages.SPACE)
 		_, _ = buf.Write(column)
+		_, _ = buf.Write(languages.SPACE)
 		_, _ = buf.Write(languages.FORM)
 		_, _ = buf.Write(languages.SPACE)
 		_, _ = buf.Write(table)

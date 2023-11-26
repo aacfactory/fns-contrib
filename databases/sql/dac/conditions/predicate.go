@@ -123,8 +123,6 @@ func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err e
 	_, _ = buf.Write(column)
 	_, _ = buf.Write(languages.SPACE)
 	_, _ = buf.Write(p.Operator.Bytes())
-
-	_, _ = buf.Write(p.Operator.Bytes())
 	_, _ = buf.Write(languages.SPACE)
 
 	switch expr := p.Expression.(type) {
@@ -149,6 +147,24 @@ func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err e
 			err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s only can has one expression", p.Field))
 			return
 		}
+		exprLen := len(expr)
+		if exprLen == 0 {
+			err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s only can has no expression", p.Field))
+			return
+		}
+		if exprLen == 1 {
+			queryExpr, isQueryExpr := expr[0].(QueryExpr)
+			if isQueryExpr {
+				sub, subErr := queryExpr.Render(ctx, buf)
+				if subErr != nil {
+					err = errors.Warning("sql: predicate render failed").WithCause(subErr)
+					return
+				}
+				argument = append(argument, sub...)
+				break
+			}
+		}
+
 		exprs := make([][]byte, 0, len(expr))
 		for _, e := range expr {
 			switch se := e.(type) {
@@ -182,6 +198,7 @@ func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err e
 		_, _ = buf.Write(languages.RB)
 		break
 	default:
+
 		_, _ = buf.Write(ctx.AcquireQueryPlaceholder())
 		argument = append(argument, expr)
 		break
