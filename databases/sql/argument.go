@@ -69,6 +69,15 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 		argument.Nil = true
 		return
 	}
+	named, isNamed := v.(sql.NamedArg)
+	if isNamed {
+		argument.Name = named.Name
+		v = named.Value
+		if v == nil {
+			argument.Nil = true
+			return
+		}
+	}
 	switch vv := v.(type) {
 	case string:
 		argument.Type = "string"
@@ -250,10 +259,14 @@ type Argument struct {
 	Nil   bool            `json:"nil"`
 	Type  string          `json:"type"`
 	Value json.RawMessage `json:"value"`
+	Name  string          `json:"name"`
 }
 
 func (argument *Argument) Interface() (v interface{}, err error) {
 	if argument.Nil {
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, nil)
+		}
 		return
 	}
 	switch argument.Type {
@@ -263,6 +276,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &s)
 		}
 		v = s
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "int":
 		i := int64(0)
@@ -270,6 +286,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &i)
 		}
 		v = i
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "float":
 		f := float64(0)
@@ -277,6 +296,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &f)
 		}
 		v = f
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "uint":
 		u := uint64(0)
@@ -284,6 +306,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &u)
 		}
 		v = u
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "bool":
 		b := false
@@ -291,9 +316,15 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &b)
 		}
 		v = b
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "json":
 		v = argument.Value
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "byte":
 		b := byte(0)
@@ -301,13 +332,19 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &b)
 		}
 		v = b
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 	case "bytes":
-		// rows
+		// raw
 		p := sql.RawBytes{}
 		if len(argument.Value) > 0 {
 			_ = json.Unmarshal(argument.Value, &p)
 		}
 		v = p
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "datetime":
 		t := time.Time{}
@@ -315,6 +352,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &t)
 		}
 		v = t
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "date":
 		d := times.Date{}
@@ -322,6 +362,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &d)
 		}
 		v = d
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	case "time":
 		t := times.Time{}
@@ -329,6 +372,9 @@ func (argument *Argument) Interface() (v interface{}, err error) {
 			_ = json.Unmarshal(argument.Value, &t)
 		}
 		v = t
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
 		break
 	default:
 		err = errors.Warning("sql: unknown argument type").WithMeta("type", argument.Type)
