@@ -3,6 +3,7 @@ package conditions_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
 	"reflect"
@@ -23,6 +24,7 @@ func TestCondition_Render(t *testing.T) {
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", "name"))
 	cond = cond.And(conditions.New(conditions.Eq("Age", 2)).Or(conditions.Eq("Birthday", "2")))
+	cond = cond.And(conditions.Eq("Name", sql.Named("foo", "bar")))
 
 	buf := bytes.NewBuffer([]byte{})
 
