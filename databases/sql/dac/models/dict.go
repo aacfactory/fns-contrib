@@ -73,9 +73,9 @@ func getColumnFields(rt reflect.Type) (fields []string) {
 			fields = append(fields, getColumnFields(field.Type)...)
 			continue
 		}
-		column, _, ok := getColumn(field)
+		column, ok := NewColumn(field)
 		if ok {
-			fields = append(fields, field.Name, column)
+			fields = append(fields, field.Name, column.Name)
 		}
 	}
 	return
