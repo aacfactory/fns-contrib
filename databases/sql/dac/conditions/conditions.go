@@ -55,7 +55,7 @@ func (cond Condition) Or(right Node) (n Condition) {
 	return cond.join(OR, right)
 }
 
-func (cond Condition) Render(ctx RenderContext, w io.Writer) (arguments []any, err error) {
+func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err error) {
 	if cond.Left == nil {
 		return
 	}

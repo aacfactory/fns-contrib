@@ -30,7 +30,7 @@ type QueryExpr struct {
 	cond  Condition
 }
 
-func (expr QueryExpr) Render(ctx RenderContext, w io.Writer) (argument []any, err error) {
+func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err error) {
 	switch query := expr.query.(type) {
 	case string:
 		if expr.cond.Exist() {
@@ -49,14 +49,15 @@ func (expr QueryExpr) Render(ctx RenderContext, w io.Writer) (argument []any, er
 		}
 		break
 	default:
-		column, hasColumn := ctx.Localization(expr.field)
-		if !hasColumn {
-			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", expr.field))
-			return
-		}
 		table, hasTable := ctx.Localization(query)
 		if !hasTable {
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", query))
+			return
+		}
+		ctx = With(ctx, query)
+		column, hasColumn := ctx.Localization(expr.field)
+		if !hasColumn {
+			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", expr.field))
 			return
 		}
 		buf := bytebufferpool.Get()

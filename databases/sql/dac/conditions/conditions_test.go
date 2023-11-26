@@ -2,6 +2,7 @@ package conditions_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
 	"reflect"
@@ -10,13 +11,14 @@ import (
 )
 
 func TestCondition_Render(t *testing.T) {
-	dict := map[string]string{
-		"Id":       "id",
-		"Name":     "name",
-		"Age":      "age",
-		"Birthday": "birthday",
-	}
-	ctx := RenderTODO(dict)
+	dict := NewDict(
+		"X", "x",
+		"x:Id", "id",
+		"x:Name", "name",
+		"x:Age", "age",
+		"x:Birthday", "birthday",
+	)
+	ctx := conditions.Todo(context.TODO(), "x", dict, &QueryPlaceholder{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", "name"))
@@ -35,13 +37,14 @@ func TestCondition_Render(t *testing.T) {
 }
 
 func TestCondition_RenderLit(t *testing.T) {
-	dict := map[string]string{
-		"Id":       "id",
-		"Name":     "name",
-		"Age":      "age",
-		"Birthday": "birthday",
-	}
-	ctx := RenderTODO(dict)
+	dict := NewDict(
+		"X", "x",
+		"x:Id", "id",
+		"x:Name", "name",
+		"x:Age", "age",
+		"x:Birthday", "birthday",
+	)
+	ctx := conditions.Todo(context.TODO(), "x", dict, &QueryPlaceholder{})
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", conditions.String("name")))
 	cond = cond.And(conditions.Eq("Age", conditions.Int(13)))
@@ -68,15 +71,17 @@ type User struct {
 
 func TestCondition_RenderQuery(t *testing.T) {
 	ut := reflect.TypeOf(User{})
-	dict := map[string]string{
-		"Id":       "id",
-		"Name":     "name",
-		"Age":      "age",
-		"Birthday": "birthday",
-		"UserId":   "user_id",
-		fmt.Sprintf("%s.%s", ut.PkgPath(), ut.Name()): `"users"."user"`,
-	}
-	ctx := RenderTODO(dict)
+	dict := NewDict(
+		"X", "x",
+		"x:Id", "id",
+		"x:Name", "name",
+		"x:Age", "age",
+		"x:Birthday", "birthday",
+		"x:UserId", "user_id",
+		fmt.Sprintf("%s.%s", ut.PkgPath(), ut.Name()), `"users"."user"`,
+		fmt.Sprintf("%s.%s:Id", ut.PkgPath(), ut.Name()), `"users"."user"."id"`,
+	)
+	ctx := conditions.Todo(context.TODO(), "x", dict, &QueryPlaceholder{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", "name"))

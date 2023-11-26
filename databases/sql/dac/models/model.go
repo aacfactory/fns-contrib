@@ -1,24 +1,29 @@
 package models
 
-type Info struct {
+type TableInfo struct {
 	Schema    string
 	Name      string
 	Conflicts []string
 }
 
-func (info Info) AddConflicts(conflicts ...string) Info {
+func (info TableInfo) In(schema string) TableInfo {
+	info.Schema = schema
+	return info
+}
+
+func (info TableInfo) AddConflicts(conflicts ...string) TableInfo {
 	info.Conflicts = append(info.Conflicts, conflicts...)
 	return info
 }
 
-func Table(schema string, name string) Info {
-	return Info{
-		Schema:    schema,
+func Info(name string) TableInfo {
+	return TableInfo{
+		Schema:    "",
 		Name:      name,
 		Conflicts: nil,
 	}
 }
 
-type Model interface {
-	TableInfo() Info
+type Table interface {
+	TableInfo() TableInfo
 }

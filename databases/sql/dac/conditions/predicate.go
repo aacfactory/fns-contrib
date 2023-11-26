@@ -112,7 +112,7 @@ type Predicate struct {
 	Expression any
 }
 
-func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err error) {
+func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	column, hasColumn := ctx.Localization(p.Field)
@@ -187,7 +187,7 @@ func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err e
 				argument = append(argument, sub...)
 				break
 			default:
-				exprs = append(exprs, ctx.AcquireQueryPlaceholder())
+				exprs = append(exprs, ctx.NextQueryPlaceholder())
 				argument = append(argument, se)
 				break
 			}
@@ -199,7 +199,7 @@ func (p Predicate) Render(ctx RenderContext, w io.Writer) (argument []any, err e
 		break
 	default:
 
-		_, _ = buf.Write(ctx.AcquireQueryPlaceholder())
+		_, _ = buf.Write(ctx.NextQueryPlaceholder())
 		argument = append(argument, expr)
 		break
 	}
