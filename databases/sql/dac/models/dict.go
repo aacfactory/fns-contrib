@@ -7,7 +7,7 @@ import (
 
 type Dict map[string][]byte
 
-func (dict Dict) Set(table Table) (ok bool) {
+func (dict Dict) Set(dialect Dialect, table Table) (ok bool) {
 	if table == nil {
 		return
 	}
@@ -16,8 +16,9 @@ func (dict Dict) Set(table Table) (ok bool) {
 	if tableName == "" {
 		return
 	}
+	tableName = dialect.FormatIdent(tableName)
 	if info.Schema != "" {
-		tableName = info.Schema + "." + tableName
+		tableName = dialect.FormatIdent(info.Schema) + "." + tableName
 	}
 
 	rv := reflect.Indirect(reflect.ValueOf(table))
@@ -36,7 +37,7 @@ func (dict Dict) Set(table Table) (ok bool) {
 	for i := 0; i < fieldsLen; i += 2 {
 		field := fields[i]
 		column := fields[i+1]
-		dict[fmt.Sprintf("%s:%s", st, field)] = []byte(column)
+		dict[fmt.Sprintf("%s:%s", st, field)] = []byte(dialect.FormatIdent(column))
 	}
 	ok = true
 	return
