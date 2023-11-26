@@ -41,7 +41,7 @@ type Page struct {
 	Size int
 }
 
-func (p Page) MapToRange() (rng Range) {
+func (p Page) Range() (rng Range) {
 	rng = RNG((p.No-1)*p.Size, p.Size)
 	return
 }
