@@ -120,14 +120,31 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 	}
 	for i := 0; i < fields; i++ {
 		field := rt.Field(i)
+		if !field.IsExported() {
+			continue
+		}
 		if field.Anonymous {
 			anonymous, anonymousErr := scanTableFields(ctx, field.Type)
 			if anonymousErr != nil {
-
+				if err != nil {
+					err = errors.Warning("sql: scan table field failed").
+						WithCause(anonymousErr).
+						WithMeta("field", field.Name)
+					return
+				}
 			}
-		}
-		if field.IsExported() {
+			columns = append(columns, anonymous...)
 			continue
+		}
+		column, columnErr := newColumn(ctx, field)
+		if columnErr != nil {
+			err = errors.Warning("sql: scan table field failed").
+				WithCause(columnErr).
+				WithMeta("field", field.Name)
+			return
+		}
+		if column != nil {
+			columns = append(columns, column)
 		}
 	}
 	return

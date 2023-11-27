@@ -210,7 +210,7 @@ func (column *Column) fillMappings(ctx context.Context) (err error) {
 	return
 }
 
-func newColumn(ctx context.Context, rt reflect.StructField) (column Column, err error) {
+func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err error) {
 	tag, hasTag := rt.Tag.Lookup(columnTag)
 	if !hasTag {
 		return
@@ -336,7 +336,7 @@ func newColumn(ctx context.Context, rt reflect.StructField) (column Column, err 
 	}
 	typ.fillName()
 
-	column = Column{
+	column = &Column{
 		Field: rt.Name,
 		Name:  name,
 		Kind:  kind,
