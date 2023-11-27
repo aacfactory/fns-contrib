@@ -91,7 +91,8 @@ func (svc *service) Construct(options services.Options) (err error) {
 		config.Options = []byte{'{', '}'}
 	}
 
-	switch strings.ToLower(config.Kind) {
+	kind := strings.ToLower(config.Kind)
+	switch kind {
 	case "standalone":
 		svc.db = databases.Standalone()
 		break
@@ -104,6 +105,11 @@ func (svc *service) Construct(options services.Options) (err error) {
 	default:
 		if svc.db == nil {
 			err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(fmt.Errorf("%s database was not found", config.Kind))
+			return
+		}
+		if svc.db.Name() != kind {
+			err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).
+				WithCause(fmt.Errorf("%s database was not found", kind))
 			return
 		}
 		break
