@@ -9,6 +9,7 @@ import (
 
 type TableInfoOptions struct {
 	schema    string
+	view      bool
 	conflicts []string
 	tree      []string
 }
@@ -18,6 +19,12 @@ type TableInfoOption func(options *TableInfoOptions)
 func Schema(schema string) TableInfoOption {
 	return func(options *TableInfoOptions) {
 		options.schema = strings.TrimSpace(schema)
+	}
+}
+
+func View() TableInfoOption {
+	return func(options *TableInfoOptions) {
+		options.view = true
 	}
 }
 
@@ -54,9 +61,11 @@ func TableInfo(name string, options ...TableInfoOption) specifications.TableInfo
 	for _, option := range options {
 		option(&opt)
 	}
-	return specifications.NewTableInfo(opt.schema, strings.TrimSpace(name), opt.conflicts, opt.tree)
+	return specifications.NewTableInfo(opt.schema, strings.TrimSpace(name), opt.view, opt.conflicts, opt.tree)
 }
 
+// Table
+// the recv of TableInfo method must be value, can not be ptr
 type Table interface {
 	specifications.Table
 }

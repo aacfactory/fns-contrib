@@ -12,6 +12,7 @@ import (
 type Specification struct {
 	Schema    string
 	Name      string
+	View      bool
 	Type      reflect.Type
 	Columns   []*Column
 	Conflicts []string
@@ -25,10 +26,6 @@ var (
 )
 
 func GetSpecification(ctx context.Context, table any) (spec *Specification, err error) {
-	if table == nil {
-		err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("table is nil"))
-		return
-	}
 	scanned, has := values.Load(table)
 	if has {
 		spec, has = scanned.(*Specification)
@@ -46,6 +43,11 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 	}
 
 	rt := reflect.TypeOf(t)
+	if rt.Kind() != reflect.Struct {
+		err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("table does not struct"))
+		return
+	}
+
 	key := fmt.Sprintf("@fns:sql:dac:scan:%s.%s", rt.PkgPath(), rt.Name())
 
 	processing := ctx.Value(key)
@@ -79,19 +81,24 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 }
 
 func ScanTable(ctx context.Context, table Table) (spec *Specification, err error) {
+	rt := reflect.TypeOf(table)
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+
 	info := table.TableInfo()
 	name := info.name
 	if name == "" {
 		err = errors.Warning("sql: scan table failed").
 			WithCause(fmt.Errorf("table name is required")).
-			WithMeta("struct", reflect.TypeOf(table).String())
+			WithMeta("struct", rt.String())
 		return
 	}
 	schema := info.schema
+	view := info.view
 	conflicts := info.conflicts
 	tree := info.tree
 
-	rt := reflect.TypeOf(table)
 	columns, columnsErr := scanTableFields(ctx, rt)
 	if columnsErr != nil {
 		err = errors.Warning("sql: scan table failed").
@@ -103,6 +110,7 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 	spec = &Specification{
 		Schema:    schema,
 		Name:      name,
+		View:      view,
 		Type:      rt,
 		Columns:   columns,
 		Conflicts: conflicts,

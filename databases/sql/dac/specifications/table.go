@@ -1,12 +1,13 @@
 package specifications
 
-func NewTableInfo(schema string, name string, conflicts []string, tree []string) TableInfo {
-	return TableInfo{schema: schema, name: name, conflicts: conflicts, tree: tree}
+func NewTableInfo(schema string, name string, view bool, conflicts []string, tree []string) TableInfo {
+	return TableInfo{schema: schema, name: name, view: view, conflicts: conflicts, tree: tree}
 }
 
 type TableInfo struct {
 	schema    string
 	name      string
+	view      bool
 	conflicts []string
 	tree      []string
 }
