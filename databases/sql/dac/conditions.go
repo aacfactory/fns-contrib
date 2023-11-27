@@ -95,7 +95,7 @@ func Uint64(n uint64) conditions.Literal {
 }
 
 func Time(t time.Time) conditions.Literal {
-	return conditions.Time(t)
+	return conditions.Datetime(t)
 }
 
 func Lit(v string) conditions.Literal {

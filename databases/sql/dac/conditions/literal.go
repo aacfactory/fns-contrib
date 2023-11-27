@@ -1,6 +1,7 @@
 package conditions
 
 import (
+	"github.com/aacfactory/fns/commons/times"
 	"strconv"
 	"time"
 	"unsafe"
@@ -54,9 +55,27 @@ func Uint64(n uint64) Literal {
 	}
 }
 
-func Time(t time.Time) Literal {
+func Datetime(t time.Time) Literal {
 	return Literal{
 		value: "'" + t.Format(time.RFC3339Nano) + "'",
+	}
+}
+
+func Date(t times.Date) Literal {
+	return Literal{
+		value: "'" + t.String() + "'",
+	}
+}
+
+func Time(t times.Time) Literal {
+	return Literal{
+		value: "'" + t.String() + "'",
+	}
+}
+
+func Null() Literal {
+	return Literal{
+		value: "null",
 	}
 }
 

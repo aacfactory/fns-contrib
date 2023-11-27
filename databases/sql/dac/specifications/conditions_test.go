@@ -73,7 +73,7 @@ func TestCondition_RenderLit(t *testing.T) {
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", conditions.String("name")))
 	cond = cond.And(conditions.Eq("Age", conditions.Int(13)))
-	cond = cond.And(conditions.Eq("Birthday", conditions.Time(time.Now())))
+	cond = cond.And(conditions.Eq("Birthday", conditions.Datetime(time.Now())))
 	cond = cond.And(conditions.Eq("Birthday", conditions.LitQuery(`select now()`)))
 
 	buf := bytes.NewBuffer([]byte{})

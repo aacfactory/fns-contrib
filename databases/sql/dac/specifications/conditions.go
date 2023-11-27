@@ -18,6 +18,14 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		return
 	}
 	switch left := cond.Left.(type) {
+	case Render:
+		args, rErr := left.Render(ctx, w)
+		if rErr != nil {
+			err = rErr
+			return
+		}
+		arguments = append(arguments, args...)
+		break
 	case conditions.Predicate:
 		buf := bytebufferpool.Get()
 		defer bytebufferpool.Put(buf)
@@ -69,6 +77,14 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 	_, _ = w.Write(cond.Operation.Bytes())
 	_, _ = w.Write(SPACE)
 	switch right := cond.Right.(type) {
+	case Render:
+		args, rErr := right.Render(ctx, w)
+		if rErr != nil {
+			err = rErr
+			return
+		}
+		arguments = append(arguments, args...)
+		break
 	case conditions.Predicate:
 		buf := bytebufferpool.Get()
 		defer bytebufferpool.Put(buf)
