@@ -44,7 +44,7 @@ type Dialect interface {
 	DeleteWithConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
-	Select(ctx Context, spec *Specification, cond Condition, orders Orders, offset int, length int) (method Method, query []byte, arguments []any, err error)
+	Select(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, err error)
 }
 
 var (

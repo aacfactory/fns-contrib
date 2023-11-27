@@ -82,7 +82,7 @@ func (dialect *Dialect) Count(ctx specifications.Context, spec *specifications.S
 	panic("implement me")
 }
 
-func (dialect *Dialect) Select(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, offset int, length int) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) Select(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, err error) {
 	//TODO implement me
 	panic("implement me")
 }
