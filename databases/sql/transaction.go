@@ -90,7 +90,7 @@ func Begin(ctx context.Context, options ...databases.TransactionOption) (err err
 	}
 	eps := runtime.Endpoints(ctx)
 	ep := endpointName
-	if epn := loadEndpointName(ctx); len(epn) > 0 {
+	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
 	response, handleErr := eps.Request(ctx, ep, transactionBeginFnName, param)
@@ -220,7 +220,7 @@ func Commit(ctx context.Context) (err error) {
 	}
 	eps := runtime.Endpoints(ctx)
 	ep := endpointName
-	if epn := loadEndpointName(ctx); len(epn) > 0 {
+	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
 	response, handleErr := eps.Request(ctx, ep, transactionCommitFnName, nil)
@@ -332,7 +332,7 @@ func Rollback(ctx context.Context) {
 	}
 	eps := runtime.Endpoints(ctx)
 	ep := endpointName
-	if epn := loadEndpointName(ctx); len(epn) > 0 {
+	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
 	_, handleErr := eps.Request(ctx, ep, transactionRollbackFnName, nil, services.WithEndpointId(bytex.FromString(info.EndpointId)))

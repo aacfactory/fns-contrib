@@ -40,7 +40,7 @@ func Execute(ctx context.Context, query string, arguments ...interface{}) (resul
 		Arguments: Arguments(arguments),
 	}
 	ep := endpointName
-	if epn := loadEndpointName(ctx); len(epn) > 0 {
+	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
 	response, handleErr := eps.Request(ctx, ep, executeFnName, param, options...)

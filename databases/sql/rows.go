@@ -132,6 +132,10 @@ func (rows *Rows) Next() (ok bool) {
 	return
 }
 
+// Scan
+// element of dst must be scanned.
+// in dac case, when field is json kind and type does not implement sql.NullJson,
+// then wrap field value by sql.NullJson
 func (rows *Rows) Scan(dst ...any) (err error) {
 	if rows.rows != nil {
 		err = rows.rows.Scan(dst...)
@@ -392,6 +396,14 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 				scanErr := scanner.Scan(cv)
 				if scanErr != nil {
 					err = errors.Warning("sql: scan failed").WithCause(scanErr).WithMeta("column", ct.Name)
+					return
+				}
+				return
+			}
+			if ct.Type == "json" {
+				decodeErr := json.Unmarshal(column, item)
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan failed").WithCause(decodeErr).WithMeta("column", ct.Name)
 					return
 				}
 				return

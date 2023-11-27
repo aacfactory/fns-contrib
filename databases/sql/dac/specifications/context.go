@@ -1,4 +1,4 @@
-package models
+package specifications
 
 import "context"
 
@@ -13,7 +13,7 @@ type Context interface {
 	Localization(key any) (content []byte, has bool)
 }
 
-func Todo(ctx context.Context, key any, dict Dict, ph QueryPlaceholder) Context {
+func Todo(ctx context.Context, key any, dict *Dict, ph QueryPlaceholder) Context {
 	return &renderCtx{
 		Context: ctx,
 		ph:      ph,
@@ -34,7 +34,7 @@ func With(ctx Context, key any) Context {
 type renderCtx struct {
 	context.Context
 	ph   QueryPlaceholder
-	dict Dict
+	dict *Dict
 	key  any
 }
 
@@ -50,7 +50,7 @@ func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
 	return
 }
 
-func (ctx *renderCtx) getDict() (dict Dict) {
+func (ctx *renderCtx) getDict() (dict *Dict) {
 	if ctx.dict == nil {
 		parent, ok := ctx.Context.(*renderCtx)
 		if ok {

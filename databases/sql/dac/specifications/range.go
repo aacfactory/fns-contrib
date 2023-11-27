@@ -1,4 +1,4 @@
-package selects
+package specifications
 
 func RNG(offset int, length int) Range {
 	if offset < 0 {

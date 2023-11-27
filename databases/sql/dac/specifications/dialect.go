@@ -1,0 +1,84 @@
+package specifications
+
+import (
+	"fmt"
+	"github.com/aacfactory/errors"
+	"io"
+)
+
+var (
+	SELECT = []byte("SELECT")
+	FORM   = []byte("FROM")
+	WHERE  = []byte("WHERE")
+	INSERT = []byte("INSERT")
+	UPDATE = []byte("UPDATE")
+	DELETE = []byte("DELETE")
+	SPACE  = []byte(" ")
+	AT     = []byte("@")
+	LB     = []byte("(")
+	RB     = []byte(")")
+	COMMA  = []byte(", ")
+)
+
+type Method string
+
+type QueryPlaceholder interface {
+	Next() (v []byte)
+}
+
+type Render interface {
+	Render(ctx Context, w io.Writer) (argument []any, err error)
+}
+
+type Dialect interface {
+	Name() string
+	FormatIdent(ident string) string
+	QueryPlaceholder() QueryPlaceholder
+	Insert(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
+	InsertOrUpdate(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
+	InsertWhenExist(ctx Context, spec *Specification, source string) (method Method, query []byte, arguments []any, err error)
+	InsertWhenNotExist(ctx Context, spec *Specification, source string) (method Method, query []byte, arguments []any, err error)
+	Update(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
+	UpdateFields(ctx Context, spec *Specification, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error)
+	Delete(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
+	DeleteWithConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
+	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
+	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
+	Select(ctx Context, spec *Specification, cond Condition, orders Orders, offset int, length int) (method Method, query []byte, arguments []any, err error)
+}
+
+var (
+	dialects = make([]Dialect, 0, 1)
+)
+
+func RegisterDialect(dialect Dialect) {
+	if dialect == nil {
+		return
+	}
+	name := dialect.Name()
+	if _, has := getDialect(name); has {
+		panic(fmt.Errorf("%+v", errors.Warning(fmt.Sprintf("sql: %s dialect has registered", name))))
+		return
+	}
+	dialects = append(dialects, dialect)
+}
+
+func getDialect(name string) (dialect Dialect, has bool) {
+	for _, d := range dialects {
+		if d.Name() == name {
+			dialect = d
+			has = true
+			return
+		}
+	}
+	return
+}
+
+func defaultDialect() (dialect Dialect, has bool) {
+	if len(dialects) == 0 {
+		return
+	}
+	dialect = dialects[0]
+	has = true
+	return
+}

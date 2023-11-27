@@ -101,3 +101,7 @@ type Predicate struct {
 	Operator   Operator
 	Expression any
 }
+
+func (predicate Predicate) name() string {
+	return "predicate"
+}

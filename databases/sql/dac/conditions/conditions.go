@@ -30,7 +30,7 @@ func (cond Condition) join(op Operation, right Node) (n Condition) {
 		n.Left = cond
 	}
 	r, ok := right.(Condition)
-	if ok {
+	if ok && r.Operation != "" {
 		r.Group = true
 		n.Right = r
 	} else {
@@ -38,6 +38,11 @@ func (cond Condition) join(op Operation, right Node) (n Condition) {
 	}
 	return
 }
+
+func (cond Condition) name() string {
+	return "condition"
+}
+
 func (cond Condition) And(right Node) (n Condition) {
 	return cond.join(AND, right)
 }

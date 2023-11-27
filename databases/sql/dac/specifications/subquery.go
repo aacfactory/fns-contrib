@@ -1,4 +1,4 @@
-package models
+package specifications
 
 import (
 	"fmt"

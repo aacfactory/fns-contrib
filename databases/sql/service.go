@@ -8,7 +8,6 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
 	"github.com/aacfactory/fns/context"
-	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"golang.org/x/sync/singleflight"
 	"strings"
@@ -181,64 +180,12 @@ func (svc *service) Construct(options services.Options) (err error) {
 	return
 }
 
-func EndpointName(ctx context.Context, name []byte) context.Context {
-	ctx.SetLocalValue(endpointNameContextKey, name)
+func Use(ctx context.Context, endpointName []byte) context.Context {
+	ctx.SetLocalValue(endpointNameContextKey, endpointName)
 	return ctx
 }
 
-func loadEndpointName(ctx context.Context) []byte {
+func used(ctx context.Context) []byte {
 	name, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
 	return name
-}
-
-var (
-	dialectFnName           = []byte("dialect")
-	dialectContextKeyPrefix = []byte("@fns:sql:dialect:")
-)
-
-func Dialect(ctx context.Context) (dialect string, err error) {
-	ep := endpointName
-	if epn := loadEndpointName(ctx); len(epn) > 0 {
-		ep = epn
-	}
-	key := append(dialectContextKeyPrefix, ep...)
-	has := false
-	dialect, has = context.LocalValue[string](ctx, key)
-	if has {
-		return
-	}
-	eps := runtime.Endpoints(ctx)
-	response, handleErr := eps.Request(ctx, ep, dialectFnName, nil)
-	if handleErr != nil {
-		err = handleErr
-		return
-	}
-	dialect, err = services.ValueOfResponse[string](response)
-	if err != nil {
-		err = errors.Warning("sql: dialect failed").WithCause(err)
-		return
-	}
-	ctx.SetLocalValue(key, dialect)
-	return
-}
-
-type dialectFn struct {
-	dialect string
-}
-
-func (fn *dialectFn) Name() string {
-	return string(dialectFnName)
-}
-
-func (fn *dialectFn) Internal() bool {
-	return true
-}
-
-func (fn *dialectFn) Readonly() bool {
-	return false
-}
-
-func (fn *dialectFn) Handle(r services.Request) (v interface{}, err error) {
-	v = fn.dialect
-	return
 }

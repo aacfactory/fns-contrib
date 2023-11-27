@@ -1,4 +1,4 @@
-package selects
+package specifications
 
 type Order struct {
 	Name string

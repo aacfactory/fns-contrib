@@ -1,4 +1,4 @@
-package models_test
+package specifications_test
 
 import (
 	"bytes"
@@ -6,16 +6,16 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
-	"github.com/aacfactory/fns-contrib/databases/sql/dac/models"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"reflect"
 	"testing"
 	"time"
 )
 
-func NewDict(ss ...string) models.Dict {
-	dict := make(models.Dict)
+func NewDict(ss ...string) *specifications.Dict {
+	dict := specifications.NewDict()
 	for i := 0; i < len(ss); i += 2 {
-		dict[ss[i]] = []byte(ss[i+1])
+		dict.Set(ss[i], []byte(ss[i+1]))
 	}
 	return dict
 }
@@ -48,16 +48,17 @@ func TestCondition_Render(t *testing.T) {
 		pfx+":Birthday", "birthday",
 		pfx+":PostId", "post_id",
 	)
-	ctx := models.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
+	cond = cond.And(conditions.New(conditions.Eq("Id", 1)))
 	cond = cond.And(conditions.Eq("Name", "name"))
 	cond = cond.And(conditions.New(conditions.Eq("Age", 2)).Or(conditions.Eq("Birthday", "2")))
 	cond = cond.And(conditions.Eq("Name", sql.Named("foo", "bar")))
 
 	buf := bytes.NewBuffer([]byte{})
 
-	args, err := models.Condition{Condition: cond}.Render(ctx, buf)
+	args, err := specifications.Condition{Condition: cond}.Render(ctx, buf)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("%+v", err))
 		return
@@ -78,7 +79,7 @@ func TestCondition_RenderLit(t *testing.T) {
 		pfx+":Birthday", "birthday",
 		pfx+":PostId", "post_id",
 	)
-	ctx := models.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", conditions.String("name")))
@@ -88,7 +89,7 @@ func TestCondition_RenderLit(t *testing.T) {
 
 	buf := bytes.NewBuffer([]byte{})
 
-	args, err := models.Condition{Condition: cond}.Render(ctx, buf)
+	args, err := specifications.Condition{Condition: cond}.Render(ctx, buf)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("%+v", err))
 		return
@@ -118,7 +119,7 @@ func TestCondition_RenderQuery(t *testing.T) {
 		ptx+":Id", "pid",
 	)
 
-	ctx := models.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", "name"))
@@ -127,7 +128,7 @@ func TestCondition_RenderQuery(t *testing.T) {
 
 	buf := bytes.NewBuffer([]byte{})
 
-	args, err := models.Condition{Condition: cond}.Render(ctx, buf)
+	args, err := specifications.Condition{Condition: cond}.Render(ctx, buf)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("%+v", err))
 		return

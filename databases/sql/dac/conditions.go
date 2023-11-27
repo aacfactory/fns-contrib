@@ -6,56 +6,52 @@ import (
 	"time"
 )
 
-func Condition(predicate conditions.Predicate) conditions.Condition {
-	return conditions.New(predicate)
+func Eq(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.Eq(field, expression))
 }
 
-func Eq(field string, expression any) conditions.Predicate {
-	return conditions.Eq(field, expression)
+func NotEq(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.NotEq(field, expression))
 }
 
-func NotEq(field string, expression any) conditions.Predicate {
-	return conditions.NotEq(field, expression)
+func Gt(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.Gt(field, expression))
 }
 
-func Gt(field string, expression any) conditions.Predicate {
-	return conditions.Gt(field, expression)
+func Gte(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.Gte(field, expression))
 }
 
-func Gte(field string, expression any) conditions.Predicate {
-	return conditions.Gte(field, expression)
+func Lt(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.Lt(field, expression))
 }
 
-func Lt(field string, expression any) conditions.Predicate {
-	return conditions.Lt(field, expression)
+func Lte(field string, expression any) conditions.Condition {
+	return conditions.New(conditions.Lte(field, expression))
 }
 
-func Lte(field string, expression any) conditions.Predicate {
-	return conditions.Lte(field, expression)
+func Between(field string, left any, right any) conditions.Condition {
+	return conditions.New(conditions.Between(field, left, right))
 }
 
-func Between(field string, left any, right any) conditions.Predicate {
-	return conditions.Between(field, left, right)
+func In(field string, expression ...any) conditions.Condition {
+	return conditions.New(conditions.In(field, expression...))
 }
 
-func In(field string, expression ...any) conditions.Predicate {
-	return conditions.In(field, expression...)
+func NotIn(field string, expression ...any) conditions.Condition {
+	return conditions.New(conditions.NotIn(field, expression...))
 }
 
-func NotIn(field string, expression ...any) conditions.Predicate {
-	return conditions.NotIn(field, expression...)
+func Like(field string, expression string) conditions.Condition {
+	return conditions.New(conditions.Like(field, expression))
 }
 
-func Like(field string, expression string) conditions.Predicate {
-	return conditions.Like(field, expression)
+func LikeLast(field string, expression string) conditions.Condition {
+	return conditions.New(conditions.LikeLast(field, expression))
 }
 
-func LikeLast(field string, expression string) conditions.Predicate {
-	return conditions.LikeLast(field, expression)
-}
-
-func LikeContains(field string, expression string) conditions.Predicate {
-	return conditions.LikeContains(field, expression)
+func LikeContains(field string, expression string) conditions.Condition {
+	return conditions.New(conditions.LikeContains(field, expression))
 }
 
 func SubQuery(query any, field string, cond conditions.Condition) conditions.QueryExpr {

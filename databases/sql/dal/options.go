@@ -10,7 +10,7 @@ var (
 )
 
 func Endpoint(ctx context.Context, name []byte) context.Context {
-	sql.EndpointName(ctx, name)
+	sql.Use(ctx, name)
 	return ctx
 }
 
@@ -25,6 +25,6 @@ func NotEagerLoad(ctx context.Context) context.Context {
 }
 
 func isEagerLoadMode(ctx context.Context) (ok bool) {
-	ok, _, _ = context.LocalValue[bool](ctx, eagerLoadCtxKey)
+	ok, _ = context.LocalValue[bool](ctx, eagerLoadCtxKey)
 	return
 }
