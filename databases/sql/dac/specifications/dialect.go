@@ -34,14 +34,14 @@ type Dialect interface {
 	Name() string
 	FormatIdent(ident []byte) []byte
 	QueryPlaceholder() QueryPlaceholder
-	Insert(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
-	InsertOrUpdate(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
-	InsertWhenExist(ctx Context, spec *Specification, source string) (method Method, query []byte, arguments []any, err error)
-	InsertWhenNotExist(ctx Context, spec *Specification, source string) (method Method, query []byte, arguments []any, err error)
-	Update(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
+	Insert(ctx Context, spec *Specification, instance Table) (method Method, query []byte, arguments []any, err error)
+	InsertOrUpdate(ctx Context, spec *Specification, instance Table) (method Method, query []byte, arguments []any, err error)
+	InsertWhenExist(ctx Context, spec *Specification, instance Table, src QueryExpr) (method Method, query []byte, arguments []any, err error)
+	InsertWhenNotExist(ctx Context, spec *Specification, instance Table, src QueryExpr) (method Method, query []byte, arguments []any, err error)
+	Update(ctx Context, spec *Specification, instance Table) (method Method, query []byte, arguments []any, err error)
 	UpdateFields(ctx Context, spec *Specification, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error)
-	Delete(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
-	DeleteWithConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
+	Delete(ctx Context, spec *Specification, instance Table) (method Method, query []byte, arguments []any, err error)
+	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Select(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, err error)

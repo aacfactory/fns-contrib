@@ -36,23 +36,23 @@ func (d *Dialect) QueryPlaceholder() specifications.QueryPlaceholder {
 	return &QueryPlaceholder{}
 }
 
-func (d *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
 	return
 }
 
-func (d *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
 	return
 }
 
-func (d *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, source string) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table, source specifications.QueryExpr) (method specifications.Method, query []byte, arguments []any, err error) {
 	return
 }
 
-func (d *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, source string) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table, source specifications.QueryExpr) (method specifications.Method, query []byte, arguments []any, err error) {
 	return
 }
 
-func (d *Dialect) Update(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) Update(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
 	return
 }
 
@@ -61,12 +61,12 @@ func (d *Dialect) UpdateFields(ctx specifications.Context, spec *specifications.
 	return
 }
 
-func (d *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
 
 	return
 }
 
-func (d *Dialect) DeleteWithConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, arguments []any, err error) {
 
 	return
 }

@@ -151,7 +151,7 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 			columns = append(columns, anonymous...)
 			continue
 		}
-		column, columnErr := newColumn(ctx, field)
+		column, columnErr := newColumn(ctx, i, field)
 		if columnErr != nil {
 			err = errors.Warning("sql: scan table field failed").
 				WithCause(columnErr).

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	columnTag = "column"
-	jsonTag   = "json"
+	columnTag       = "column"
+	discardTagValue = "-"
 )
 
 const (
@@ -115,10 +115,11 @@ func (ct *ColumnType) fillName() {
 // Column
 // 'column:"{name},{kind},{options}"'
 type Column struct {
-	Field string
-	Name  string
-	Kind  ColumnKind
-	Type  ColumnType
+	Field    string
+	FieldIdx int
+	Name     string
+	Kind     ColumnKind
+	Type     ColumnType
 }
 
 func (column *Column) Incr() bool {
@@ -210,12 +211,15 @@ func (column *Column) fillMappings(ctx context.Context) (err error) {
 	return
 }
 
-func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err error) {
+func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Column, err error) {
 	tag, hasTag := rt.Tag.Lookup(columnTag)
 	if !hasTag {
 		return
 	}
 	name := strings.TrimSpace(tag)
+	if name == discardTagValue {
+		return
+	}
 	kind := Normal
 	typ := ColumnType{
 		Name:    UnknownType,
@@ -337,10 +341,11 @@ func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err
 	typ.fillName()
 
 	column = &Column{
-		Field: rt.Name,
-		Name:  name,
-		Kind:  kind,
-		Type:  typ,
+		Field:    rt.Name,
+		FieldIdx: ri,
+		Name:     name,
+		Kind:     kind,
+		Type:     typ,
 	}
 
 	if !column.Valid() {
