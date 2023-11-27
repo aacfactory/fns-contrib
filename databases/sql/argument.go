@@ -247,6 +247,18 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 			argument.Type = "byte"
 			argument.Value, _ = json.Marshal(rv.Convert(byteType).Interface())
 		} else {
+			if rt.Implements(jsonMarshalerType) || reflect.New(rt).Type().Implements(jsonMarshalerType) {
+				p, encodeErr := json.Marshal(v)
+				if encodeErr != nil {
+					err = errors.Warning("sql: new argument failed").
+						WithCause(fmt.Errorf("type of value implements json.Marshaler but encode failed")).
+						WithCause(encodeErr).WithMeta("type", rt.String())
+					return
+				}
+				argument.Type = "json"
+				argument.Value = p
+				break
+			}
 			err = errors.Warning("sql: new argument failed").WithCause(fmt.Errorf("type of value is not supported")).WithMeta("type", rt.String())
 			return
 		}
