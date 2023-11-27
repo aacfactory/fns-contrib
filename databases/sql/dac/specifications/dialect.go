@@ -32,7 +32,7 @@ type Render interface {
 
 type Dialect interface {
 	Name() string
-	FormatIdent(ident string) string
+	FormatIdent(ident []byte) []byte
 	QueryPlaceholder() QueryPlaceholder
 	Insert(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)
 	InsertOrUpdate(ctx Context, spec *Specification) (method Method, query []byte, arguments []any, err error)

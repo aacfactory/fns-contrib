@@ -22,7 +22,7 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 		err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s was not found in localization", p.Field))
 		return
 	}
-	_, _ = buf.Write(column)
+	_, _ = buf.Write(column[0])
 	_, _ = buf.Write(SPACE)
 	_, _ = buf.Write(p.Operator.Bytes())
 	_, _ = buf.Write(SPACE)

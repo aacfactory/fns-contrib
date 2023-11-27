@@ -10,32 +10,32 @@ type Context interface {
 	// when field then return column name
 	// when value then return table name
 	// when [struct value, struct value] then return column name of table name
-	Localization(key any) (content []byte, has bool)
+	Localization(key any) (content [][]byte, has bool)
 }
 
-func Todo(ctx context.Context, key any, dict *Dict, ph QueryPlaceholder) Context {
+func Todo(ctx context.Context, key any, dialect Dialect) Context {
 	return &renderCtx{
 		Context: ctx,
-		ph:      ph,
-		dict:    dict,
+		dialect: dialect,
+		ph:      dialect.QueryPlaceholder(),
 		key:     key,
 	}
 }
 
-func With(ctx Context, key any) Context {
+func withTable(ctx Context, key any) Context {
 	return &renderCtx{
 		Context: ctx,
+		dialect: nil,
 		ph:      nil,
-		dict:    nil,
 		key:     key,
 	}
 }
 
 type renderCtx struct {
 	context.Context
-	ph   QueryPlaceholder
-	dict *Dict
-	key  any
+	dialect Dialect
+	ph      QueryPlaceholder
+	key     any
 }
 
 func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
@@ -50,25 +50,17 @@ func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
 	return
 }
 
-func (ctx *renderCtx) getDict() (dict *Dict) {
-	if ctx.dict == nil {
-		parent, ok := ctx.Context.(*renderCtx)
-		if ok {
-			dict = parent.getDict()
-		}
-		return
-	}
-	dict = ctx.dict
-	return
-}
-
-func (ctx *renderCtx) Localization(key any) (content []byte, has bool) {
-	dict := ctx.getDict()
+func (ctx *renderCtx) Localization(key any) (content [][]byte, has bool) {
 	sk, ok := key.(string)
 	if ok {
 		content, has = dict.Get(ctx.key, sk)
 	} else {
 		content, has = dict.Get(key)
+	}
+	if has {
+		for i, c := range content {
+			content[i] = ctx.dialect.FormatIdent(c)
+		}
 	}
 	return
 }

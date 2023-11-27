@@ -109,6 +109,13 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 		tree:      tree,
 	}
 
+	tableNames := make([][]byte, 0, 1)
+	if schema != "" {
+		tableNames = append(tableNames, []byte(schema))
+	}
+	tableNames = append(tableNames, []byte(name))
+	dict.Set(fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), tableNames...)
+
 	return
 }
 
@@ -145,7 +152,9 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 		}
 		if column != nil {
 			columns = append(columns, column)
+			dict.Set(fmt.Sprintf("%s.%s:%s", rt.PkgPath(), rt.Name(), column.Field), []byte(column.Name))
 		}
 	}
+
 	return
 }

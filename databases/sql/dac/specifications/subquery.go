@@ -31,12 +31,17 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		}
 		break
 	default:
-		table, hasTable := ctx.Localization(query)
-		if !hasTable {
+		tableNames, hasTableNames := ctx.Localization(query)
+		if !hasTableNames {
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", query))
 			return
 		}
-		ctx = With(ctx, query)
+		tableName := tableNames[0]
+		if len(tableNames) == 2 {
+			tableName = append(tableNames[0], '.')
+			tableName = append(tableName, tableNames[1]...)
+		}
+		ctx = withTable(ctx, query)
 		column, hasColumn := ctx.Localization(expr.Field)
 		if !hasColumn {
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", expr.Field))
@@ -47,11 +52,11 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		_, _ = buf.Write(LB)
 		_, _ = buf.Write(SELECT)
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(column)
+		_, _ = buf.Write(column[0])
 		_, _ = buf.Write(SPACE)
 		_, _ = buf.Write(FORM)
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(table)
+		_, _ = buf.Write(tableName)
 		if expr.Cond.Exist() {
 			_, _ = buf.Write(SPACE)
 			_, _ = buf.Write(WHERE)

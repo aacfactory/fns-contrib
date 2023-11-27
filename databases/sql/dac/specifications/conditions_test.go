@@ -12,21 +12,10 @@ import (
 	"time"
 )
 
-func NewDict(ss ...string) *specifications.Dict {
-	dict := specifications.NewDict()
+func NewDict(ss ...string) {
 	for i := 0; i < len(ss); i += 2 {
-		dict.Set(ss[i], []byte(ss[i+1]))
+		specifications.DictSet(ss[i], []byte(ss[i+1]))
 	}
-	return dict
-}
-
-type QueryPlaceholder struct {
-	count int
-}
-
-func (q *QueryPlaceholder) Next() (v []byte) {
-	q.count++
-	return []byte(fmt.Sprintf("$%d", q.count))
 }
 
 type User struct {
@@ -40,7 +29,7 @@ type User struct {
 func TestCondition_Render(t *testing.T) {
 	ut := reflect.TypeOf(User{})
 	pfx := fmt.Sprintf("%s.%s", ut.PkgPath(), ut.Name())
-	dict := NewDict(
+	NewDict(
 		pfx, "user",
 		pfx+":Id", "id",
 		pfx+":Name", "name",
@@ -48,7 +37,7 @@ func TestCondition_Render(t *testing.T) {
 		pfx+":Birthday", "birthday",
 		pfx+":PostId", "post_id",
 	)
-	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, &Dialect{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.New(conditions.Eq("Id", 1)))
@@ -71,7 +60,7 @@ func TestCondition_Render(t *testing.T) {
 func TestCondition_RenderLit(t *testing.T) {
 	ut := reflect.TypeOf(User{})
 	pfx := fmt.Sprintf("%s.%s", ut.PkgPath(), ut.Name())
-	dict := NewDict(
+	NewDict(
 		pfx, "user",
 		pfx+":Id", "id",
 		pfx+":Name", "name",
@@ -79,7 +68,7 @@ func TestCondition_RenderLit(t *testing.T) {
 		pfx+":Birthday", "birthday",
 		pfx+":PostId", "post_id",
 	)
-	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, &Dialect{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", conditions.String("name")))
@@ -108,7 +97,7 @@ func TestCondition_RenderQuery(t *testing.T) {
 	pfx := fmt.Sprintf("%s.%s", ut.PkgPath(), ut.Name())
 	pt := reflect.TypeOf(Post{})
 	ptx := fmt.Sprintf("%s.%s", pt.PkgPath(), pt.Name())
-	dict := NewDict(
+	NewDict(
 		pfx, "user",
 		pfx+":Id", "id",
 		pfx+":Name", "name",
@@ -119,7 +108,7 @@ func TestCondition_RenderQuery(t *testing.T) {
 		ptx+":Id", "pid",
 	)
 
-	ctx := specifications.Todo(context.TODO(), User{}, dict, &QueryPlaceholder{})
+	ctx := specifications.Todo(context.TODO(), User{}, &Dialect{})
 
 	cond := conditions.New(conditions.Eq("Id", 1))
 	cond = cond.And(conditions.Eq("Name", "name"))
