@@ -10,6 +10,7 @@ import (
 )
 
 type Specification struct {
+	Key       string
 	Schema    string
 	Name      string
 	View      bool
@@ -26,16 +27,6 @@ var (
 )
 
 func GetSpecification(ctx context.Context, table any) (spec *Specification, err error) {
-	scanned, has := values.Load(table)
-	if has {
-		spec, has = scanned.(*Specification)
-		if !has {
-			err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("stored table specification is invalid type"))
-			return
-		}
-		return
-	}
-
 	t, isTable := table.(Table)
 	if !isTable {
 		err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("table does not implement Table"))
@@ -48,9 +39,21 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 		return
 	}
 
-	key := fmt.Sprintf("@fns:sql:dac:scan:%s.%s", rt.PkgPath(), rt.Name())
+	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 
-	processing := ctx.Value(key)
+	scanned, has := values.Load(key)
+	if has {
+		spec, has = scanned.(*Specification)
+		if !has {
+			err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("stored table specification is invalid type"))
+			return
+		}
+		return
+	}
+
+	ctxKey := fmt.Sprintf("@fns:sql:dac:scan:%s", key)
+
+	processing := ctx.Value(ctxKey)
 	if processing != nil {
 		spec, has = processing.(*Specification)
 		if !has {
@@ -62,7 +65,7 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 
 	scanned, err, _ = group.Do(key, func() (v interface{}, err error) {
 		current := &Specification{}
-		ctx = context.WithValue(ctx, key, current)
+		ctx = context.WithValue(ctx, ctxKey, current)
 		s, scanErr := ScanTable(ctx, t)
 		if scanErr != nil {
 			err = scanErr
@@ -70,9 +73,11 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 		}
 		reflect.ValueOf(current).Elem().Set(reflect.ValueOf(s).Elem())
 		v = current
+		values.Store(key, v)
 		return
 	})
 	if err != nil {
+		err = errors.Warning("sql: get table specification failed").WithCause(err)
 		return
 	}
 
@@ -85,7 +90,7 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 	if rt.Kind() == reflect.Ptr {
 		rt = rt.Elem()
 	}
-
+	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 	info := table.TableInfo()
 	name := info.name
 	if name == "" {
@@ -108,6 +113,7 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 	}
 
 	spec = &Specification{
+		Key:       key,
 		Schema:    schema,
 		Name:      name,
 		View:      view,
