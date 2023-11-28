@@ -57,10 +57,10 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 
 	_, _ = buf.Write(specifications.LB) // (
 	// json >>>
-	_, _ = buf.Write(specifications.SELECT) // SELECT
+	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("row_to_json")) // row_to_json
-	_, _ = buf.Write(specifications.LB)     // (
+	_, _ = buf.Write([]byte("row_to_json"))
+	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write(srcName)
 	_, _ = buf.Write(specifications.DOT)
 	_, _ = buf.Write(specifications.STAR)
@@ -97,6 +97,7 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	_, _ = buf.Write(hostColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.OFFSET)
+	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write([]byte("0"))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.LIMIT)

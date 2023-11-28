@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -41,10 +42,10 @@ const (
 	Adt                         // column,adt
 	Aol                         // column,aol
 	Json                        // column,json
-	Virtual                     // ident,ref,query
+	Virtual                     // ident,vc,query
 	Reference                   // column,ref,field+target_field
 	Link                        // column,link,field+target_field
-	Links                       // column,links,field+target_field
+	Links                       // column,links,field+target_field,orders:field@desc+field,length:10
 )
 
 type ColumnKind int
@@ -157,12 +158,42 @@ func (column *Column) Link() (host string, target string, mapping *Specification
 	return
 }
 
-func (column *Column) Links() (host string, target string, mapping *Specification, ok bool) {
+func (column *Column) Links() (host string, target string, mapping *Specification, orders Orders, length int, ok bool) {
 	ok = column.Kind == Links
 	if ok {
 		host = column.Type.Options[0]
 		target = column.Type.Options[1]
 		mapping = column.Type.Mapping
+		if optLen := len(column.Type.Options); optLen > 2 {
+			for i := 2; i < optLen; i++ {
+				option := strings.TrimSpace(column.Type.Options[i])
+				// orders:
+				if idx := strings.Index(strings.ToLower(option), "orders:"); idx == 0 {
+					option = option[7:]
+					items := strings.Split(option, "+")
+					for _, item := range items {
+						item = strings.TrimSpace(item)
+						pos := strings.IndexByte(item, '@')
+						if pos == -1 {
+							orders = orders.Asc(item)
+						} else {
+							field := strings.TrimSpace(item[0:pos])
+							kind := strings.ToLower(strings.TrimSpace(item[pos+1:]))
+							if kind == "desc" {
+								orders = orders.Desc(field)
+							} else {
+								orders = orders.Asc(field)
+							}
+						}
+					}
+				}
+				// length:
+				if idx := strings.Index(strings.ToLower(option), "length:"); idx == 0 {
+					option = strings.TrimSpace(option[7:])
+					length, _ = strconv.Atoi(option)
+				}
+			}
+		}
 	}
 	return
 }
@@ -216,8 +247,8 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 	if !hasTag {
 		return
 	}
-	name := strings.TrimSpace(tag)
-	if name == discardTagValue {
+	tag = strings.TrimSpace(tag)
+	if tag == discardTagValue {
 		return
 	}
 	kind := Normal
@@ -228,116 +259,144 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 		Mapping: nil,
 		Options: make([]string, 0, 1),
 	}
-	idx := strings.IndexByte(tag, ',')
-	if idx > -1 {
-		name = tag[0:idx]
-		tag = strings.TrimSpace(tag[idx+1:])
-		idx = strings.IndexByte(tag, ',')
-		if idx > 0 {
-			kv := strings.ToLower(tag[0:idx])
-			if len(tag) > idx {
-				tag = strings.TrimSpace(tag[idx+1:])
-			}
-			switch kv {
-			case pkColumn:
-				kind = Pk
-				if strings.ToLower(tag) == incrColumn {
-					typ.Options = append(typ.Options, incrColumn)
-				}
-				break
-			case acbColumn:
-				kind = Acb
-				break
-			case actColumn:
-				kind = Act
-				break
-			case ambColumn:
-				kind = Amb
-				break
-			case amtColumn:
-				kind = Amt
-				break
-			case adbColumn:
-				kind = Adb
-				break
-			case adtColumn:
-				kind = Adt
-				break
-			case aolColumn:
-				kind = Aol
-				break
-			case jsonColumn:
-				kind = Json
-				typ.Name = JsonType
-				break
-			case virtualColumn:
-				// name,vc,{query}
-				kind = Virtual
-				typ.Options = append(typ.Options, tag)
-				typ.Name = JsonType
-				break
-			case referenceColumn:
-				// name,ref,self+target
-				kind = Reference
-				items := strings.Split(tag, "+")
-				for _, item := range items {
-					typ.Options = append(typ.Options, strings.TrimSpace(item))
-				}
-				typ.Name = MappingType
-				typ.Element = rt.Type
-				if rt.Type.Kind() != reflect.Struct {
-					if rt.Type.Elem().Kind() != reflect.Struct {
-						err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be struct or ptr struct"))
-						return
-					}
-					typ.Element = typ.Element.Elem()
-				}
+	items := strings.Split(tag, ",")
 
-				break
-			case linkColumn:
-				// name,link,self+target
-				kind = Link
-				items := strings.Split(tag, "+")
-				for _, item := range items {
-					typ.Options = append(typ.Options, strings.TrimSpace(item))
-				}
-				typ.Name = MappingType
-				typ.Element = rt.Type
-				if rt.Type.Kind() != reflect.Struct {
-					if rt.Type.Elem().Kind() != reflect.Struct {
-						err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be struct or ptr struct"))
-						return
-					}
-					typ.Element = typ.Element.Elem()
-				}
-				break
-			case linksColumn:
-				// name,links,self+target
-				kind = Links
-				items := strings.Split(tag, "+")
-				for _, item := range items {
-					typ.Options = append(typ.Options, strings.TrimSpace(item))
-				}
-				typ.Name = MappingType
-				if rt.Type.Kind() != reflect.Slice {
-					err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
+	name := strings.TrimSpace(items[0])
+	if len(items) > 1 {
+		items = items[1:]
+		kv := strings.ToLower(strings.TrimSpace(items[0]))
+		switch kv {
+		case pkColumn:
+			kind = Pk
+			if strings.ToLower(tag) == incrColumn {
+				typ.Options = append(typ.Options, incrColumn)
+			}
+			break
+		case acbColumn:
+			kind = Acb
+			break
+		case actColumn:
+			kind = Act
+			break
+		case ambColumn:
+			kind = Amb
+			break
+		case amtColumn:
+			kind = Amt
+			break
+		case adbColumn:
+			kind = Adb
+			break
+		case adtColumn:
+			kind = Adt
+			break
+		case aolColumn:
+			kind = Aol
+			break
+		case jsonColumn:
+			kind = Json
+			typ.Name = JsonType
+			break
+		case virtualColumn:
+			// name,vc,{query}
+			if len(items) < 2 {
+				err = errors.Warning("sql: scan virtual column failed, query is required").WithMeta("field", rt.Name)
+				return
+			}
+			kind = Virtual
+			typ.Options = append(typ.Options, strings.TrimSpace(items[1]))
+			typ.Name = JsonType
+			break
+		case referenceColumn:
+			// name,ref,self+target
+			if len(items) < 2 {
+				err = errors.Warning("sql: scan reference column failed, mapping is required").WithMeta("field", rt.Name)
+				return
+			}
+			mr := strings.Split(items[1], "+")
+			if len(mr) != 2 {
+				err = errors.Warning("sql: scan reference column failed, mapping is invalid").WithMeta("field", rt.Name)
+				return
+			}
+
+			kind = Reference
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			typ.Name = MappingType
+			typ.Element = rt.Type
+			if rt.Type.Kind() != reflect.Struct {
+				if rt.Type.Elem().Kind() != reflect.Struct {
+					err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be struct or ptr struct"))
 					return
 				}
-				typ.Element = rt.Type.Elem()
-				if rt.Type.Elem().Kind() != reflect.Struct {
-					if rt.Type.Elem().Elem().Kind() != reflect.Struct {
-						err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
-						return
-					}
-					typ.Element = typ.Element.Elem()
-				}
-				break
-			default:
-				kind = Normal
-				break
+				typ.Element = typ.Element.Elem()
 			}
+			break
+		case linkColumn:
+			// name,link,self+target
+			if len(items) < 2 {
+				err = errors.Warning("sql: scan link column failed, mapping is required").WithMeta("field", rt.Name)
+				return
+			}
+			mr := strings.Split(items[1], "+")
+			if len(mr) != 2 {
+				err = errors.Warning("sql: scan link column failed, mapping is invalid").WithMeta("field", rt.Name)
+				return
+			}
+
+			kind = Link
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			typ.Name = MappingType
+			typ.Element = rt.Type
+			if rt.Type.Kind() != reflect.Struct {
+				if rt.Type.Elem().Kind() != reflect.Struct {
+					err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be struct or ptr struct"))
+					return
+				}
+				typ.Element = typ.Element.Elem()
+			}
+			break
+		case linksColumn:
+			// name,links,self+target
+			if len(items) < 2 {
+				err = errors.Warning("sql: scan links column failed, mapping is required").WithMeta("field", rt.Name)
+				return
+			}
+			mr := strings.Split(items[1], "+")
+			if len(mr) != 2 {
+				err = errors.Warning("sql: scan links column failed, mapping is invalid").WithMeta("field", rt.Name)
+				return
+			}
+
+			kind = Links
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
+			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			if len(items) > 2 {
+				typ.Options = append(typ.Options, items[2:]...)
+			}
+
+			typ.Name = MappingType
+			if rt.Type.Kind() != reflect.Slice {
+				err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
+				return
+			}
+			typ.Element = rt.Type.Elem()
+			if rt.Type.Elem().Kind() != reflect.Struct {
+				if rt.Type.Elem().Elem().Kind() != reflect.Struct {
+					err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
+					return
+				}
+				typ.Element = typ.Element.Elem()
+			}
+			break
+		default:
+			kind = Normal
+			break
 		}
+
 	}
+
 	typ.fillName()
 
 	column = &Column{
