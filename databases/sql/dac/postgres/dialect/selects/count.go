@@ -24,6 +24,10 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write([]byte("1"))
 	_, _ = buf.Write(specifications.RB)
+	_, _ = buf.Write(specifications.SPACE)
+	_, _ = buf.Write(specifications.AS)
+	_, _ = buf.Write(specifications.SPACE)
+	_, _ = buf.Write([]byte("__COUNT__"))
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FORM)
