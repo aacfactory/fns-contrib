@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-func NewExistGeneric(spec *specifications.Specification) (generic *ExistGeneric, err error) {
+func NewExistGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *ExistGeneric, err error) {
 
 	return
 }

@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-func NewUpdateFieldsGeneric(spec *specifications.Specification) (generic *UpdateFieldsGeneric, err error) {
+func NewUpdateFieldsGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *UpdateFieldsGeneric, err error) {
 
 	return
 }

@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-func NewQueryGeneric(spec *specifications.Specification) (generic *QueryGeneric, err error) {
+func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *QueryGeneric, err error) {
 
 	return
 }

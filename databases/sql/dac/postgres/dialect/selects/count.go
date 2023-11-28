@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-func NewCountGeneric(spec *specifications.Specification) (generic *CountGeneric, err error) {
+func NewCountGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *CountGeneric, err error) {
 
 	return
 }

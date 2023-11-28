@@ -14,3 +14,7 @@ func (ph *Placeholder) Next() (v []byte) {
 	v = append(v, strconv.Itoa(ph.count)...)
 	return v
 }
+
+func (ph *Placeholder) SkipCursor(n int) {
+	ph.count = ph.count + n
+}
