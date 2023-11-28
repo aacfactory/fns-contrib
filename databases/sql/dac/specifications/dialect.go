@@ -32,6 +32,13 @@ var (
 	RETURNING = []byte("RETURNING")
 	DO        = []byte("DO")
 	NOTHING   = []byte("NOTHING")
+	ORDER     = []byte("ORDER")
+	BY        = []byte("BY")
+	DESC      = []byte("DESC")
+	GROUP     = []byte("GROUP")
+	HAVING    = []byte("HAVING")
+	OFFSET    = []byte("OFFSET")
+	LIMIT     = []byte("LIMIT")
 )
 
 const (
