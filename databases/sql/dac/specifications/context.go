@@ -4,7 +4,9 @@ import "context"
 
 type Context interface {
 	context.Context
+	FormatIdent(ident []byte) []byte
 	NextQueryPlaceholder() (v []byte)
+	SkipNextQueryPlaceholderCursor(n int)
 	// Localization
 	// key can be struct field, struct value and [struct value, struct value]
 	// when field then return column name
@@ -38,6 +40,10 @@ type renderCtx struct {
 	key     any
 }
 
+func (ctx *renderCtx) FormatIdent(ident []byte) []byte {
+	return ctx.dialect.FormatIdent(ident)
+}
+
 func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
 	if ctx.ph == nil {
 		parent, ok := ctx.Context.(Context)
@@ -47,6 +53,18 @@ func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
 		return
 	}
 	v = ctx.ph.Next()
+	return
+}
+
+func (ctx *renderCtx) SkipNextQueryPlaceholderCursor(n int) {
+	if ctx.ph == nil {
+		parent, ok := ctx.Context.(Context)
+		if ok {
+			parent.SkipNextQueryPlaceholderCursor(n)
+		}
+		return
+	}
+	ctx.ph.SkipCursor(n)
 	return
 }
 

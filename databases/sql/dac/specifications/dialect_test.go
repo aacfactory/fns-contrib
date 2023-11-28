@@ -14,6 +14,10 @@ func (q *QueryPlaceholder) Next() (v []byte) {
 	return []byte(fmt.Sprintf("$%d", q.count))
 }
 
+func (q *QueryPlaceholder) SkipCursor(n int) {
+	q.count = q.count + n
+}
+
 type Dialect struct {
 }
 

@@ -7,23 +7,43 @@ import (
 )
 
 var (
-	SELECT = []byte("SELECT")
-	FORM   = []byte("FROM")
-	WHERE  = []byte("WHERE")
-	INSERT = []byte("INSERT")
-	UPDATE = []byte("UPDATE")
-	DELETE = []byte("DELETE")
-	SPACE  = []byte(" ")
-	AT     = []byte("@")
-	LB     = []byte("(")
-	RB     = []byte(")")
-	COMMA  = []byte(", ")
+	SELECT    = []byte("SELECT")
+	FORM      = []byte("FROM")
+	WHERE     = []byte("WHERE")
+	INSERT    = []byte("INSERT")
+	UPDATE    = []byte("UPDATE")
+	DELETE    = []byte("DELETE")
+	SPACE     = []byte(" ")
+	INTO      = []byte("INTO")
+	AND       = []byte("AND")
+	SET       = []byte("SET")
+	EQ        = []byte("=")
+	PLUS      = []byte("+")
+	AT        = []byte("@")
+	LB        = []byte("(")
+	RB        = []byte(")")
+	COMMA     = []byte(", ")
+	AS        = []byte("AS")
+	VALUES    = []byte("VALUES")
+	EXISTS    = []byte("EXISTS")
+	NOT       = []byte("NOT")
+	CONFLICT  = []byte("CONFLICT")
+	ON        = []byte("ON")
+	RETURNING = []byte("RETURNING")
+	DO        = []byte("DO")
+	NOTHING   = []byte("NOTHING")
 )
 
-type Method string
+const (
+	QueryMethod Method = iota + 1
+	ExecuteMethod
+)
+
+type Method int
 
 type QueryPlaceholder interface {
 	Next() (v []byte)
+	SkipCursor(n int)
 }
 
 type Render interface {

@@ -20,6 +20,102 @@ type Specification struct {
 	tree      []string
 }
 
+func (spec *Specification) ColumnByField(fieldName string) (column *Column, has bool) {
+	for _, c := range spec.Columns {
+		if c.Field == fieldName {
+			column = c
+			has = true
+			break
+		}
+	}
+	return
+}
+
+func (spec *Specification) Pk() (v *Column, has bool) {
+	for _, column := range spec.Columns {
+		if column.Kind == Pk {
+			v = column
+			break
+		}
+	}
+	has = v != nil
+	return
+}
+
+func (spec *Specification) AuditCreation() (by *Column, at *Column, has bool) {
+	n := 0
+	for _, column := range spec.Columns {
+		if column.Kind == Acb {
+			by = column
+			n++
+			continue
+		}
+		if column.Kind == Act {
+			at = column
+			n++
+			continue
+		}
+		if n == 2 {
+			break
+		}
+	}
+	has = n > 0
+	return
+}
+
+func (spec *Specification) AuditModification() (by *Column, at *Column, has bool) {
+	n := 0
+	for _, column := range spec.Columns {
+		if column.Kind == Amb {
+			by = column
+			n++
+			continue
+		}
+		if column.Kind == Amt {
+			at = column
+			n++
+			continue
+		}
+		if n == 2 {
+			break
+		}
+	}
+	has = n > 0
+	return
+}
+
+func (spec *Specification) AuditDelete() (by *Column, at *Column, has bool) {
+	n := 0
+	for _, column := range spec.Columns {
+		if column.Kind == Adb {
+			by = column
+			n++
+			continue
+		}
+		if column.Kind == Adt {
+			at = column
+			n++
+			continue
+		}
+		if n == 2 {
+			break
+		}
+	}
+	has = n > 0
+	return
+}
+
+func (spec *Specification) AuditVersion() (v *Column, has bool) {
+	for _, column := range spec.Columns {
+		if column.Kind == Aol {
+			v = column
+			break
+		}
+	}
+	has = v != nil
+	return
+}
+
 var (
 	values = sync.Map{}
 	dict   = NewDict()
