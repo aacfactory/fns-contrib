@@ -27,6 +27,12 @@ func Delete[T Table](ctx context.Context, entry T) (err error) {
 		return
 	}
 
+	interceptorErr := spec.TryExecuteDeleteInterceptor(ctx, entry)
+	if interceptorErr != nil {
+		err = errors.Warning("sql: delete failed").WithCause(interceptorErr)
+		return
+	}
+
 	result, execErr := sql.Execute(ctx, query, arguments...)
 	if execErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(execErr)
@@ -37,6 +43,11 @@ func Delete[T Table](ctx context.Context, entry T) (err error) {
 		return
 	}
 
+	hookErr := spec.TryExecuteDeleteHook(ctx, entry)
+	if hookErr != nil {
+		err = errors.Warning("sql: delete failed").WithCause(hookErr)
+		return
+	}
 	return
 }
 

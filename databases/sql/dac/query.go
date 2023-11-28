@@ -100,7 +100,15 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 			err = errors.Warning("sql: query failed").WithCause(scanErr)
 			return
 		}
-		entries = append(entries, instance.(T))
+
+		entry := instance.(T)
+		hookErr := spec.TryExecuteQueryHook(ctx, entry)
+		if hookErr != nil {
+			_ = rows.Close()
+			err = errors.Warning("sql: query failed").WithCause(hookErr)
+			return
+		}
+		entries = append(entries, entry)
 	}
 	_ = rows.Close()
 	return
@@ -137,6 +145,12 @@ func One[T Table](ctx context.Context, options ...QueryOption) (entry T, has boo
 		return
 	}
 
+	interceptorErr := spec.TryExecuteQueryInterceptor(ctx, entry)
+	if interceptorErr != nil {
+		err = errors.Warning("sql: query one failed").WithCause(interceptorErr)
+		return
+	}
+
 	rows, queryErr := sql.Query(ctx, query, arguments...)
 	if queryErr != nil {
 		err = errors.Warning("sql: query one failed").WithCause(queryErr)
@@ -159,5 +173,11 @@ func One[T Table](ctx context.Context, options ...QueryOption) (entry T, has boo
 		has = true
 	}
 	_ = rows.Close()
+
+	hookErr := spec.TryExecuteQueryHook(ctx, entry)
+	if hookErr != nil {
+		err = errors.Warning("sql: query one failed").WithCause(hookErr)
+		return
+	}
 	return
 }

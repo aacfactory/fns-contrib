@@ -1,19 +1,21 @@
 package dac
 
-import "github.com/aacfactory/fns/context"
+import (
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+)
 
 type QueryHook interface {
-	AfterQuery(ctx context.Context) (err error)
+	specifications.QueryHook
 }
 
 type InsertHook interface {
-	AfterInsert(ctx context.Context) (err error)
+	specifications.InsertHook
 }
 
 type UpdateHook interface {
-	AfterUpdate(ctx context.Context) (err error)
+	specifications.UpdateHook
 }
 
 type DeleteHook interface {
-	AfterDelete(ctx context.Context) (err error)
+	specifications.DeleteHook
 }

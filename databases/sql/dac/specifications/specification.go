@@ -10,14 +10,22 @@ import (
 )
 
 type Specification struct {
-	Key       string
-	Schema    string
-	Name      string
-	View      bool
-	Type      reflect.Type
-	Columns   []*Column
-	Conflicts []string
-	tree      []string
+	Key               string
+	Schema            string
+	Name              string
+	View              bool
+	Type              reflect.Type
+	Columns           []*Column
+	Conflicts         []string
+	tree              []string
+	queryInterceptor  bool
+	queryHook         bool
+	insertInterceptor bool
+	insertHook        bool
+	updateInterceptor bool
+	updateHook        bool
+	deleteInterceptor bool
+	deleteHook        bool
 }
 
 func (spec *Specification) ColumnByField(fieldName string) (column *Column, has bool) {
@@ -27,6 +35,15 @@ func (spec *Specification) ColumnByField(fieldName string) (column *Column, has 
 			has = true
 			break
 		}
+	}
+	return
+}
+
+func (spec *Specification) Tree() (parentField string, childrenField string, has bool) {
+	has = len(spec.tree) == 2
+	if has {
+		parentField = spec.tree[0]
+		childrenField = spec.tree[1]
 	}
 	return
 }
@@ -243,15 +260,24 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 		return
 	}
 
+	ptr := reflect.New(rt)
 	spec = &Specification{
-		Key:       key,
-		Schema:    schema,
-		Name:      name,
-		View:      view,
-		Type:      rt,
-		Columns:   columns,
-		Conflicts: conflicts,
-		tree:      tree,
+		Key:               key,
+		Schema:            schema,
+		Name:              name,
+		View:              view,
+		Type:              rt,
+		Columns:           columns,
+		Conflicts:         conflicts,
+		tree:              tree,
+		queryInterceptor:  ptr.Type().Implements(queryInterceptorType),
+		queryHook:         ptr.Type().Implements(queryHookType),
+		insertInterceptor: ptr.Type().Implements(insertInterceptorType),
+		insertHook:        ptr.Type().Implements(insertHookType),
+		updateInterceptor: ptr.Type().Implements(updateInterceptorType),
+		updateHook:        ptr.Type().Implements(updateHookType),
+		deleteInterceptor: ptr.Type().Implements(deleteInterceptorType),
+		deleteHook:        ptr.Type().Implements(deleteHookType),
 	}
 
 	tableNames := make([][]byte, 0, 1)
