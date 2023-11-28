@@ -42,9 +42,9 @@ const (
 	Aol                         // column,aol
 	Json                        // column,json
 	Virtual                     // ident,ref,query
-	Reference                   // ident,ref,self_column+target_column
-	Link                        // ident,link,self_column+target_column
-	Links                       // ident,links,self_column+target_column
+	Reference                   // column,ref,field+target_field
+	Link                        // column,link,field+target_field
+	Links                       // column,links,field+target_field
 )
 
 type ColumnKind int
@@ -137,11 +137,11 @@ func (column *Column) Virtual() (query string, ok bool) {
 	return
 }
 
-func (column *Column) Reference() (host string, target string, mapping *Specification, ok bool) {
+func (column *Column) Reference() (hostField string, awayField string, mapping *Specification, ok bool) {
 	ok = column.Kind == Reference
 	if ok {
-		host = column.Type.Options[0]
-		target = column.Type.Options[1]
+		hostField = column.Type.Options[0]
+		awayField = column.Type.Options[1]
 		mapping = column.Type.Mapping
 	}
 	return

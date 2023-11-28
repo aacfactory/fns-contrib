@@ -23,6 +23,8 @@ var (
 	LB        = []byte("(")
 	RB        = []byte(")")
 	COMMA     = []byte(", ")
+	DOT       = []byte(".")
+	STAR      = []byte("*")
 	AS        = []byte("AS")
 	VALUES    = []byte("VALUES")
 	EXISTS    = []byte("EXISTS")

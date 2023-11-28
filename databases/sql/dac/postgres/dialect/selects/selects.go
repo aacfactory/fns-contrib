@@ -30,7 +30,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		fragment, columnErr := columns.Fragment(ctx, column)
+		fragment, columnErr := columns.Fragment(ctx, spec, column)
 		if columnErr != nil {
 			err = errors.Warning("sql: new query generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
 			return

@@ -81,16 +81,10 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 				n++
 				continue
 			}
-			var columnName []byte
-			if column.Kind == specifications.Reference {
-				refColumn, _, _, _ := column.Reference()
-				columnName = ctx.FormatIdent([]byte(refColumn))
-			} else {
-				columnName = ctx.FormatIdent([]byte(column.Name))
-			}
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
+			columnName := ctx.FormatIdent([]byte(column.Name))
 			_, _ = buf.Write(columnName)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.EQ)

@@ -62,13 +62,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		if skip {
 			continue
 		}
-		var columnName []byte
-		if column.Kind == specifications.Reference {
-			refColumn, _, _, _ := column.Reference()
-			columnName = ctx.FormatIdent([]byte(refColumn))
-		} else {
-			columnName = ctx.FormatIdent([]byte(column.Name))
-		}
+		columnName := ctx.FormatIdent([]byte(column.Name))
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
@@ -169,13 +163,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		if skip {
 			continue
 		}
-		var columnName []byte
-		if column.Kind == specifications.Reference {
-			refColumn, _, _, _ := column.Reference()
-			columnName = ctx.FormatIdent([]byte(refColumn))
-		} else {
-			columnName = ctx.FormatIdent([]byte(column.Name))
-		}
+		columnName := ctx.FormatIdent([]byte(column.Name))
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}

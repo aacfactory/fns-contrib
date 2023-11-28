@@ -30,7 +30,7 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 			if fv.Type().Kind() == reflect.Ptr {
 				fv = fv.Elem()
 			}
-			_, refColumn, mapping, ok := target.Reference()
+			_, refField, mapping, ok := target.Reference()
 			if !ok {
 				err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 				return
@@ -40,7 +40,7 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 				err = errors.Warning("sql: type of reference field is not Table").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 				return
 			}
-			argument, argumentErr := mapping.ArgumentByColumn(ref, refColumn)
+			argument, argumentErr := mapping.ArgumentByField(ref, refField)
 			if argumentErr != nil {
 				err = errors.Warning("sql: get field value failed").WithCause(argumentErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 				return
@@ -62,17 +62,17 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 	return
 }
 
-func (spec *Specification) ArgumentByColumn(instance Table, columnName string) (argument any, err error) {
+func (spec *Specification) ArgumentByField(instance Table, field string) (argument any, err error) {
 	rv := reflect.ValueOf(instance)
 	var target *Column
 	for _, column := range spec.Columns {
-		if column.Name == columnName {
+		if column.Field == field {
 			target = column
 			break
 		}
 	}
 	if target == nil {
-		err = errors.Warning("sql: field was not found").WithMeta("table", rv.Type().String()).WithMeta("column", columnName)
+		err = errors.Warning("sql: field was not found").WithMeta("table", rv.Type().String()).WithMeta("field", field)
 		return
 	}
 	switch target.Kind {
@@ -85,7 +85,7 @@ func (spec *Specification) ArgumentByColumn(instance Table, columnName string) (
 		if fv.Type().Kind() == reflect.Ptr {
 			fv = fv.Elem()
 		}
-		_, refColumn, mapping, ok := target.Reference()
+		_, refField, mapping, ok := target.Reference()
 		if !ok {
 			err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
@@ -95,7 +95,7 @@ func (spec *Specification) ArgumentByColumn(instance Table, columnName string) (
 			err = errors.Warning("sql: type of reference field is not Table").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
 		}
-		argument, err = mapping.ArgumentByColumn(ref, refColumn)
+		argument, err = mapping.ArgumentByField(ref, refField)
 		if err != nil {
 			err = errors.Warning("sql: get field value failed").WithCause(err).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
