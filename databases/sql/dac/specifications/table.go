@@ -15,3 +15,7 @@ type TableInfo struct {
 type Table interface {
 	TableInfo() TableInfo
 }
+
+func ZeroInstance[T Table]() (v T) {
+	return
+}

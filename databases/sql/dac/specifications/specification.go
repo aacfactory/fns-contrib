@@ -116,6 +116,41 @@ func (spec *Specification) AuditVersion() (v *Column, has bool) {
 	return
 }
 
+func (spec *Specification) FieldScanInterfaces(instance Table, columns []int) (fields []any, err error) {
+	rv := reflect.ValueOf(instance)
+	for _, column := range columns {
+		fieldIdx := spec.Columns[column].FieldIdx
+		fv := rv.Field(fieldIdx)
+		switch fv.Type().Kind() {
+		case reflect.Ptr:
+			nfv := reflect.New(fv.Type().Elem())
+			fv.Set(nfv)
+			fields = append(fields, fv.Interface())
+			break
+		case reflect.Slice:
+			nfv := reflect.MakeSlice(fv.Type().Elem(), 0, 1)
+			fv.Set(nfv)
+			fields = append(fields, fv.Interface())
+			break
+		case reflect.Map:
+			nfv := reflect.MakeMap(fv.Type())
+			fv.Set(nfv)
+			fields = append(fields, fv.Interface())
+			break
+		default:
+			fields = append(fields, fv.Interface())
+			break
+		}
+	}
+	return
+}
+
+func (spec *Specification) ValueScanInterfaces(columns []int) (v Table, fields []any, err error) {
+	v = reflect.New(spec.Type).Elem().Interface().(Table)
+	fields, err = spec.FieldScanInterfaces(v, columns)
+	return
+}
+
 var (
 	values = sync.Map{}
 	dict   = NewDict()

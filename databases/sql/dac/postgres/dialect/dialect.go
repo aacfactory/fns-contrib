@@ -259,7 +259,7 @@ func (dialect *Dialect) Count(ctx specifications.Context, spec *specifications.S
 	return
 }
 
-func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate query failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -271,7 +271,7 @@ func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.S
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.Query.Render(ctx, buf, cond, orders, groupBy, having, offset, length)
+	method, arguments, columns, err = generic.Query.Render(ctx, buf, cond, orders, groupBy, having, offset, length)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate query failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return

@@ -2,7 +2,6 @@ package selects
 
 import (
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/dac/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
@@ -26,6 +25,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 	_, _ = buf.Write(specifications.LB)
 
+	columns := make([]int, 0, 1)
 	for i, column := range spec.Columns {
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
@@ -36,8 +36,21 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 			return
 		}
 		_, _ = buf.Write(fragment)
+		columns = append(columns, i)
 	}
 	_, _ = buf.Write(specifications.RB)
+
+	_, _ = buf.Write(specifications.SPACE)
+	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(tableName)
+
+	query := buf.Bytes()
+
+	generic = &QueryGeneric{
+		spec:    spec,
+		content: query,
+		columns: columns,
+	}
 
 	return
 }
@@ -45,10 +58,10 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 type QueryGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []int
+	columns []int
 }
 
-func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, arguments []any, err error) {
+func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, arguments []any, columns []int, err error) {
 	method = specifications.QueryMethod
 
 	buf := bytebufferpool.Get()
@@ -105,6 +118,8 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 	query := buf.Bytes()
 
 	_, err = w.Write(query)
+
+	columns = generic.columns
 
 	return
 }

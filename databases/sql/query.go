@@ -20,10 +20,10 @@ var (
 	queryFnName = []byte("query")
 )
 
-func Query(ctx context.Context, query string, arguments ...interface{}) (v *Rows, err error) {
+func Query(ctx context.Context, query []byte, arguments ...interface{}) (v Rows, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
-		rows, queryErr := tx.Query(ctx, bytex.FromString(query), arguments)
+		rows, queryErr := tx.Query(ctx, query, arguments)
 		if queryErr != nil {
 			err = errors.Warning("sql: query failed").WithCause(queryErr)
 			return
@@ -46,7 +46,7 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (v *Rows
 	}
 	eps := runtime.Endpoints(ctx)
 	param := queryParam{
-		Query:     query,
+		Query:     bytex.ToString(query),
 		Arguments: Arguments(arguments),
 	}
 	ep := endpointName
@@ -58,7 +58,7 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (v *Rows
 		err = handleErr
 		return
 	}
-	v, err = services.ValueOfResponse[*Rows](response)
+	v, err = services.ValueOfResponse[Rows](response)
 	if err != nil {
 		err = errors.Warning("sql: query failed").WithCause(err)
 		return

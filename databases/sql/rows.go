@@ -15,7 +15,7 @@ import (
 
 type Row []Column
 
-func NewRows(rows databases.Rows) (v *Rows, err error) {
+func NewRows(rows databases.Rows) (v Rows, err error) {
 	names, namesErr := rows.Columns()
 	if namesErr != nil {
 		_ = rows.Close()
@@ -33,7 +33,7 @@ func NewRows(rows databases.Rows) (v *Rows, err error) {
 	for i, ct := range cts {
 		columnTypes = append(columnTypes, NewColumnType(names[i], strings.ToUpper(ct.DatabaseType), ct.ScanType))
 	}
-	v = &Rows{
+	v = Rows{
 		idx:         0,
 		rows:        rows,
 		columnTypes: columnTypes,

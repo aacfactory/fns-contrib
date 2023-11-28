@@ -3,6 +3,8 @@ package specifications
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns/context"
 	"io"
 )
 
@@ -74,7 +76,7 @@ type Dialect interface {
 	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
-	Query(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, err error)
+	Query(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error)
 }
 
 var (
@@ -100,6 +102,29 @@ func getDialect(name string) (dialect Dialect, has bool) {
 			has = true
 			return
 		}
+	}
+	return
+}
+
+func LoadDialect(ctx context.Context) (dialect Dialect, err error) {
+	name, nameErr := sql.Dialect(ctx)
+	if nameErr != nil {
+		err = errors.Warning("sql: load dialect failed").WithCause(nameErr)
+		return
+	}
+	has := name != ""
+	if has {
+		dialect, has = getDialect(name)
+		if !has {
+			err = errors.Warning("sql: load dialect failed").WithCause(fmt.Errorf("%s was not found", name))
+			return
+		}
+		return
+	}
+	dialect, has = defaultDialect()
+	if !has {
+		err = errors.Warning("sql: load dialect failed").WithCause(fmt.Errorf("no dialect was registerd"))
+		return
 	}
 	return
 }

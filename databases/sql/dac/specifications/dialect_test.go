@@ -85,7 +85,7 @@ func (d *Dialect) Count(ctx specifications.Context, spec *specifications.Specifi
 	return
 }
 
-func (d *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []int, err error) {
 
 	return
 }

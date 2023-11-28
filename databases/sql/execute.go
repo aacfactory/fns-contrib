@@ -15,10 +15,10 @@ var (
 	executeFnName = []byte("execute")
 )
 
-func Execute(ctx context.Context, query string, arguments ...interface{}) (result databases.Result, err error) {
+func Execute(ctx context.Context, query []byte, arguments ...interface{}) (result databases.Result, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
-		result, err = tx.Execute(ctx, bytex.FromString(query), arguments)
+		result, err = tx.Execute(ctx, query, arguments)
 		if err != nil {
 			err = errors.Warning("sql: execute failed").WithCause(err)
 			return
@@ -36,7 +36,7 @@ func Execute(ctx context.Context, query string, arguments ...interface{}) (resul
 	}
 	eps := runtime.Endpoints(ctx)
 	param := executeParam{
-		Query:     query,
+		Query:     bytex.ToString(query),
 		Arguments: Arguments(arguments),
 	}
 	ep := endpointName
