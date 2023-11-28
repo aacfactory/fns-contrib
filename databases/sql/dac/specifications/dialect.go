@@ -26,6 +26,7 @@ var (
 	AS        = []byte("AS")
 	VALUES    = []byte("VALUES")
 	EXISTS    = []byte("EXISTS")
+	COUNT     = []byte("COUNT")
 	NOT       = []byte("NOT")
 	CONFLICT  = []byte("CONFLICT")
 	ON        = []byte("ON")
