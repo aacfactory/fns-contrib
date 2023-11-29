@@ -516,7 +516,16 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 					}
 					return
 				}
-				err = errors.Warning("sql: scan failed").WithCause(fmt.Errorf("unsupported type")).WithMeta("column", ct.Name)
+				cv, cvErr := column.Json()
+				if cvErr != nil {
+					err = errors.Warning("sql: scan failed").WithCause(fmt.Errorf("unsupported type")).WithMeta("column", ct.Name)
+					return
+				}
+				decodeErr := json.Unmarshal(cv, item)
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan failed").WithCause(decodeErr).WithMeta("column", ct.Name)
+					return
+				}
 				return
 			}
 			break

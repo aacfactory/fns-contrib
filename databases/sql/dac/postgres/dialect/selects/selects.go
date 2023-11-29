@@ -2,6 +2,7 @@ package selects
 
 import (
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
@@ -25,7 +26,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 	_, _ = buf.Write(specifications.LB)
 
-	columns := make([]int, 0, 1)
+	fields := make([]int, 0, 1)
 	for i, column := range spec.Columns {
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
@@ -36,7 +37,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 			return
 		}
 		_, _ = buf.Write(fragment)
-		columns = append(columns, i)
+		fields = append(fields, i)
 	}
 	_, _ = buf.Write(specifications.RB)
 
@@ -49,7 +50,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	generic = &QueryGeneric{
 		spec:    spec,
 		content: query,
-		columns: columns,
+		columns: fields,
 	}
 
 	return

@@ -32,6 +32,15 @@ const (
 )
 
 const (
+	UnknownVirtualQueryKind VirtualQueryKind = iota
+	BasicVirtualQuery
+	ObjectVirtualQuery
+	ArrayVirtualQuery
+)
+
+type VirtualQueryKind int
+
+const (
 	Normal    ColumnKind = iota // column
 	Pk                          // column,pk{,incr}
 	Acb                         // column,acb
@@ -42,9 +51,9 @@ const (
 	Adt                         // column,adt
 	Aol                         // column,aol
 	Json                        // column,json
-	Virtual                     // ident,vc,query
+	Virtual                     // ident,vc,basic|object|array,query
 	Reference                   // column,ref,field+target_field
-	Link                        // column,link,field+target_field
+	Link                        // ident,link,field+target_field
 	Links                       // column,links,field+target_field,orders:field@desc+field,length:10
 )
 
@@ -130,9 +139,21 @@ func (column *Column) Incr() bool {
 	return false
 }
 
-func (column *Column) Virtual() (query string, ok bool) {
+func (column *Column) Virtual() (kind VirtualQueryKind, query string, ok bool) {
 	if column.Kind == Virtual {
-		query = column.Type.Options[0]
+		switch column.Type.Options[0] {
+		case "basic":
+			kind = BasicVirtualQuery
+		case "object":
+			kind = ObjectVirtualQuery
+		case "array":
+			kind = ArrayVirtualQuery
+			break
+		default:
+			kind = UnknownVirtualQueryKind
+			break
+		}
+		query = column.Type.Options[1]
 		ok = true
 	}
 	return
@@ -298,14 +319,22 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Name = JsonType
 			break
 		case virtualColumn:
-			// name,vc,{query}
-			if len(items) < 2 {
-				err = errors.Warning("sql: scan virtual column failed, query is required").WithMeta("field", rt.Name)
+			// name,vc,{kind},{query}
+			if len(items) < 3 {
+				err = errors.Warning("sql: scan virtual column failed, kind and query are required").WithMeta("field", rt.Name)
 				return
 			}
 			kind = Virtual
-			typ.Options = append(typ.Options, strings.TrimSpace(items[1]))
-			typ.Name = JsonType
+			vck := strings.ToLower(strings.TrimSpace(items[1]))
+			valid := vck == "basic" || vck == "object" || vck == "array"
+			if !valid {
+				err = errors.Warning("sql: scan virtual column failed, kind is invalid").WithMeta("field", rt.Name)
+				return
+			}
+			typ.Options = append(typ.Options, vck, strings.TrimSpace(items[2]))
+			if vck != "basic" {
+				typ.Name = JsonType
+			}
 			break
 		case referenceColumn:
 			// name,ref,self+target

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
+	"reflect"
 )
 
 func WriteInsertReturning[T Table](ctx context.Context, rows sql.Rows, returning []int, entries []T) (affected int64, err error) {
@@ -21,9 +22,17 @@ func WriteInsertReturning[T Table](ctx context.Context, rows sql.Rows, returning
 				err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
 				return
 			}
+			// todo conflict(last of returning)
+			ct := column.Type.Value
+			switch ct.Kind() {
+			case reflect.Ptr:
+			case reflect.Struct:
+
+			}
 		}
 
 		rowValues = append(rowValues, items)
+		affected++
 	}
 	return
 }

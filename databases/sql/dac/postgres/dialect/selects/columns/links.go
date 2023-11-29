@@ -14,7 +14,7 @@ import (
 //	ARRAY(
 //		SELECT row_to_json("{host}_{away}".*) FROM (
 //			SELECT ... FROM "schema"."away_table" WHERE "pk" = "{host}"."ref_column" ORDER BY ... OFFSET x LIMIT y
-//			) AS "ref_table"
+//			) AS "{host}_{away}"
 //		)
 //	)
 //

@@ -31,6 +31,7 @@ var (
 	nullFloatType       = reflect.TypeOf(sql.NullFloat64{})
 	nullByteType        = reflect.TypeOf(sql.NullByte{})
 	nullTimeType        = reflect.TypeOf(sql.NullTime{})
+	jsonRawMessageType  = reflect.TypeOf(json.RawMessage{})
 	jsonMarshalerType   = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 	jsonUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
 	scannerType         = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
