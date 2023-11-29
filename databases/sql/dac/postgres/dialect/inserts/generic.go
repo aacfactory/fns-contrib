@@ -7,8 +7,8 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, indexes []int, err error) {
-	method = specifications.QueryMethod
+func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (query []byte, vr ValueRender, indexes []int, returning []int, err error) {
+	vr = NewValueRender()
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
@@ -37,9 +37,12 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		return
 	}
 	var pkName []byte
-	if !pk.Incr() {
+	if pk.Incr() {
+		returning = append(returning, pk.FieldIdx)
+	} else {
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
+		vr.Add()
 		indexes = append(indexes, pk.FieldIdx)
 		n++
 	}
@@ -51,6 +54,8 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 			_, _ = buf.Write(specifications.COMMA)
 		}
 		_, _ = buf.Write(verName)
+		vr.Add()
+		vr.MarkAsVersion()
 		n++
 	}
 	for _, column := range spec.Columns {
@@ -62,11 +67,17 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		if skip {
 			continue
 		}
+		if column.Incr() {
+			returning = append(returning, column.FieldIdx)
+			continue
+		}
+
 		columnName := ctx.FormatIdent([]byte(column.Name))
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
 		_, _ = buf.Write(columnName)
+		vr.Add()
 		indexes = append(indexes, column.FieldIdx)
 		n++
 	}
@@ -77,30 +88,8 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	// values
 	_, _ = buf.Write(specifications.VALUES)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.LB)
-	n = 0
-	if !pk.Incr() {
-		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		n++
-	}
-	if hasVer {
-		if n > 0 {
-			_, _ = buf.Write(specifications.COMMA)
-		}
-		_, _ = buf.Write([]byte("1"))
-		n++
-	}
-	for i := 0; i < len(indexes); i++ {
-		if n > 0 {
-			_, _ = buf.Write(specifications.COMMA)
-		}
-		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		n++
-	}
-	_, _ = buf.Write(specifications.RB)
 
 	query = buf.Bytes()
-
 	return
 }
 
@@ -108,8 +97,8 @@ var (
 	srcPlaceHold = []byte("$$SOURCE_QUERY$$")
 )
 
-func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, indexes []int, err error) {
-	method = specifications.QueryMethod
+func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, indexes []int, returning []int, err error) {
+	method = specifications.ExecuteMethod
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
@@ -137,12 +126,15 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		return
 	}
 	var pkName []byte
-	if !pk.Incr() {
+	if pk.Incr() {
+		returning = append(returning, pk.FieldIdx)
+	} else {
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
 		indexes = append(indexes, pk.FieldIdx)
 		n++
 	}
+
 	// ver
 	ver, hasVer := spec.AuditVersion()
 	if hasVer {
@@ -161,6 +153,10 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			column.Kind == specifications.Virtual ||
 			column.Kind == specifications.Link || column.Kind == specifications.Links
 		if skip {
+			continue
+		}
+		if column.Incr() {
+			returning = append(returning, column.FieldIdx)
 			continue
 		}
 		columnName := ctx.FormatIdent([]byte(column.Name))
@@ -268,16 +264,21 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		_, _ = buf.Write(specifications.NOTHING)
 	}
 
-	// incr
-	if pk.Incr() {
-		method = specifications.ExecuteMethod
+	// returning
+	if len(returning) > 0 {
+		method = specifications.QueryMethod
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.RETURNING)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(pkName)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.AS)
-		_, _ = buf.Write(ctx.FormatIdent([]byte("LAST_INSERT_ID")))
+		for i, r := range returning {
+			if i > 0 {
+				_, _ = buf.Write(specifications.COMMA)
+			}
+			column, has := spec.ColumnByFieldIdx(r)
+			if has {
+				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+			}
+		}
 	}
 
 	query = buf.Bytes()

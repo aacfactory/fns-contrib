@@ -55,7 +55,7 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		err = errors.Warning("sql: query failed").WithCause(dialectErr)
 		return
 	}
-	t := specifications.ZeroInstance[T]()
+	t := specifications.TableInstance[T]()
 	spec, specErr := specifications.GetSpecification(ctx, t)
 	if specErr != nil {
 		err = errors.Warning("sql: query failed").WithCause(specErr)
@@ -87,30 +87,12 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		return
 	}
 
-	for rows.Next() {
-		instance, fields, fieldsErr := spec.ValueScanInterfaces(columns)
-		if fieldsErr != nil {
-			_ = rows.Close()
-			err = errors.Warning("sql: query failed").WithCause(fieldsErr)
-			return
-		}
-		scanErr := rows.Scan(fields...)
-		if scanErr != nil {
-			_ = rows.Close()
-			err = errors.Warning("sql: query failed").WithCause(scanErr)
-			return
-		}
-
-		entry := instance.(T)
-		hookErr := spec.TryExecuteQueryHook(ctx, entry)
-		if hookErr != nil {
-			_ = rows.Close()
-			err = errors.Warning("sql: query failed").WithCause(hookErr)
-			return
-		}
-		entries = append(entries, entry)
-	}
+	entries, err = specifications.ScanRows[T](ctx, rows, columns)
 	_ = rows.Close()
+	if err != nil {
+		err = errors.Warning("sql: query failed").WithCause(err)
+		return
+	}
 	return
 }
 
@@ -145,39 +127,21 @@ func One[T Table](ctx context.Context, options ...QueryOption) (entry T, has boo
 		return
 	}
 
-	interceptorErr := spec.TryExecuteQueryInterceptor(ctx, entry)
-	if interceptorErr != nil {
-		err = errors.Warning("sql: query one failed").WithCause(interceptorErr)
-		return
-	}
-
 	rows, queryErr := sql.Query(ctx, query, arguments...)
 	if queryErr != nil {
 		err = errors.Warning("sql: query one failed").WithCause(queryErr)
 		return
 	}
 
-	if rows.Next() {
-		fields, fieldsErr := spec.FieldScanInterfaces(entry, columns)
-		if fieldsErr != nil {
-			_ = rows.Close()
-			err = errors.Warning("sql: query one failed").WithCause(fieldsErr)
-			return
-		}
-		scanErr := rows.Scan(fields...)
-		if scanErr != nil {
-			_ = rows.Close()
-			err = errors.Warning("sql: query one failed").WithCause(scanErr)
-			return
-		}
-		has = true
-	}
+	entries, scanErr := specifications.ScanRows[T](ctx, rows, columns)
 	_ = rows.Close()
-
-	hookErr := spec.TryExecuteQueryHook(ctx, entry)
-	if hookErr != nil {
-		err = errors.Warning("sql: query one failed").WithCause(hookErr)
+	if scanErr != nil {
+		err = errors.Warning("sql: query one failed").WithCause(scanErr)
 		return
+	}
+	has = len(entries) > 0
+	if has {
+		entry = entries[0]
 	}
 	return
 }

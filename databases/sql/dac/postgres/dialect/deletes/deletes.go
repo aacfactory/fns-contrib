@@ -132,15 +132,11 @@ type DeleteGeneric struct {
 	values  []int
 }
 
-func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer, instance specifications.Table) (method specifications.Method, arguments []any, err error) {
+func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []int, err error) {
 	method = specifications.ExecuteMethod
+	fields = generic.values
 
 	_, err = w.Write(generic.content)
-	if err != nil {
-		return
-	}
-
-	arguments, err = generic.spec.Arguments(instance, generic.values)
 	if err != nil {
 		return
 	}

@@ -13,38 +13,39 @@ func NewInsertWhenNotExistsGeneric(ctx specifications.Context, spec *specificati
 		generic = &InsertWhenNotExistsGeneric{}
 		return
 	}
-	method, query, indexes, generateErr := generateInsertExistOrNotQuery(ctx, spec, false)
+	method, query, indexes, returning, generateErr := generateInsertExistOrNotQuery(ctx, spec, false)
 	if generateErr != nil {
 		err = errors.Warning("sql: new insert when not exist generic failed").WithCause(generateErr).WithMeta("table", spec.Key)
 		return
 	}
 
 	generic = &InsertWhenNotExistsGeneric{
-		spec:    spec,
-		method:  method,
-		content: query,
-		values:  indexes,
+		spec:      spec,
+		method:    method,
+		content:   query,
+		values:    indexes,
+		returning: returning,
 	}
 	return
 }
 
 type InsertWhenNotExistsGeneric struct {
-	spec    *specifications.Specification
-	method  specifications.Method
-	content []byte
-	values  []int
+	spec      *specifications.Specification
+	method    specifications.Method
+	content   []byte
+	values    []int
+	returning []int
 }
 
-func (generic *InsertWhenNotExistsGeneric) Render(ctx specifications.Context, w io.Writer, instance specifications.Table, src specifications.QueryExpr) (method specifications.Method, arguments []any, err error) {
+func (generic *InsertWhenNotExistsGeneric) Render(ctx specifications.Context, w io.Writer, src specifications.QueryExpr) (method specifications.Method, fields []int, arguments []any, returning []int, err error) {
 	method = generic.method
-
+	fields = generic.values
 	ctx.SkipNextQueryPlaceholderCursor(len(generic.values))
 
 	srcBuf := bytebufferpool.Get()
 	defer bytebufferpool.Put(srcBuf)
-	srcArgs, srcErr := src.Render(ctx, srcBuf)
-	if srcErr != nil {
-		err = srcErr
+	arguments, err = src.Render(ctx, srcBuf)
+	if err != nil {
 		return
 	}
 	srcQuery := srcBuf.Bytes()
@@ -55,12 +56,6 @@ func (generic *InsertWhenNotExistsGeneric) Render(ctx specifications.Context, w 
 		return
 	}
 
-	arguments, err = generic.spec.Arguments(instance, generic.values)
-	if err != nil {
-		return
-	}
-
-	arguments = append(arguments, arguments...)
-	arguments = append(arguments, srcArgs...)
+	returning = generic.returning
 	return
 }

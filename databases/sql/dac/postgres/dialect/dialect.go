@@ -49,7 +49,7 @@ func (dialect *Dialect) QueryPlaceholder() specifications.QueryPlaceholder {
 	return &Placeholder{}
 }
 
-func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification, values int) (method specifications.Method, query []byte, fields []int, returning []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -61,7 +61,7 @@ func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.Insert.Render(ctx, buf, instance)
+	method, fields, returning, err = generic.Insert.Render(ctx, buf, values)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate insert failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
@@ -70,7 +70,7 @@ func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.
 	return
 }
 
-func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, returning []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert or update failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -82,7 +82,7 @@ func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifi
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.InsertOrUpdate.Render(ctx, buf, instance)
+	method, fields, returning, err = generic.InsertOrUpdate.Render(ctx, buf)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate insert or update failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
@@ -91,7 +91,7 @@ func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifi
 	return
 }
 
-func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table, src specifications.QueryExpr) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []int, arguments []any, returning []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert when exist failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -103,7 +103,7 @@ func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specif
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.InsertWhenExist.Render(ctx, buf, instance, src)
+	method, fields, arguments, returning, err = generic.InsertWhenExist.Render(ctx, buf, src)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate insert when exist failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
@@ -112,7 +112,7 @@ func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specif
 	return
 }
 
-func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table, src specifications.QueryExpr) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []int, arguments []any, returning []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert when not exist failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -124,7 +124,7 @@ func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *spe
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.InsertWhenNotExist.Render(ctx, buf, instance, src)
+	method, fields, arguments, returning, err = generic.InsertWhenNotExist.Render(ctx, buf, src)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate insert when not exist failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
@@ -133,7 +133,7 @@ func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *spe
 	return
 }
 
-func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate update failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -145,7 +145,7 @@ func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.Update.Render(ctx, buf, instance)
+	method, fields, err = generic.Update.Render(ctx, buf)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate update failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
@@ -175,7 +175,7 @@ func (dialect *Dialect) UpdateFields(ctx specifications.Context, spec *specifica
 	return
 }
 
-func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification, instance specifications.Table) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate delete failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -187,7 +187,7 @@ func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.Delete.Render(ctx, buf, instance)
+	method, fields, err = generic.Delete.Render(ctx, buf)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate delete failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return

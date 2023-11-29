@@ -13,7 +13,9 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 		generic = &InsertOrUpdateGeneric{}
 		return
 	}
-	method, query, indexes, generateErr := generateInsertExistOrNotQuery(ctx, spec, true)
+	method := specifications.ExecuteMethod
+
+	query, vr, indexes, returning, generateErr := generateInsertQuery(ctx, spec)
 	if generateErr != nil {
 		err = errors.Warning("sql: new insert or update generic failed").WithCause(generateErr).WithMeta("table", spec.Key)
 		return
@@ -22,6 +24,8 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	_, _ = buf.Write(query)
+	_ = vr.Render(ctx, buf)
+
 	// conflict
 	conflicts := spec.Conflicts
 	if len(conflicts) > 0 {
@@ -96,53 +100,52 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 
 	}
 
-	// incr
-	pk, hasPk := spec.Pk()
-	if !hasPk {
-		err = errors.Warning("sql: new insert or update generic failed").WithCause(errors.Warning("pk is required")).WithMeta("table", spec.Key)
-		return
-	}
-	pkName := ctx.FormatIdent([]byte(pk.Name))
-	if pk.Incr() {
-		method = specifications.ExecuteMethod
+	// returning
+	if len(returning) > 0 {
+		method = specifications.QueryMethod
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.RETURNING)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(pkName)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.AS)
-		_, _ = buf.Write(ctx.FormatIdent([]byte("LAST_INSERT_ID")))
+		for i, r := range returning {
+			if i > 0 {
+				_, _ = buf.Write(specifications.COMMA)
+			}
+			column, has := spec.ColumnByFieldIdx(r)
+			if has {
+				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+			}
+		}
 	}
 
 	query = buf.Bytes()
 
 	generic = &InsertOrUpdateGeneric{
-		spec:    spec,
-		method:  method,
-		content: query,
-		values:  indexes,
+		spec:      spec,
+		method:    method,
+		content:   query,
+		returning: returning,
+		values:    indexes,
 	}
 	return
 }
 
 type InsertOrUpdateGeneric struct {
-	spec    *specifications.Specification
-	method  specifications.Method
-	content []byte
-	values  []int
+	spec      *specifications.Specification
+	method    specifications.Method
+	content   []byte
+	returning []int
+	values    []int
 }
 
-func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writer, instance specifications.Table) (method specifications.Method, arguments []any, err error) {
+func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []int, returning []int, err error) {
 	method = generic.method
+	returning = generic.returning
+	fields = generic.values
 
 	_, err = w.Write(generic.content)
 	if err != nil {
 		return
 	}
 
-	arguments, err = generic.spec.Arguments(instance, generic.values)
-	if err != nil {
-		return
-	}
 	return
 }

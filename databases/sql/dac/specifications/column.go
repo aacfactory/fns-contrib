@@ -325,7 +325,7 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Name = MappingType
 			typ.Element = rt.Type
 			if rt.Type.Kind() != reflect.Struct {
-				if rt.Type.Elem().Kind() != reflect.Struct {
+				if rt.Type.Kind() != reflect.Ptr && rt.Type.Elem().Kind() != reflect.Struct {
 					err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be struct or ptr struct"))
 					return
 				}
@@ -350,7 +350,7 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Name = MappingType
 			typ.Element = rt.Type
 			if rt.Type.Kind() != reflect.Struct {
-				if rt.Type.Elem().Kind() != reflect.Struct {
+				if rt.Type.Kind() != reflect.Ptr && rt.Type.Elem().Kind() != reflect.Struct {
 					err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be struct or ptr struct"))
 					return
 				}
@@ -382,8 +382,8 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 				return
 			}
 			typ.Element = rt.Type.Elem()
-			if rt.Type.Elem().Kind() != reflect.Struct {
-				if rt.Type.Elem().Elem().Kind() != reflect.Struct {
+			if typ.Element.Kind() != reflect.Struct {
+				if typ.Element.Kind() != reflect.Ptr && typ.Element.Elem().Kind() != reflect.Struct {
 					err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
 					return
 				}

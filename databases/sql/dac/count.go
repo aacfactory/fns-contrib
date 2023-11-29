@@ -14,7 +14,7 @@ func Count[T Table](ctx context.Context, cond conditions.Condition) (count int64
 		err = errors.Warning("sql: count failed").WithCause(dialectErr)
 		return
 	}
-	t := specifications.ZeroInstance[T]()
+	t := specifications.TableInstance[T]()
 	spec, specErr := specifications.GetSpecification(ctx, t)
 	if specErr != nil {
 		err = errors.Warning("sql: count failed").WithCause(specErr)

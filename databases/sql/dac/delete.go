@@ -1,7 +1,6 @@
 package dac
 
 import (
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
@@ -27,25 +26,13 @@ func Delete[T Table](ctx context.Context, entry T) (err error) {
 		return
 	}
 
-	interceptorErr := spec.TryExecuteDeleteInterceptor(ctx, entry)
-	if interceptorErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(interceptorErr)
-		return
-	}
-
 	result, execErr := sql.Execute(ctx, query, arguments...)
 	if execErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(execErr)
 		return
 	}
 	if result.RowsAffected == 0 {
-		err = errors.Warning("sql: delete failed").WithCause(fmt.Errorf("no affected rows"))
-		return
-	}
-
-	hookErr := spec.TryExecuteDeleteHook(ctx, entry)
-	if hookErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(hookErr)
+		err = ErrNoAffected
 		return
 	}
 	return
@@ -57,7 +44,7 @@ func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) 
 		err = errors.Warning("sql: delete failed").WithCause(dialectErr)
 		return
 	}
-	t := specifications.ZeroInstance[T]()
+	t := specifications.TableInstance[T]()
 	spec, specErr := specifications.GetSpecification(ctx, t)
 	if specErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(specErr)
@@ -76,7 +63,7 @@ func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) 
 		return
 	}
 	if result.RowsAffected == 0 {
-		err = errors.Warning("sql: delete failed").WithCause(fmt.Errorf("no affected rows"))
+		err = ErrNoAffected
 		return
 	}
 

@@ -10,27 +10,30 @@ import (
 )
 
 type Specification struct {
-	Key               string
-	Schema            string
-	Name              string
-	View              bool
-	Type              reflect.Type
-	Columns           []*Column
-	Conflicts         []string
-	tree              []string
-	queryInterceptor  bool
-	queryHook         bool
-	insertInterceptor bool
-	insertHook        bool
-	updateInterceptor bool
-	updateHook        bool
-	deleteInterceptor bool
-	deleteHook        bool
+	Key       string
+	Schema    string
+	Name      string
+	View      bool
+	Type      reflect.Type
+	Columns   []*Column
+	Conflicts []string
+	tree      []string
 }
 
 func (spec *Specification) ColumnByField(fieldName string) (column *Column, has bool) {
 	for _, c := range spec.Columns {
 		if c.Field == fieldName {
+			column = c
+			has = true
+			break
+		}
+	}
+	return
+}
+
+func (spec *Specification) ColumnByFieldIdx(fieldIdx int) (column *Column, has bool) {
+	for _, c := range spec.Columns {
+		if c.FieldIdx == fieldIdx {
 			column = c
 			has = true
 			break
@@ -133,59 +136,20 @@ func (spec *Specification) AuditVersion() (v *Column, has bool) {
 	return
 }
 
-func (spec *Specification) FieldScanInterfaces(instance Table, columns []int) (fields []any, err error) {
-	rv := reflect.ValueOf(instance)
-	for _, column := range columns {
-		fieldIdx := spec.Columns[column].FieldIdx
-		fv := rv.Field(fieldIdx)
-		switch fv.Type().Kind() {
-		case reflect.Ptr:
-			nfv := reflect.New(fv.Type().Elem())
-			fv.Set(nfv)
-			fields = append(fields, fv.Interface())
-			break
-		case reflect.Slice:
-			nfv := reflect.MakeSlice(fv.Type().Elem(), 0, 1)
-			fv.Set(nfv)
-			fields = append(fields, fv.Interface())
-			break
-		case reflect.Map:
-			nfv := reflect.MakeMap(fv.Type())
-			fv.Set(nfv)
-			fields = append(fields, fv.Interface())
-			break
-		default:
-			fields = append(fields, fv.Interface())
-			break
-		}
-	}
-	return
-}
-
-func (spec *Specification) ValueScanInterfaces(columns []int) (v Table, fields []any, err error) {
-	v = reflect.New(spec.Type).Elem().Interface().(Table)
-	fields, err = spec.FieldScanInterfaces(v, columns)
-	return
-}
-
 var (
 	values = sync.Map{}
 	dict   = NewDict()
 	group  = singleflight.Group{}
 )
 
-func GetSpecification(ctx context.Context, table any) (spec *Specification, err error) {
-	t, isTable := table.(Table)
-	if !isTable {
-		err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("table does not implement Table"))
+func GetSpecification(ctx context.Context, e any) (spec *Specification, err error) {
+	table, tableErr := AsTable(e)
+	if tableErr != nil {
+		err = tableErr
 		return
 	}
 
-	rt := reflect.TypeOf(t)
-	if rt.Kind() != reflect.Struct {
-		err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("table does not struct"))
-		return
-	}
+	rt := reflect.TypeOf(table)
 
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 
@@ -214,7 +178,7 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 	scanned, err, _ = group.Do(key, func() (v interface{}, err error) {
 		current := &Specification{}
 		ctx = context.WithValue(ctx, ctxKey, current)
-		s, scanErr := ScanTable(ctx, t)
+		s, scanErr := ScanTable(ctx, table)
 		if scanErr != nil {
 			err = scanErr
 			return
@@ -234,10 +198,9 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 }
 
 func ScanTable(ctx context.Context, table Table) (spec *Specification, err error) {
-	rt := reflect.TypeOf(table)
-	if rt.Kind() == reflect.Ptr {
-		rt = rt.Elem()
-	}
+	rv := reflect.Indirect(reflect.ValueOf(table))
+	rt := rv.Type()
+
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 	info := table.TableInfo()
 	name := info.name
@@ -260,24 +223,15 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 		return
 	}
 
-	ptr := reflect.New(rt)
 	spec = &Specification{
-		Key:               key,
-		Schema:            schema,
-		Name:              name,
-		View:              view,
-		Type:              rt,
-		Columns:           columns,
-		Conflicts:         conflicts,
-		tree:              tree,
-		queryInterceptor:  ptr.Type().Implements(queryInterceptorType),
-		queryHook:         ptr.Type().Implements(queryHookType),
-		insertInterceptor: ptr.Type().Implements(insertInterceptorType),
-		insertHook:        ptr.Type().Implements(insertHookType),
-		updateInterceptor: ptr.Type().Implements(updateInterceptorType),
-		updateHook:        ptr.Type().Implements(updateHookType),
-		deleteInterceptor: ptr.Type().Implements(deleteInterceptorType),
-		deleteHook:        ptr.Type().Implements(deleteHookType),
+		Key:       key,
+		Schema:    schema,
+		Name:      name,
+		View:      view,
+		Type:      rt,
+		Columns:   columns,
+		Conflicts: conflicts,
+		tree:      tree,
 	}
 
 	tableNames := make([][]byte, 0, 1)
@@ -302,6 +256,10 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 			continue
 		}
 		if field.Anonymous {
+			if field.Type.Kind() == reflect.Ptr {
+				err = errors.Warning("type of anonymous field can not be ptr").WithMeta("field", field.Name)
+				return
+			}
 			anonymous, anonymousErr := scanTableFields(ctx, field.Type)
 			if anonymousErr != nil {
 				if err != nil {

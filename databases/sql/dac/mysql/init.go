@@ -26,3 +26,6 @@ INSERT INTO table (columns) SELECT values from (SELECT 1) AS __TMP__ WHERE (not)
 	)
 	FROM `fns-test`.`user` AS foo FROM `fns-test`.user;
 */
+
+// insert incr
+// same as postgres, use returning

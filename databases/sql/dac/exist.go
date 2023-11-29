@@ -14,7 +14,7 @@ func Exist[T Table](ctx context.Context, cond conditions.Condition) (has bool, e
 		err = errors.Warning("sql: exist failed").WithCause(dialectErr)
 		return
 	}
-	t := specifications.ZeroInstance[T]()
+	t := specifications.TableInstance[T]()
 	spec, specErr := specifications.GetSpecification(ctx, t)
 	if specErr != nil {
 		err = errors.Warning("sql: exist failed").WithCause(specErr)
