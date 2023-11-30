@@ -20,6 +20,18 @@ type Specification struct {
 	tree      []string
 }
 
+func (spec *Specification) ConflictColumns() (columns []*Column, err error) {
+	for _, conflict := range spec.Conflicts {
+		column, has := spec.ColumnByField(conflict)
+		if !has {
+			err = errors.Warning(fmt.Sprintf("sql: %s field was not found", conflict))
+			return
+		}
+		columns = append(columns, column)
+	}
+	return
+}
+
 func (spec *Specification) ColumnByField(fieldName string) (column *Column, has bool) {
 	for _, c := range spec.Columns {
 		if c.Field == fieldName {
