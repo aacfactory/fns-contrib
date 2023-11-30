@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -65,13 +66,12 @@ const (
 	BoolType
 	IntType
 	FloatType
-	UintType
 	DatetimeType
 	DateType
 	TimeType
-	JsonType
 	BytesType
 	ByteType
+	JsonType
 	ScanType
 	MappingType
 )
@@ -81,7 +81,6 @@ type ColumnTypeName int
 type ColumnType struct {
 	Name    ColumnTypeName
 	Value   reflect.Type
-	Element reflect.Type
 	Mapping *Specification
 	Options []string
 }
@@ -96,8 +95,6 @@ func (ct *ColumnType) fillName() {
 			ct.Name = IntType
 		} else if ct.Value.ConvertibleTo(floatType) || ct.Value.ConvertibleTo(nullFloatType) {
 			ct.Name = FloatType
-		} else if ct.Value.ConvertibleTo(uintType) {
-			ct.Name = UintType
 		} else if ct.Value.ConvertibleTo(datetimeType) || ct.Value.ConvertibleTo(nullTimeType) {
 			ct.Name = DatetimeType
 		} else if ct.Value.ConvertibleTo(dateType) {
@@ -108,10 +105,6 @@ func (ct *ColumnType) fillName() {
 			ct.Name = BytesType
 		} else if ct.Value.ConvertibleTo(byteType) || ct.Value.ConvertibleTo(nullByteType) {
 			ct.Name = ByteType
-		} else if ct.Value.ConvertibleTo(jsonDateType) {
-			ct.Name = DateType
-		} else if ct.Value.ConvertibleTo(jsonTimeType) {
-			ct.Name = TimeType
 		} else if ct.Value.ConvertibleTo(rawType) {
 			ct.Name = BytesType
 		} else if ct.Value.ConvertibleTo(scannerType) && ct.Value.ConvertibleTo(jsonMarshalerType) {
@@ -224,18 +217,18 @@ func (column *Column) Valid() bool {
 		return false
 	}
 	if column.Incr() {
-		return column.Type.Name == IntType || column.Type.Name == UintType
+		return column.Type.Name == IntType
 	}
 	ok := false
 	switch column.Kind {
 	case Acb, Amb, Adb:
-		ok = column.Type.Name == IntType || column.Type.Name == UintType || column.Type.Name == StringType
+		ok = column.Type.Name == IntType || column.Type.Name == StringType
 		break
 	case Act, Amt, Adt:
-		ok = column.Type.Name == DatetimeType || column.Type.Name == IntType || column.Type.Name == UintType
+		ok = column.Type.Name == DatetimeType || column.Type.Name == IntType
 		break
 	case Aol:
-		ok = column.Type.Name == IntType || column.Type.Name == UintType
+		ok = column.Type.Name == IntType
 		break
 	case Reference, Link:
 		ok = column.Type.Value.Kind() == reflect.Struct ||
@@ -247,18 +240,70 @@ func (column *Column) Valid() bool {
 				(column.Type.Value.Elem().Kind() == reflect.Ptr && column.Type.Value.Elem().Elem().Kind() == reflect.Struct))
 		break
 	default:
+
 		break
 	}
 	return ok
 }
 
-func (column *Column) fillMappings(ctx context.Context) (err error) {
-	if column.Kind == Reference || column.Kind == Link || column.Kind == Links {
-		column.Type.Mapping, err = GetSpecification(ctx, reflect.Zero(column.Type.Element).Interface())
-		if err != nil {
-			err = errors.Warning("sql: get column mappings failed").WithCause(err)
-			return
+func (column *Column) ZeroValue() (v any) {
+	switch column.Type.Value.Kind() {
+	case reflect.Ptr:
+		v = reflect.New(column.Type.Value.Elem()).Elem().Interface()
+		break
+	default:
+		v = reflect.New(column.Type.Value).Elem().Interface()
+		break
+	}
+	return
+}
+
+func (column *Column) ScanValue() (v interface{}, err error) {
+	if column.Type.Value.Implements(scannerType) {
+		typ := column.Type.Value
+		if typ.Kind() == reflect.Ptr {
+			typ = column.Type.Value.Elem()
 		}
+		v = reflect.Indirect(reflect.New(typ)).Interface()
+		return
+	}
+	switch column.Type.Name {
+	case StringType:
+		v = ""
+		break
+	case BoolType:
+		v = false
+		break
+	case IntType:
+		v = int64(0)
+		break
+	case FloatType:
+		v = float64(0)
+		break
+	case DatetimeType:
+		v = time.Time{}
+		break
+	case DateType:
+		v = DateValue{}
+		break
+	case TimeType:
+		v = TimeValue{}
+		break
+	case ByteType:
+		v = byte(0)
+		break
+	case BytesType:
+		v = []byte{}
+		break
+	case JsonType:
+		v = JsonValue{}
+		break
+	case MappingType:
+		v = JsonValue{}
+		break
+	default:
+		err = errors.Warning("sql: type of column can not be scanned").WithMeta("column", column.Name)
+		return
 	}
 	return
 }
@@ -276,7 +321,6 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 	typ := ColumnType{
 		Name:    UnknownType,
 		Value:   rt.Type,
-		Element: nil,
 		Mapping: nil,
 		Options: make([]string, 0, 1),
 	}
@@ -352,13 +396,24 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
 			typ.Name = MappingType
-			typ.Element = rt.Type
-			if rt.Type.Kind() != reflect.Struct {
-				if rt.Type.Kind() != reflect.Ptr && rt.Type.Elem().Kind() != reflect.Struct {
-					err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be struct or ptr struct"))
+			switch rt.Type.Kind() {
+			case reflect.Struct:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type))
+				if err != nil {
+					err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be implement Table")).WithCause(err)
 					return
 				}
-				typ.Element = typ.Element.Elem()
+				break
+			case reflect.Ptr:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type.Elem()))
+				if err != nil {
+					err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be implement Table")).WithCause(err)
+					return
+				}
+				break
+			default:
+				err = errors.Warning("sql: scan reference column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("reference column type must be struct or ptr struct"))
+				return
 			}
 			break
 		case linkColumn:
@@ -377,13 +432,24 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
 			typ.Name = MappingType
-			typ.Element = rt.Type
-			if rt.Type.Kind() != reflect.Struct {
-				if rt.Type.Kind() != reflect.Ptr && rt.Type.Elem().Kind() != reflect.Struct {
-					err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be struct or ptr struct"))
+			switch rt.Type.Kind() {
+			case reflect.Struct:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type))
+				if err != nil {
+					err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be implement Table")).WithCause(err)
 					return
 				}
-				typ.Element = typ.Element.Elem()
+				break
+			case reflect.Ptr:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type.Elem()))
+				if err != nil {
+					err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be implement Table")).WithCause(err)
+					return
+				}
+				break
+			default:
+				err = errors.Warning("sql: scan link column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("link column type must be struct or ptr struct"))
+				return
 			}
 			break
 		case linksColumn:
@@ -410,20 +476,30 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 				err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
 				return
 			}
-			typ.Element = rt.Type.Elem()
-			if typ.Element.Kind() != reflect.Struct {
-				if typ.Element.Kind() != reflect.Ptr && typ.Element.Elem().Kind() != reflect.Struct {
-					err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
+			switch rt.Type.Elem().Kind() {
+			case reflect.Struct:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type.Elem()))
+				if err != nil {
+					err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be implement Table")).WithCause(err)
 					return
 				}
-				typ.Element = typ.Element.Elem()
+				break
+			case reflect.Ptr:
+				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type.Elem().Elem()))
+				if err != nil {
+					err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be implement Table")).WithCause(err)
+					return
+				}
+				break
+			default:
+				err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be struct or ptr struct"))
+				return
 			}
 			break
 		default:
 			kind = Normal
 			break
 		}
-
 	}
 
 	typ.fillName()
@@ -438,12 +514,6 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 
 	if !column.Valid() {
 		err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("%v is not supported", typ.Value))
-		return
-	}
-
-	err = column.fillMappings(ctx)
-	if err != nil {
-		err = errors.Warning("sql: new column failed").WithMeta("field", rt.Name).WithCause(err)
 		return
 	}
 	return

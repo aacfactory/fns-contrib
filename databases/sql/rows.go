@@ -347,11 +347,7 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 				err = errors.Warning("sql: scan failed").WithCause(cvErr).WithMeta("column", ct.Name)
 				return
 			}
-			*d = json.Time{
-				Hour:    cv.Hour,
-				Minutes: cv.Minutes,
-				Second:  cv.Second,
-			}
+			*d = json.NewTime(cv.Hour, cv.Minutes, cv.Second)
 			break
 		case *json.RawMessage:
 			cv, cvErr := column.Json()

@@ -2,6 +2,7 @@ package specifications
 
 import (
 	"context"
+	stdsql "database/sql"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"reflect"
@@ -22,6 +23,11 @@ func WriteInsertReturning[T Table](ctx context.Context, rows sql.Rows, returning
 				err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
 				return
 			}
+			if column.Type.Value == jsonRawMessageType {
+				items = append(items, &stdsql.RawBytes{})
+				continue
+			}
+
 			// todo conflict(last of returning)
 			ct := column.Type.Value
 			switch ct.Kind() {
