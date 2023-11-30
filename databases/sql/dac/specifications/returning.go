@@ -41,53 +41,54 @@ func WriteInsertReturning[T Table](ctx context.Context, rows sql.Rows, returning
 		affected++
 	}
 
-	if len(spec.Conflicts) == 0 {
-		if affected == int64(len(entries)) {
-			for i, entry := range entries {
-				row := rowValues[i]
-				rv := reflect.Indirect(reflect.ValueOf(&entry))
-				for j, item := range row {
-					fieldIdx := returning[j]
-					fv := rv.Field(fieldIdx)
-					switch f := item.(type) {
-					case ScanValue:
-						fsv, valid := f.Value()
-						if valid {
-							column, _ := spec.ColumnByFieldIdx(fieldIdx)
-							switch column.Type.Name {
-							case DateType:
-								fv.Set(reflect.ValueOf(fsv))
-								break
-							case TimeType:
-								fv.Set(reflect.ValueOf(fsv))
-								break
-							case JsonType:
-								cv := column.ZeroValue()
-								decodeErr := json.Unmarshal(fsv.(json.RawMessage), &cv)
-								if decodeErr != nil {
-									err = errors.Warning("sql: scan rows failed").WithCause(decodeErr).WithMeta("table", spec.Key).WithMeta("field", column.Field)
-									return
-								}
-								break
-							case MappingType:
-								cv := column.ZeroValue()
-								decodeErr := json.Unmarshal(fsv.(json.RawMessage), &cv)
-								if decodeErr != nil {
-									err = errors.Warning("sql: scan rows failed").WithCause(decodeErr).WithMeta("table", spec.Key).WithMeta("field", column.Field)
-									return
-								}
-								break
+	if affected == int64(len(entries)) {
+		for i, entry := range entries {
+			row := rowValues[i]
+			rv := reflect.Indirect(reflect.ValueOf(&entry))
+			for j, item := range row {
+				fieldIdx := returning[j]
+				fv := rv.Field(fieldIdx)
+				switch f := item.(type) {
+				case ScanValue:
+					fsv, valid := f.Value()
+					if valid {
+						column, _ := spec.ColumnByFieldIdx(fieldIdx)
+						switch column.Type.Name {
+						case DateType:
+							fv.Set(reflect.ValueOf(fsv))
+							break
+						case TimeType:
+							fv.Set(reflect.ValueOf(fsv))
+							break
+						case JsonType:
+							cv := column.ZeroValue()
+							decodeErr := json.Unmarshal(fsv.(json.RawMessage), &cv)
+							if decodeErr != nil {
+								err = errors.Warning("sql: scan rows failed").WithCause(decodeErr).WithMeta("table", spec.Key).WithMeta("field", column.Field)
+								return
 							}
+							break
+						case MappingType:
+							cv := column.ZeroValue()
+							decodeErr := json.Unmarshal(fsv.(json.RawMessage), &cv)
+							if decodeErr != nil {
+								err = errors.Warning("sql: scan rows failed").WithCause(decodeErr).WithMeta("table", spec.Key).WithMeta("field", column.Field)
+								return
+							}
+							break
 						}
-						break
-					default:
-						fv.Set(reflect.ValueOf(f))
 					}
+					break
+				default:
+					fv.Set(reflect.ValueOf(f))
 				}
-				entries[i] = entry
 			}
+			entries[i] = entry
 		}
-	} else {
+		return
+	}
+
+	if len(spec.Conflicts) > 0 {
 		conflicts, conflictsErr := spec.ConflictColumns()
 		if conflictsErr != nil {
 			err = errors.Warning("sql: write returning value into entries failed").WithCause(conflictsErr)
