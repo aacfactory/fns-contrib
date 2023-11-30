@@ -28,6 +28,9 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 		case Reference:
 			fv := rv.Field(target.FieldIdx)
 			if fv.Type().Kind() == reflect.Ptr {
+				if fv.IsNil() {
+					fv = reflect.New(reflect.TypeOf(target.ZeroValue()))
+				}
 				fv = fv.Elem()
 			}
 			_, refField, mapping, ok := target.Reference()

@@ -8,64 +8,34 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Delete[T Table](ctx context.Context, entry T) (err error) {
-	dialect, dialectErr := specifications.LoadDialect(ctx)
-	if dialectErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(dialectErr)
-		return
-	}
-	spec, specErr := specifications.GetSpecification(ctx, entry)
-	if specErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(specErr)
-		return
-	}
-
-	_, query, arguments, buildErr := dialect.Delete(specifications.Todo(ctx, entry, dialect), spec, entry)
+func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
+	_, query, arguments, buildErr := specifications.BuildDelete[T](ctx, entry)
 	if buildErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(buildErr)
 		return
 	}
-
 	result, execErr := sql.Execute(ctx, query, arguments...)
 	if execErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(execErr)
 		return
 	}
-	if result.RowsAffected == 0 {
-		err = ErrNoAffected
-		return
+	if affected = result.RowsAffected; affected == 1 {
+		v = entry
 	}
 	return
 }
 
-func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) (err error) {
-	dialect, dialectErr := specifications.LoadDialect(ctx)
-	if dialectErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(dialectErr)
-		return
-	}
-	t := specifications.TableInstance[T]()
-	spec, specErr := specifications.GetSpecification(ctx, t)
-	if specErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(specErr)
-		return
-	}
-
-	_, query, arguments, buildErr := dialect.DeleteByConditions(specifications.Todo(ctx, t, dialect), spec, specifications.Condition{Condition: cond})
+func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) (affected int64, err error) {
+	_, query, arguments, buildErr := specifications.BuildDeleteByCondition[T](ctx, specifications.Condition{Condition: cond})
 	if buildErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(buildErr)
+		err = errors.Warning("sql: delete by condition failed").WithCause(buildErr)
 		return
 	}
-
 	result, execErr := sql.Execute(ctx, query, arguments...)
 	if execErr != nil {
-		err = errors.Warning("sql: delete failed").WithCause(execErr)
+		err = errors.Warning("sql: delete by condition failed").WithCause(execErr)
 		return
 	}
-	if result.RowsAffected == 0 {
-		err = ErrNoAffected
-		return
-	}
-
+	affected = result.RowsAffected
 	return
 }
