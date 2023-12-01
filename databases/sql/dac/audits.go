@@ -21,7 +21,7 @@ type AuditVersion struct {
 	Version int64 `column:"VERSION,AOL" json:"version"`
 }
 
-type IncrPk struct {
+type SID struct {
 	Id int64 `column:"ID,PK,INCR" json:"id"`
 }
 
@@ -38,7 +38,7 @@ type Audit struct {
 }
 
 type AuditWithIncrPk struct {
-	IncrPk
+	SID
 	AuditCreation[int64]
 	AuditModification[int64]
 	AuditDelete[int64]
