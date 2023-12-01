@@ -21,7 +21,6 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		tableName = append(schema, tableName...)
 	}
 
-	// prefix
 	_, _ = buf.Write(specifications.DELETE)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FORM)

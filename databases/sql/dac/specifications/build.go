@@ -1,12 +1,15 @@
 package specifications
 
 import (
+	stdsql "database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/times"
 	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/services/authorizations"
 	"github.com/aacfactory/json"
 	"reflect"
+	"time"
 )
 
 func BuildInsert[T Table](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []int, err error) {
@@ -218,6 +221,48 @@ func BuildDelete[T Table](ctx context.Context, entry T) (method Method, query []
 	if err != nil {
 		return
 	}
+	by, at, hasAd := spec.AuditDeletion()
+	if hasAd {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().Field(by.FieldIdx)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().Field(at.FieldIdx)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.SetInt(time.Now().UnixMilli())
+			}
+		}
+	}
 	arguments, err = spec.Arguments(entry, fields)
 	return
 }
@@ -234,6 +279,7 @@ func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (metho
 		err = specErr
 		return
 	}
+	// todo audit, same as update ,use fieldValue
 	method, query, arguments, err = dialect.DeleteByConditions(Todo(ctx, t, dialect), spec, cond)
 	if err != nil {
 		return

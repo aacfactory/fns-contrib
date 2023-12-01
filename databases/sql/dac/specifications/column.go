@@ -334,31 +334,90 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 		switch kv {
 		case pkColumn:
 			kind = Pk
-			if strings.ToLower(tag) == incrColumn {
-				typ.Options = append(typ.Options, incrColumn)
+			if len(items) > 1 {
+				if strings.ToLower(items[1]) == incrColumn {
+					if rt.Type != intType && !rt.Type.ConvertibleTo(intType) {
+						err = errors.Warning("sql: type of incr pk column failed must be int64").WithMeta("field", rt.Name)
+						return
+					}
+					typ.Options = append(typ.Options, incrColumn)
+				}
 			}
 			break
 		case acbColumn:
 			kind = Acb
+			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type) || rt.Type.ConvertibleTo(nullInt32Type) || rt.Type.ConvertibleTo(nullInt16Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of acb column failed must be string or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case actColumn:
 			kind = Act
+			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of act column failed must be time or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case ambColumn:
 			kind = Amb
+			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of amb column failed must be string or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case amtColumn:
 			kind = Amt
+			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of amt column failed must be time or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case adbColumn:
 			kind = Adb
+			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type) || rt.Type.ConvertibleTo(nullInt32Type) || rt.Type.ConvertibleTo(nullInt16Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of adb column failed must be string or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case adtColumn:
 			kind = Adt
+			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
+				rt.Type.ConvertibleTo(intType) ||
+				rt.Type.ConvertibleTo(nullInt64Type)
+			if !typeOk {
+				err = errors.Warning("sql: type of adt column failed must be time or int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
 		case aolColumn:
 			kind = Aol
+			typeOk := rt.Type.ConvertibleTo(intType)
+			if !typeOk {
+				err = errors.Warning("sql: type of aol column failed must be int64").WithMeta("field", rt.Name)
+				return
+			}
 			break
+		case incrColumn:
+			if rt.Type != intType && !rt.Type.ConvertibleTo(intType) {
+				err = errors.Warning("sql: type of incr column failed must be int64").WithMeta("field", rt.Name)
+				return
+			}
+			typ.Options = append(typ.Options, incrColumn)
 		case jsonColumn:
 			kind = Json
 			typ.Name = JsonType
@@ -498,8 +557,8 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			break
 		default:
-			kind = Normal
-			break
+			err = errors.Warning("sql: unknown column options").WithMeta("field", rt.Name).WithMeta("tag", tag)
+			return
 		}
 	}
 

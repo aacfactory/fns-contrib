@@ -116,7 +116,7 @@ func (spec *Specification) AuditModification() (by *Column, at *Column, has bool
 	return
 }
 
-func (spec *Specification) AuditDelete() (by *Column, at *Column, has bool) {
+func (spec *Specification) AuditDeletion() (by *Column, at *Column, has bool) {
 	n := 0
 	for _, column := range spec.Columns {
 		if column.Kind == Adb {

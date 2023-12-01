@@ -37,7 +37,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 		verName = ctx.FormatIdent([]byte(ver.Name))
 	}
 	// adb adt
-	by, at, hasAD := spec.AuditDelete()
+	by, at, hasAD := spec.AuditDeletion()
 	if hasAD {
 		n := 0
 		_, _ = buf.Write(specifications.UPDATE)

@@ -12,7 +12,7 @@ type AuditModification[Id ~string | ~int64] struct {
 	ModifyAT time.Time `column:"MODIFY_AT,AMT" json:"modifyAT"`
 }
 
-type AuditDelete[Id ~string | ~int64] struct {
+type AuditDeletion[Id ~string | ~int64] struct {
 	DeleteBY Id        `column:"DELETE_BY,ADB" json:"deleteBY"`
 	DeleteAT time.Time `column:"DELETE_AT,ADT" json:"deleteAT"`
 }
@@ -33,7 +33,7 @@ type Audit struct {
 	UID
 	AuditCreation[string]
 	AuditModification[string]
-	AuditDelete[string]
+	AuditDeletion[string]
 	AuditVersion
 }
 
@@ -41,6 +41,6 @@ type AuditWithIncrPk struct {
 	SID
 	AuditCreation[int64]
 	AuditModification[int64]
-	AuditDelete[int64]
+	AuditDeletion[int64]
 	AuditVersion
 }
