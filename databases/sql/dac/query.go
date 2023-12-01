@@ -86,39 +86,19 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 }
 
 func One[T Table](ctx context.Context, options ...QueryOption) (entry T, has bool, err error) {
-	opt := QueryOptions{}
-	for _, option := range options {
-		option(&opt)
-	}
-
-	_, query, arguments, columns, buildErr := specifications.BuildQuery[T](
-		ctx,
-		specifications.Condition{Condition: opt.cond},
-		specifications.Orders(opt.orders),
-		specifications.GroupBy(opt.groupBys),
-		specifications.Having{HavingCondition: opt.having},
-		0, 1,
-	)
-	if buildErr != nil {
-		err = errors.Warning("sql: query one failed").WithCause(buildErr)
-		return
-	}
-
-	rows, queryErr := sql.Query(ctx, query, arguments...)
+	entries, queryErr := Query[T](ctx, 0, 1, options...)
 	if queryErr != nil {
-		err = errors.Warning("sql: query one failed").WithCause(queryErr)
+		err = queryErr
 		return
 	}
-
-	entries, scanErr := specifications.ScanRows[T](ctx, rows, columns)
-	_ = rows.Close()
-	if scanErr != nil {
-		err = errors.Warning("sql: query one failed").WithCause(scanErr)
-		return
-	}
-	has = len(entries) > 0
+	has = len(entries) == 1
 	if has {
 		entry = entries[0]
 	}
+	return
+}
+
+func ALL[T Table](ctx context.Context, options ...QueryOption) (entries []T, err error) {
+	entries, err = Query[T](ctx, 0, 0, options...)
 	return
 }
