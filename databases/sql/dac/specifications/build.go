@@ -240,3 +240,60 @@ func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (metho
 	}
 	return
 }
+
+func BuildCount[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+	dialect, dialectErr := LoadDialect(ctx)
+	if dialectErr != nil {
+		err = dialectErr
+		return
+	}
+	t := TableInstance[T]()
+	spec, specErr := GetSpecification(ctx, t)
+	if specErr != nil {
+		err = specErr
+		return
+	}
+	method, query, arguments, err = dialect.Count(Todo(ctx, t, dialect), spec, cond)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func BuildExist[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+	dialect, dialectErr := LoadDialect(ctx)
+	if dialectErr != nil {
+		err = dialectErr
+		return
+	}
+	t := TableInstance[T]()
+	spec, specErr := GetSpecification(ctx, t)
+	if specErr != nil {
+		err = specErr
+		return
+	}
+	method, query, arguments, err = dialect.Exist(Todo(ctx, t, dialect), spec, cond)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func BuildQuery[T Table](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error) {
+	dialect, dialectErr := LoadDialect(ctx)
+	if dialectErr != nil {
+		err = dialectErr
+		return
+	}
+	t := TableInstance[T]()
+	spec, specErr := GetSpecification(ctx, t)
+	if specErr != nil {
+		err = specErr
+		return
+	}
+	method, query, arguments, columns, err = dialect.Query(Todo(ctx, t, dialect), spec, cond, orders, groupBy, having, offset, length)
+	if err != nil {
+		return
+	}
+	return
+}

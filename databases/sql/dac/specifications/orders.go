@@ -3,24 +3,12 @@ package specifications
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/orders"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
 
-type Order struct {
-	Name string
-	Desc bool
-}
-
-type Orders []Order
-
-func (o Orders) Asc(name string) Orders {
-	return append(o, Order{Name: name, Desc: false})
-}
-
-func (o Orders) Desc(name string) Orders {
-	return append(o, Order{Name: name, Desc: true})
-}
+type Orders orders.Orders
 
 func (o Orders) Render(ctx Context, w io.Writer) (argument []any, err error) {
 	if len(o) == 0 {
@@ -53,18 +41,4 @@ func (o Orders) Render(ctx Context, w io.Writer) (argument []any, err error) {
 		return
 	}
 	return
-}
-
-func Asc(name string) Orders {
-	return Orders{{
-		Name: name,
-		Desc: false,
-	}}
-}
-
-func Desc(name string) Orders {
-	return Orders{{
-		Name: name,
-		Desc: true,
-	}}
 }

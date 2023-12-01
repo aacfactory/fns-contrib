@@ -2,12 +2,12 @@ package specifications
 
 import (
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/groups"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
 
-type GroupBy []string
+type GroupBy groups.Fields
 
 func (group GroupBy) Render(ctx Context, w io.Writer) (argument []any, err error) {
 	if len(group) == 0 {
@@ -38,12 +38,8 @@ func (group GroupBy) Render(ctx Context, w io.Writer) (argument []any, err error
 	return
 }
 
-func NewGroupBy(field ...string) GroupBy {
-	return field
-}
-
 type Having struct {
-	Cond conditions.Condition
+	groups.HavingCondition
 }
 
 func (having Having) Render(ctx Context, w io.Writer) (argument []any, err error) {
@@ -65,10 +61,4 @@ func (having Having) Render(ctx Context, w io.Writer) (argument []any, err error
 		return
 	}
 	return
-}
-
-func NewHaving(cond conditions.Condition) Having {
-	return Having{
-		Cond: cond,
-	}
 }

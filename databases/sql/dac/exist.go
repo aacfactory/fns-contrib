@@ -9,19 +9,7 @@ import (
 )
 
 func Exist[T Table](ctx context.Context, cond conditions.Condition) (has bool, err error) {
-	dialect, dialectErr := specifications.LoadDialect(ctx)
-	if dialectErr != nil {
-		err = errors.Warning("sql: exist failed").WithCause(dialectErr)
-		return
-	}
-	t := specifications.TableInstance[T]()
-	spec, specErr := specifications.GetSpecification(ctx, t)
-	if specErr != nil {
-		err = errors.Warning("sql: exist failed").WithCause(specErr)
-		return
-	}
-
-	_, query, arguments, buildErr := dialect.Exist(specifications.Todo(ctx, t, dialect), spec, specifications.Condition{Condition: cond})
+	_, query, arguments, buildErr := specifications.BuildCount[T](ctx, specifications.Condition{Condition: cond})
 	if buildErr != nil {
 		err = errors.Warning("sql: exist failed").WithCause(buildErr)
 		return
