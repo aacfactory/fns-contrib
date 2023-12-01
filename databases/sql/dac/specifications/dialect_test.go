@@ -49,7 +49,7 @@ func (d *Dialect) Delete(ctx specifications.Context, spec *specifications.Specif
 	return
 }
 
-func (d *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, arguments []any, err error) {
+func (d *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, audits []int, arguments []any, err error) {
 	return
 }
 

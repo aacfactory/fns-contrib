@@ -196,7 +196,7 @@ func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.
 	return
 }
 
-func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, arguments []any, err error) {
+func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, audits []int, arguments []any, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate delete by conditions failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -208,7 +208,7 @@ func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *spe
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	method, arguments, err = generic.DeleteByConditions.Render(ctx, buf, cond)
+	method, audits, arguments, err = generic.DeleteByConditions.Render(ctx, buf, cond)
 	if err != nil {
 		err = errors.Warning("sql: dialect generate delete by conditions failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return

@@ -280,9 +280,13 @@ func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (metho
 		return
 	}
 	// todo audit, same as update ,use fieldValue
-	method, query, arguments, err = dialect.DeleteByConditions(Todo(ctx, t, dialect), spec, cond)
+	var audits []int
+	method, query, audits, arguments, err = dialect.DeleteByConditions(Todo(ctx, t, dialect), spec, cond)
 	if err != nil {
 		return
+	}
+	if len(audits) > 0 {
+
 	}
 	return
 }

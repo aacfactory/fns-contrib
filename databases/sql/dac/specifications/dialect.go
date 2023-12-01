@@ -73,7 +73,7 @@ type Dialect interface {
 	Update(ctx Context, spec *Specification) (method Method, query []byte, fields []int, err error)
 	UpdateFields(ctx Context, spec *Specification, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Delete(ctx Context, spec *Specification) (method Method, query []byte, fields []int, err error)
-	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
+	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, audits []int, arguments []any, err error)
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Query(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error)

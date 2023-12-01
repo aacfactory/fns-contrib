@@ -40,9 +40,10 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 type DeleteByConditionsGeneric struct {
 	spec    *specifications.Specification
 	content []byte
+	audits  []int
 }
 
-func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
+func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, audits []int, arguments []any, err error) {
 	method = specifications.ExecuteMethod
 
 	_, err = w.Write(generic.content)
