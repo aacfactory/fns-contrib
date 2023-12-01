@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/orders"
 	"reflect"
 	"strconv"
 	"strings"
@@ -172,7 +173,7 @@ func (column *Column) Link() (host string, target string, mapping *Specification
 	return
 }
 
-func (column *Column) Links() (host string, target string, mapping *Specification, orders Orders, length int, ok bool) {
+func (column *Column) Links() (host string, target string, mapping *Specification, order orders.Orders, length int, ok bool) {
 	ok = column.Kind == Links
 	if ok {
 		host = column.Type.Options[0]
@@ -189,14 +190,14 @@ func (column *Column) Links() (host string, target string, mapping *Specificatio
 						item = strings.TrimSpace(item)
 						pos := strings.IndexByte(item, '@')
 						if pos == -1 {
-							orders = orders.Asc(item)
+							order = orders.Asc(item)
 						} else {
 							field := strings.TrimSpace(item[0:pos])
 							kind := strings.ToLower(strings.TrimSpace(item[pos+1:]))
 							if kind == "desc" {
-								orders = orders.Desc(field)
+								order = orders.Desc(field)
 							} else {
-								orders = orders.Asc(field)
+								order = orders.Asc(field)
 							}
 						}
 					}

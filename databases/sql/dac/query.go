@@ -99,6 +99,6 @@ func One[T Table](ctx context.Context, options ...QueryOption) (entry T, has boo
 }
 
 func ALL[T Table](ctx context.Context, options ...QueryOption) (entries []T, err error) {
-	entries, err = Query[T](ctx, 0, 0, options...)
+	entries, err = Query[T](ctx, 0, 1, options...)
 	return
 }

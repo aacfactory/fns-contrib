@@ -27,22 +27,15 @@ func TableInstance[T Table]() (v T) {
 }
 
 func AsTable(e any) (t Table, err error) {
+	rt := reflect.TypeOf(e)
+	if rt.Kind() != reflect.Struct {
+		err = errors.Warning(fmt.Sprintf("sql: %s.%s does not used as ptr", rt.PkgPath(), rt.Name()))
+		return
+	}
 	table, ok := e.(Table)
 	if ok {
 		t = table
 		return
 	}
-	rt := reflect.TypeOf(e)
-	if rt.Kind() == reflect.Ptr && rt.Elem().Kind() == reflect.Struct {
-		e = reflect.Zero(rt.Elem()).Interface()
-		table, ok = e.(Table)
-		if ok {
-			t = table
-			return
-		}
-		err = errors.Warning(fmt.Sprintf("sql: %s.%s does not implement Table", rt.PkgPath(), rt.Name()))
-		return
-	}
-	err = errors.Warning(fmt.Sprintf("sql: %s.%s does not implement Table", rt.PkgPath(), rt.Name()))
 	return
 }
