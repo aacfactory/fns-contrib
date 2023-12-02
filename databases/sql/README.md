@@ -17,24 +17,44 @@ go get github.com/aacfactory/fns-contrib/databases/sql
 
 ### Config
 
-* Standalone type
-    * masterSlaverMode = false
-    * dsn size is one
-* Master slaver type
-    * masterSlaverMode = true
-    * first of dsn is master, afters are slavers
-* Cluster type
-    * masterSlaverMode = false
-    * all in dsn is members
-
-Example:
+Standalone:
 ```yaml
 sql:
   kind: "standalone"
   isolation: 2
   transactionMaxAge: 10
   options:
+    driver: "postgres"
     dsn: "username:password@tcp(ip:port)/databases"
+    maxIdles: 0
+    maxOpens: 0
+```
+MasterSlave:
+```yaml
+sql:
+  kind: "masterSlave"
+  isolation: 2
+  transactionMaxAge: 10
+  options:
+    driver: "postgres"
+    master: "username:password@tcp(ip:port)/databases"
+    slavers:
+      - "username:password@tcp(ip:port)/databases"
+      - "username:password@tcp(ip:port)/databases"
+    maxIdles: 0
+    maxOpens: 0
+```
+Cluster:
+```yaml
+sql:
+  kind: "cluster"
+  isolation: 2
+  transactionMaxAge: 10
+  options:
+    driver: "postgres"
+    dsn:
+      - "username:password@tcp(ip:port)/databases"
+      - "username:password@tcp(ip:port)/databases"
     maxIdles: 0
     maxOpens: 0
 ```
@@ -61,8 +81,10 @@ sql.Query(ctx, querySQL, ...)
 // execute
 sql.Execute(ctx, executeSQL, ...)
 ```
-### ORM usage
-* [database access layer](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dal)
+### ORM
+* [postgres](https://github.com/aacfactory/fns-contrib/tree/main/databases/postgres)
+* [mysql](https://github.com/aacfactory/fns-contrib/tree/main/databases/mysql)
+* [common](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dac)
 
 ### Multi database source
 
