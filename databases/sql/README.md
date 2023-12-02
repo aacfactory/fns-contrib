@@ -70,7 +70,7 @@ sql:
       cacheSize: 1024
       evictTimeoutSeconds: 10
 ```
-
+Note: when use some driver like `pgx`, then disable statements, cause driver has handled statements.
 ### Import driver
 ```go
 import _ "github.com/go-sql-driver/mysql"
