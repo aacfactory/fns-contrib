@@ -1,8 +1,6 @@
 package dac
 
 import (
-	"fmt"
-	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"strings"
 )
@@ -11,7 +9,6 @@ type TableInfoOptions struct {
 	schema    string
 	view      bool
 	conflicts []string
-	tree      []string
 }
 
 type TableInfoOption func(options *TableInfoOptions)
@@ -42,26 +39,12 @@ func Conflicts(conflicts ...string) TableInfoOption {
 	}
 }
 
-func TreeFields(parent string, children string) TableInfoOption {
-	return func(options *TableInfoOptions) {
-		parent = strings.TrimSpace(parent)
-		if parent == "" {
-			panic(fmt.Errorf("%+v", errors.Warning("sql: set table tree fields failed").WithCause(fmt.Errorf("parent field name is nil"))))
-		}
-		children = strings.TrimSpace(children)
-		if children == "" {
-			panic(fmt.Errorf("%+v", errors.Warning("sql: set table tree fields failed").WithCause(fmt.Errorf("children field name is nil"))))
-		}
-		options.tree = []string{parent, children}
-	}
-}
-
 func TableInfo(name string, options ...TableInfoOption) specifications.TableInfo {
 	opt := TableInfoOptions{}
 	for _, option := range options {
 		option(&opt)
 	}
-	return specifications.NewTableInfo(opt.schema, strings.TrimSpace(name), opt.view, opt.conflicts, opt.tree)
+	return specifications.NewTableInfo(opt.schema, strings.TrimSpace(name), opt.view, opt.conflicts)
 }
 
 // Table

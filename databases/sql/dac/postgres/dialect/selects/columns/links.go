@@ -31,7 +31,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	}
 	hostColumnName := ctx.FormatIdent([]byte(column.Name))
 
-	hostField, awayField, mapping, orders, length, ok := column.Links()
+	hostField, awayField, _, mapping, orders, length, ok := column.Links()
 	if !ok {
 		err = errors.Warning("sql: render links field failed").
 			WithCause(fmt.Errorf("%s is not links", column.Field)).

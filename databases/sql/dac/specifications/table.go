@@ -6,8 +6,8 @@ import (
 	"reflect"
 )
 
-func NewTableInfo(schema string, name string, view bool, conflicts []string, tree []string) TableInfo {
-	return TableInfo{schema: schema, name: name, view: view, conflicts: conflicts, tree: tree}
+func NewTableInfo(schema string, name string, view bool, conflicts []string) TableInfo {
+	return TableInfo{schema: schema, name: name, view: view, conflicts: conflicts}
 }
 
 type TableInfo struct {
@@ -15,7 +15,6 @@ type TableInfo struct {
 	name      string
 	view      bool
 	conflicts []string
-	tree      []string
 }
 
 type Table interface {

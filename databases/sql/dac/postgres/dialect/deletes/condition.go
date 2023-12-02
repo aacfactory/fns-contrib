@@ -11,6 +11,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		generic = &DeleteByConditionsGeneric{}
 		return
 	}
+	var audits []int
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
@@ -21,11 +22,58 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		tableName = append(schema, tableName...)
 	}
 
-	_, _ = buf.Write(specifications.DELETE)
-	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
-	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	by, at, hasAd := spec.AuditDeletion()
+	if hasAd {
+		n := 0
+		_, _ = buf.Write(specifications.UPDATE)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(tableName)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.SET)
+		ver, hasVer := spec.AuditVersion()
+		if hasVer {
+			verName := ctx.FormatIdent([]byte(ver.Name))
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(verName)
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(specifications.EQ)
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(specifications.PLUS)
+			_, _ = buf.Write([]byte("1"))
+			n++
+		}
+		if by != nil {
+			if n > 0 {
+				_, _ = buf.Write(specifications.COMMA)
+			}
+			_, _ = buf.Write(ctx.FormatIdent([]byte(by.Name)))
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(specifications.EQ)
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(ctx.NextQueryPlaceholder())
+			audits = append(audits, by.FieldIdx)
+			n++
+		}
+		if at != nil {
+			if n > 0 {
+				_, _ = buf.Write(specifications.COMMA)
+			}
+			_, _ = buf.Write(ctx.FormatIdent([]byte(at.Name)))
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(specifications.EQ)
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(ctx.NextQueryPlaceholder())
+			audits = append(audits, at.FieldIdx)
+			n++
+		}
+
+	} else {
+		_, _ = buf.Write(specifications.DELETE)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.FORM)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(tableName)
+	}
 
 	query := buf.Bytes()
 
@@ -45,6 +93,7 @@ type DeleteByConditionsGeneric struct {
 
 func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, audits []int, arguments []any, err error) {
 	method = specifications.ExecuteMethod
+	audits = generic.audits
 
 	_, err = w.Write(generic.content)
 	if err != nil {
@@ -56,6 +105,7 @@ func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w i
 		_, _ = w.Write(specifications.WHERE)
 		_, _ = w.Write(specifications.SPACE)
 
+		ctx.SkipNextQueryPlaceholderCursor(len(audits))
 		arguments, err = cond.Render(ctx, w)
 		if err != nil {
 			return

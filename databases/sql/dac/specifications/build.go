@@ -9,6 +9,7 @@ import (
 	"github.com/aacfactory/fns/services/authorizations"
 	"github.com/aacfactory/json"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -259,7 +260,10 @@ func BuildDelete[T Table](ctx context.Context, entry T) (method Method, query []
 			} else if at.Type.Value.ConvertibleTo(intType) {
 				rat.SetInt(time.Now().UnixMilli())
 			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.SetInt(time.Now().UnixMilli())
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
 			}
 		}
 	}
@@ -267,26 +271,81 @@ func BuildDelete[T Table](ctx context.Context, entry T) (method Method, query []
 	return
 }
 
-func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+func BuildDeleteAnyByCondition(ctx context.Context, entry Table, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entry)
 	if specErr != nil {
 		err = specErr
 		return
 	}
-	// todo audit, same as update ,use fieldValue
 	var audits []int
-	method, query, audits, arguments, err = dialect.DeleteByConditions(Todo(ctx, t, dialect), spec, cond)
+	method, query, audits, arguments, err = dialect.DeleteByConditions(Todo(ctx, entry, dialect), spec, cond)
 	if err != nil {
 		return
 	}
 	if len(audits) > 0 {
+		by, at, hasAd := spec.AuditDeletion()
+		if !hasAd {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("dialect return audits but entry has no audit deletion"))
+			return
+		}
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		auditArgs := make([]any, 0, 2)
+		for _, auditFieldIdx := range audits {
+			column, hasColumn := spec.ColumnByFieldIdx(auditFieldIdx)
+			if !hasColumn {
+				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("column was not found")).WithMeta("fieldIdx", strconv.Itoa(auditFieldIdx))
+				return
+			}
+			if by != nil && column.Name == by.Name {
+				if by.Type.Name == StringType {
+					auditArgs = append(auditArgs, auth.Id.String())
+				} else if by.Type.Name == IntType {
+					auditArgs = append(auditArgs, auth.Id.Int())
+				}
+			} else if at != nil && column.Name == at.Name {
+				if at.Type.Value.ConvertibleTo(datetimeType) {
+					auditArgs = append(auditArgs, time.Now())
+				} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+					auditArgs = append(auditArgs, stdsql.NullTime{
+						Time:  time.Now(),
+						Valid: true,
+					})
+				} else if at.Type.Value.ConvertibleTo(intType) {
+					auditArgs = append(auditArgs, time.Now().UnixMilli())
+				} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+					auditArgs = append(auditArgs, stdsql.NullInt64{
+						Int64: time.Now().UnixMilli(),
+						Valid: true,
+					})
+				}
+			}
+		}
+		arguments = append(auditArgs, arguments...)
+	}
+	return
+}
 
+func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+	method, query, arguments, err = BuildDeleteAnyByCondition(ctx, TableInstance[T](), cond)
+	if err != nil {
+		return
 	}
 	return
 }

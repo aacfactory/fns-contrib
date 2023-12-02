@@ -55,8 +55,8 @@ const (
 	Json                        // column,json
 	Virtual                     // ident,vc,basic|object|array,query
 	Reference                   // column,ref,field+target_field
-	Link                        // ident,link,field+target_field
-	Links                       // column,links,field+target_field,orders:field@desc+field,length:10
+	Link                        // ident,link,field+target_field{@cascade} (note: when database has set cascade then do not set @cascade)
+	Links                       // column,links,field+target_field{@cascade},orders:field@desc+field,length:10 (note: when database has set cascade then do not set @cascade)
 )
 
 type ColumnKind int
@@ -163,21 +163,27 @@ func (column *Column) Reference() (hostField string, awayField string, mapping *
 	return
 }
 
-func (column *Column) Link() (host string, target string, mapping *Specification, ok bool) {
+func (column *Column) Link() (host string, target string, cascade bool, mapping *Specification, ok bool) {
 	ok = column.Kind == Link
 	if ok {
 		host = column.Type.Options[0]
 		target = column.Type.Options[1]
+		if len(column.Type.Options) > 2 {
+			cascade = column.Type.Options[2] == "cascade"
+		}
 		mapping = column.Type.Mapping
 	}
 	return
 }
 
-func (column *Column) Links() (host string, target string, mapping *Specification, order orders.Orders, length int, ok bool) {
+func (column *Column) Links() (host string, target string, cascade bool, mapping *Specification, order orders.Orders, length int, ok bool) {
 	ok = column.Kind == Links
 	if ok {
 		host = column.Type.Options[0]
 		target = column.Type.Options[1]
+		if len(column.Type.Options) > 2 {
+			cascade = column.Type.Options[2] == "cascade"
+		}
 		mapping = column.Type.Mapping
 		if optLen := len(column.Type.Options); optLen > 2 {
 			for i := 2; i < optLen; i++ {
@@ -477,20 +483,28 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			break
 		case linkColumn:
-			// name,link,self+target
+			// name,link,self+target{@cascade}
 			if len(items) < 2 {
 				err = errors.Warning("sql: scan link column failed, mapping is required").WithMeta("field", rt.Name)
 				return
 			}
+
 			mr := strings.Split(items[1], "+")
 			if len(mr) != 2 {
 				err = errors.Warning("sql: scan link column failed, mapping is invalid").WithMeta("field", rt.Name)
 				return
 			}
-
+			cascade := false
+			if idx := strings.LastIndex(mr[1], "@"); idx > 0 {
+				cascade = strings.ToLower(strings.TrimSpace(mr[1][idx+1:])) == "cascade"
+				mr[1] = strings.TrimSpace(mr[1][0:idx])
+			}
 			kind = Link
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			if cascade {
+				typ.Options = append(typ.Options, "cascade")
+			}
 			typ.Name = MappingType
 			switch rt.Type.Kind() {
 			case reflect.Struct:
@@ -523,10 +537,17 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 				err = errors.Warning("sql: scan links column failed, mapping is invalid").WithMeta("field", rt.Name)
 				return
 			}
-
+			cascade := false
+			if idx := strings.LastIndex(mr[1], "@"); idx > 0 {
+				cascade = strings.ToLower(strings.TrimSpace(mr[1][idx+1:])) == "cascade"
+				mr[1] = strings.TrimSpace(mr[1][0:idx])
+			}
 			kind = Links
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			if cascade {
+				typ.Options = append(typ.Options, "cascade")
+			}
 			if len(items) > 2 {
 				typ.Options = append(typ.Options, items[2:]...)
 			}

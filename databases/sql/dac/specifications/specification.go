@@ -10,14 +10,22 @@ import (
 )
 
 type Specification struct {
-	Key       string
-	Schema    string
-	Name      string
-	View      bool
-	Type      reflect.Type
-	Columns   []*Column
-	Conflicts []string
-	tree      []string
+	Key            string
+	Schema         string
+	Name           string
+	View           bool
+	Type           reflect.Type
+	Columns        []*Column
+	Conflicts      []string
+	DeleteCascades []*Column
+}
+
+func (spec *Specification) DeleteCascadeColumns() (columns []*Column, has bool) {
+	has = len(spec.DeleteCascades) > 0
+	if has {
+		columns = spec.DeleteCascades
+	}
+	return
 }
 
 func (spec *Specification) ConflictColumns() (columns []*Column, err error) {
@@ -50,15 +58,6 @@ func (spec *Specification) ColumnByFieldIdx(fieldIdx int) (column *Column, has b
 			has = true
 			break
 		}
-	}
-	return
-}
-
-func (spec *Specification) Tree() (parentField string, childrenField string, has bool) {
-	has = len(spec.tree) == 2
-	if has {
-		parentField = spec.tree[0]
-		childrenField = spec.tree[1]
 	}
 	return
 }
@@ -225,7 +224,6 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 	schema := info.schema
 	view := info.view
 	conflicts := info.conflicts
-	tree := info.tree
 
 	columns, columnsErr := scanTableFields(ctx, rt)
 	if columnsErr != nil {
@@ -235,15 +233,31 @@ func ScanTable(ctx context.Context, table Table) (spec *Specification, err error
 		return
 	}
 
+	deleteCascades := make([]*Column, 0, 1)
+	for _, column := range columns {
+		if column.Kind == Links {
+			_, _, cascade, _, _, _, has := column.Links()
+			if has && cascade {
+				deleteCascades = append(deleteCascades, column)
+			}
+		}
+		if column.Kind == Link {
+			_, _, cascade, _, has := column.Link()
+			if has && cascade {
+				deleteCascades = append(deleteCascades, column)
+			}
+		}
+	}
+
 	spec = &Specification{
-		Key:       key,
-		Schema:    schema,
-		Name:      name,
-		View:      view,
-		Type:      rt,
-		Columns:   columns,
-		Conflicts: conflicts,
-		tree:      tree,
+		Key:            key,
+		Schema:         schema,
+		Name:           name,
+		View:           view,
+		Type:           rt,
+		Columns:        columns,
+		Conflicts:      conflicts,
+		DeleteCascades: deleteCascades,
 	}
 
 	tableNames := make([][]byte, 0, 1)
