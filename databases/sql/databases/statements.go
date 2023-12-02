@@ -52,6 +52,23 @@ func (stmt *Statement) ExecContext(ctx context.Context, args ...any) (r sql.Resu
 	return
 }
 
+func (stmt *Statement) Stmt() (v *sql.Stmt, release func(), closed bool) {
+	closed = stmt.Closed()
+	if closed {
+		return
+	}
+	stmt.used.Add(1)
+	v = stmt.value
+	release = func() {
+		stmt.used.Add(-1)
+	}
+	return
+}
+
+func (stmt *Statement) Closed() bool {
+	return stmt.closed.Load()
+}
+
 func (stmt *Statement) evict() {
 	stmt.closed.Store(true)
 	ch := make(chan struct{}, 1)
@@ -92,7 +109,7 @@ type StatementsConfig struct {
 
 func NewStatements(log logs.Logger, preparer Preparer, size int, evictTimeout time.Duration) (v *Statements, err error) {
 	if size < 1 {
-		size = 1024
+		size = 256
 	}
 	if evictTimeout < 1 {
 		evictTimeout = 10 * time.Second
@@ -127,6 +144,10 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 	has := false
 	stmt, has = stmts.pool.Get(key)
 	if has {
+		if stmt.closed.Load() {
+			stmt, err = stmts.Get(query)
+			return
+		}
 		return
 	}
 	v, groupErr, _ := stmts.group.Do(strconv.FormatUint(key, 16), func() (v interface{}, err error) {

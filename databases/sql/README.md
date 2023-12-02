@@ -30,7 +30,7 @@ sql:
     maxOpens: 0
     statements:
       enable: true
-      cacheSize: 1024
+      cacheSize: 256
       evictTimeoutSeconds: 10
 ```
 MasterSlave:
@@ -49,7 +49,7 @@ sql:
     maxOpens: 0
     statements:
       enable: true
-      cacheSize: 1024
+      cacheSize: 256
       evictTimeoutSeconds: 10
 ```
 Cluster:
@@ -67,7 +67,7 @@ sql:
     maxOpens: 0
     statements:
       enable: true
-      cacheSize: 1024
+      cacheSize: 256
       evictTimeoutSeconds: 10
 ```
 Note: when use some driver like `pgx`, then disable statements, cause driver has handled statements.

@@ -3,7 +3,6 @@ package databases
 import (
 	"context"
 	"database/sql"
-	"github.com/aacfactory/errors"
 	"unsafe"
 )
 
@@ -43,12 +42,15 @@ func (tx *DefaultTransaction) Query(ctx context.Context, query []byte, args []in
 			err = prepareErr
 			return
 		}
-		r, err = stmt.QueryContext(ctx, args...)
+		st, release, closed := stmt.Stmt()
+		if closed {
+			rows, err = tx.Query(ctx, query, args)
+			return
+		}
+		st = tx.core.Stmt(st)
+		r, err = st.QueryContext(ctx, args...)
+		release()
 		if err != nil {
-			if errors.Contains(err, ErrStatementClosed) {
-				rows, err = tx.Query(ctx, query, args)
-				return
-			}
 			return
 		}
 	} else {
@@ -71,12 +73,15 @@ func (tx *DefaultTransaction) Execute(ctx context.Context, query []byte, args []
 			err = prepareErr
 			return
 		}
-		r, err = stmt.ExecContext(ctx, args...)
+		st, release, closed := stmt.Stmt()
+		if closed {
+			result, err = tx.Execute(ctx, query, args)
+			return
+		}
+		st = tx.core.Stmt(st)
+		r, err = st.ExecContext(ctx, args...)
+		release()
 		if err != nil {
-			if errors.Contains(err, ErrStatementClosed) {
-				result, err = tx.Execute(ctx, query, args)
-				return
-			}
 			return
 		}
 	} else {
