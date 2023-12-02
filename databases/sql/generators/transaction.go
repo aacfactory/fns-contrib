@@ -80,7 +80,6 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 	}
 	stmt := gcg.Statements()
 
-	// use sql.Use(ctx, bytex.FromString(""))
 	stmt.Tab().Token("sql.Begin(ctx")
 	if readonly {
 		stmt.Token(", sql.Readonly()")
@@ -122,6 +121,17 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 }
 
 func (writer *TransactionWriter) HandleAfter(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	stmt := gcg.Statements()
+	stmt.Tab().Token("if err == nil {").Line()
+	stmt.Tab().Tab().Token("if cmtErr := sql.Commit(ctx); cmtErr != nil {").Line()
+	stmt.Tab().Tab().Tab().Token("err = cmtErr").Line()
+	stmt.Tab().Tab().Tab().Token("return").Line()
+	stmt.Tab().Tab().Token("}").Line()
+	stmt.Tab().Token("} else {").Line()
+	stmt.Tab().Tab().Token("sql.Rollback(ctx)").Line()
+	stmt.Tab().Token("}").Line()
+
+	code = stmt
 	return
 }
 
