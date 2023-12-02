@@ -25,6 +25,55 @@ func BuildInsert[T Table](ctx context.Context, entries ...T) (method Method, que
 		err = specErr
 		return
 	}
+	// audit
+	by, at, hasAc := spec.AuditCreation()
+	if hasAc {
+		for i, entry := range entries {
+			auth, hasAuth, loadErr := authorizations.Load(ctx)
+			if loadErr != nil {
+				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+				return
+			}
+			if !hasAuth {
+				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+				return
+			}
+			if !auth.Exist() {
+				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+				return
+			}
+			rv := reflect.ValueOf(&entry)
+			if by != nil {
+				rby := rv.Elem().Field(by.FieldIdx)
+				if rby.IsZero() {
+					if by.Type.Name == StringType {
+						rby.SetString(auth.Id.String())
+					} else if by.Type.Name == IntType {
+						rby.SetInt(auth.Id.Int())
+					}
+				}
+			}
+			if at != nil {
+				rat := rv.Elem().Field(at.FieldIdx)
+				if at.Type.Value.ConvertibleTo(datetimeType) {
+					rat.Set(reflect.ValueOf(time.Now()))
+				} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+					rat.Set(reflect.ValueOf(stdsql.NullTime{
+						Time:  time.Now(),
+						Valid: true,
+					}))
+				} else if at.Type.Value.ConvertibleTo(intType) {
+					rat.SetInt(time.Now().UnixMilli())
+				} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+					rat.Set(reflect.ValueOf(stdsql.NullInt64{
+						Int64: time.Now().UnixMilli(),
+						Valid: true,
+					}))
+				}
+			}
+			entries[i] = entry
+		}
+	}
 	var fields []int
 	method, query, fields, returning, err = dialect.Insert(Todo(ctx, t, dialect), spec, len(entries))
 	if err != nil {
@@ -53,6 +102,52 @@ func BuildInsertOrUpdate[T Table](ctx context.Context, entry T) (method Method, 
 		err = specErr
 		return
 	}
+	// audit
+	by, at, hasAc := spec.AuditCreation()
+	if hasAc {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().Field(by.FieldIdx)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().Field(at.FieldIdx)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
+			}
+		}
+	}
 	var fields []int
 	method, query, fields, returning, err = dialect.InsertOrUpdate(Todo(ctx, t, dialect), spec)
 	if err != nil {
@@ -73,6 +168,52 @@ func BuildInsertWhenExist[T Table](ctx context.Context, entry T, src QueryExpr) 
 	if specErr != nil {
 		err = specErr
 		return
+	}
+	// audit
+	by, at, hasAc := spec.AuditCreation()
+	if hasAc {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().Field(by.FieldIdx)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().Field(at.FieldIdx)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
+			}
+		}
 	}
 	var fields []int
 	var srcArguments []any
@@ -100,6 +241,52 @@ func BuildInsertWhenNotExist[T Table](ctx context.Context, entry T, src QueryExp
 		err = specErr
 		return
 	}
+	// audit
+	by, at, hasAc := spec.AuditCreation()
+	if hasAc {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().Field(by.FieldIdx)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().Field(at.FieldIdx)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
+			}
+		}
+	}
 	var fields []int
 	var srcArguments []any
 	method, query, fields, srcArguments, returning, err = dialect.InsertWhenNotExist(Todo(ctx, t, dialect), spec, src)
@@ -126,6 +313,52 @@ func BuildUpdate[T Table](ctx context.Context, entry T) (method Method, query []
 		err = specErr
 		return
 	}
+	// audit
+	by, at, hasAm := spec.AuditModification()
+	if hasAm {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().Field(by.FieldIdx)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().Field(at.FieldIdx)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
+			}
+		}
+	}
 	var fields []int
 	method, query, fields, err = dialect.Update(Todo(ctx, t, dialect), spec)
 	if err != nil {
@@ -146,6 +379,83 @@ func BuildUpdateFields[T Table](ctx context.Context, fields []FieldValue, cond C
 	if specErr != nil {
 		err = specErr
 		return
+	}
+	// audit
+	by, at, hasAm := spec.AuditModification()
+	if hasAm {
+		auth, hasAuth, loadErr := authorizations.Load(ctx)
+		if loadErr != nil {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
+			return
+		}
+		if !hasAuth {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
+			return
+		}
+		if !auth.Exist() {
+			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
+			return
+		}
+		if by != nil {
+			exist := false
+			for _, field := range fields {
+				if field.Name == by.Field {
+					exist = true
+					break
+				}
+			}
+			if !exist {
+				if by.Type.Name == StringType {
+					fields = append(fields, FieldValue{
+						Name:  by.Field,
+						Value: auth.Id.String(),
+					})
+				} else if by.Type.Name == IntType {
+					fields = append(fields, FieldValue{
+						Name:  by.Field,
+						Value: auth.Id.Int(),
+					})
+				}
+			}
+		}
+		if at != nil {
+			exist := false
+			for _, field := range fields {
+				if field.Name == at.Field {
+					exist = true
+					break
+				}
+			}
+			if !exist {
+				if at.Type.Value.ConvertibleTo(datetimeType) {
+					fields = append(fields, FieldValue{
+						Name:  at.Field,
+						Value: time.Now(),
+					})
+				} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+					fields = append(fields, FieldValue{
+						Name: at.Field,
+						Value: stdsql.NullTime{
+							Time:  time.Now(),
+							Valid: true,
+						},
+					})
+				} else if at.Type.Value.ConvertibleTo(intType) {
+					fields = append(fields, FieldValue{
+						Name:  at.Field,
+						Value: time.Now().UnixMilli(),
+					})
+				} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+					fields = append(fields, FieldValue{
+						Name: at.Field,
+						Value: stdsql.NullInt64{
+							Int64: time.Now().UnixMilli(),
+							Valid: true,
+						},
+					})
+				}
+			}
+		}
 	}
 	for i, field := range fields {
 		column, hasColumn := spec.ColumnByField(field.Name)
