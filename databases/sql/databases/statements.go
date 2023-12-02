@@ -24,14 +24,14 @@ var (
 
 type Statement struct {
 	log          logs.Logger
-	open         atomic.Bool
+	closed       atomic.Bool
 	used         atomic.Int64
 	evictTimeout time.Duration
 	value        *sql.Stmt
 }
 
 func (stmt *Statement) QueryContext(ctx context.Context, args ...any) (r *sql.Rows, err error) {
-	if !stmt.open.Load() {
+	if stmt.closed.Load() {
 		err = ErrStatementClosed
 		return
 	}
@@ -42,7 +42,7 @@ func (stmt *Statement) QueryContext(ctx context.Context, args ...any) (r *sql.Ro
 }
 
 func (stmt *Statement) ExecContext(ctx context.Context, args ...any) (r sql.Result, err error) {
-	if !stmt.open.Load() {
+	if stmt.closed.Load() {
 		err = ErrStatementClosed
 		return
 	}
@@ -53,7 +53,7 @@ func (stmt *Statement) ExecContext(ctx context.Context, args ...any) (r sql.Resu
 }
 
 func (stmt *Statement) evict() {
-	stmt.open.Store(false)
+	stmt.closed.Store(true)
 	ch := make(chan struct{}, 1)
 	go func(stmt *Statement, ch chan struct{}) {
 		for {
@@ -137,12 +137,11 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 		}
 		st := &Statement{
 			log:          stmts.log,
-			open:         atomic.Bool{},
+			closed:       atomic.Bool{},
 			used:         atomic.Int64{},
 			evictTimeout: stmts.evictTimeout,
 			value:        value,
 		}
-		st.open.Store(true)
 		stmts.pool.Add(key, st)
 		v = st
 		return
