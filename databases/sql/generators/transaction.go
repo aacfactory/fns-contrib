@@ -1,0 +1,134 @@
+package generators
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"github.com/aacfactory/errors"
+	"github.com/aacfactory/gcg"
+	"strings"
+)
+
+// TransactionWriter
+// @sql:transaction {readonly} {isolation}
+// isolation:
+// - ReadCommitted
+// - ReadUncommitted
+// - WriteCommitted
+// - RepeatableRead
+// - Snapshot
+// - Serializable
+// - Linearizable
+type TransactionWriter struct {
+}
+
+func (writer *TransactionWriter) Annotation() (annotation string) {
+	return "sql:transaction"
+}
+
+func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	paramsLen := len(params)
+	if paramsLen > 2 {
+		err = errors.Warning("sql: generate transaction code failed").WithCause(fmt.Errorf("invalid annotation params"))
+		return
+	}
+	readonly := false
+	isolationParam := ""
+	isolation := sql.LevelDefault
+	if paramsLen == 2 {
+		if strings.ToLower(params[0]) != "readonly" {
+			err = errors.Warning("sql: generate transaction code failed").WithCause(fmt.Errorf("invalid annotation params"))
+			return
+		}
+		readonly = true
+		isolationParam = strings.ToLower(params[1])
+	} else if paramsLen == 1 {
+		param := strings.ToLower(params[0])
+		if param == "readonly" {
+			readonly = true
+		} else {
+			isolationParam = strings.ToLower(params[0])
+		}
+	}
+	if isolationParam != "" {
+		switch isolationParam {
+		case "readcommitted":
+			isolation = sql.LevelReadCommitted
+			break
+		case "readuncommitted":
+			isolation = sql.LevelReadUncommitted
+			break
+		case "writecommitted":
+			isolation = sql.LevelWriteCommitted
+			break
+		case "repeatableread":
+			isolation = sql.LevelRepeatableRead
+			break
+		case "snapshot":
+			isolation = sql.LevelSnapshot
+			break
+		case "serializable":
+			isolation = sql.LevelSerializable
+			break
+		case "Linearizable":
+			isolation = sql.LevelLinearizable
+			break
+		default:
+			err = errors.Warning("sql: generate transaction code failed").WithCause(fmt.Errorf("invalid isolation params"))
+			return
+		}
+	}
+	stmt := gcg.Statements()
+
+	// use sql.Use(ctx, bytex.FromString(""))
+	stmt.Tab().Token("sql.Begin(ctx")
+	if readonly {
+		stmt.Token(", sql.Readonly()")
+	}
+	if isolation != sql.LevelDefault {
+		stmt.Token(", sql.WithIsolation(")
+		switch isolation {
+		case sql.LevelReadCommitted:
+			stmt.Token("sql.LevelReadCommitted")
+			break
+		case sql.LevelReadUncommitted:
+			stmt.Token("sql.LevelReadUncommitted")
+			break
+		case sql.LevelWriteCommitted:
+			stmt.Token("sql.LevelWriteCommitted")
+			break
+		case sql.LevelRepeatableRead:
+			stmt.Token("sql.LevelRepeatableRead")
+			break
+		case sql.LevelSnapshot:
+			stmt.Token("sql.LevelSnapshot")
+			break
+		case sql.LevelSerializable:
+			stmt.Token("sql.LevelSerializable")
+			break
+		case sql.LevelLinearizable:
+			stmt.Token("sql.LevelLinearizable")
+			break
+		default:
+			stmt.Token("sql.LevelDefault")
+			break
+		}
+		stmt.Token(")")
+	}
+	stmt.Token(")", gcg.NewPackage("github.com/aacfactory/fns-contrib/databases/sql")).Line()
+
+	code = stmt
+	return
+}
+
+func (writer *TransactionWriter) HandleAfter(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	return
+}
+
+func (writer *TransactionWriter) ProxyBefore(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	return
+}
+
+func (writer *TransactionWriter) ProxyAfter(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	return
+}

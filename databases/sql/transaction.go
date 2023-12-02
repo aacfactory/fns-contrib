@@ -60,9 +60,9 @@ func WithIsolation(isolation databases.Isolation) databases.TransactionOption {
 	}
 }
 
-func Readonly(isolation databases.Isolation) databases.TransactionOption {
+func Readonly() databases.TransactionOption {
 	return func(options *databases.TransactionOptions) {
-		options.Isolation = isolation
+		options.Readonly = true
 	}
 }
 
