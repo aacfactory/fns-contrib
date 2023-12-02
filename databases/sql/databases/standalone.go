@@ -84,7 +84,6 @@ func (db *standalone) Construct(options Options) (err error) {
 		}
 		db.prepare = true
 	}
-	db.core.Prepare()
 	return
 }
 
