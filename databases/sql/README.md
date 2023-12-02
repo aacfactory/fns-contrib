@@ -28,6 +28,10 @@ sql:
     dsn: "username:password@tcp(ip:port)/databases"
     maxIdles: 0
     maxOpens: 0
+    statements:
+      enable: true
+      cacheSize: 1024
+      evictTimeoutSeconds: 10
 ```
 MasterSlave:
 ```yaml
@@ -43,6 +47,10 @@ sql:
       - "username:password@tcp(ip:port)/databases"
     maxIdles: 0
     maxOpens: 0
+    statements:
+      enable: true
+      cacheSize: 1024
+      evictTimeoutSeconds: 10
 ```
 Cluster:
 ```yaml
@@ -57,6 +65,10 @@ sql:
       - "username:password@tcp(ip:port)/databases"
     maxIdles: 0
     maxOpens: 0
+    statements:
+      enable: true
+      cacheSize: 1024
+      evictTimeoutSeconds: 10
 ```
 
 ### Import driver
