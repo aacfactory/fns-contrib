@@ -20,6 +20,22 @@ type Transaction interface {
 	Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error)
 }
 
+func NewTransactionWithStatements(tx *sql.Tx, statements *Statements) Transaction {
+	return &DefaultTransaction{
+		core:       tx,
+		prepare:    statements != nil,
+		statements: statements,
+	}
+}
+
+func NewTransaction(tx *sql.Tx) Transaction {
+	return &DefaultTransaction{
+		core:       tx,
+		prepare:    false,
+		statements: nil,
+	}
+}
+
 type DefaultTransaction struct {
 	core       *sql.Tx
 	prepare    bool
