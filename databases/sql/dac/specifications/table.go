@@ -38,3 +38,7 @@ func AsTable(e any) (t Table, err error) {
 	}
 	return
 }
+
+type Sequence interface {
+	SequenceInfo() (schema string, name string)
+}
