@@ -5,6 +5,9 @@ import (
 	"github.com/aacfactory/fns/cmd/generates/modules"
 )
 
-func FAG() modules.FnAnnotationCodeWriter {
-	return &generators.TransactionWriter{}
+func FAG() []modules.FnAnnotationCodeWriter {
+	return []modules.FnAnnotationCodeWriter{
+		&generators.UseWriter{},
+		&generators.TransactionWriter{},
+	}
 }
