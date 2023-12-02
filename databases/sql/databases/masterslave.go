@@ -16,21 +16,25 @@ func MasterSlave() Database {
 }
 
 type masterSlaveConfig struct {
-	Driver      string        `json:"driver"`
-	Master      string        `json:"master"`
-	Slavers     []string      `json:"slavers"`
-	MaxIdles    int           `json:"maxIdles"`
-	MaxOpens    int           `json:"maxOpens"`
-	MaxIdleTime time.Duration `json:"maxIdleTime"`
-	MaxLifetime time.Duration `json:"maxLifetime"`
+	Driver      string           `json:"driver"`
+	Master      string           `json:"master"`
+	Slavers     []string         `json:"slavers"`
+	MaxIdles    int              `json:"maxIdles"`
+	MaxOpens    int              `json:"maxOpens"`
+	MaxIdleTime time.Duration    `json:"maxIdleTime"`
+	MaxLifetime time.Duration    `json:"maxLifetime"`
+	Statements  StatementsConfig `json:"statements"`
 }
 
 type masterSlave struct {
-	log        logs.Logger
-	master     *sql.DB
-	slavers    []*sql.DB
-	slaversLen uint32
-	pos        uint32
+	log               logs.Logger
+	master            *sql.DB
+	slavers           []*sql.DB
+	slaversLen        uint32
+	pos               uint32
+	prepare           bool
+	masterStatements  *Statements
+	slaversStatements []*Statements
 }
 
 func (db *masterSlave) Name() string {
@@ -105,6 +109,30 @@ func (db *masterSlave) Construct(options Options) (err error) {
 		err = errors.Warning("sql: master-slave database construct failed").WithCause(fmt.Errorf("no slavers"))
 		return
 	}
+	if config.Statements.Enable {
+		cacheSize := config.Statements.CacheSize
+		if cacheSize < 1 {
+			cacheSize = 1024
+		}
+		evictTimeoutSeconds := config.Statements.EvictTimeoutSeconds
+		if evictTimeoutSeconds < 1 {
+			evictTimeoutSeconds = 10
+		}
+		db.masterStatements, err = NewStatements(db.log, db.master, cacheSize, time.Duration(evictTimeoutSeconds)*time.Second)
+		if err != nil {
+			err = errors.Warning("sql: master-slave database construct failed").WithCause(err)
+			return
+		}
+		for _, slaver := range db.slavers {
+			slaverStatements, stmtsErr := NewStatements(db.log, slaver, cacheSize, time.Duration(evictTimeoutSeconds)*time.Second)
+			if stmtsErr != nil {
+				err = errors.Warning("sql: master-slave database construct failed").WithCause(stmtsErr)
+				return
+			}
+			db.slaversStatements = append(db.slaversStatements, slaverStatements)
+		}
+		db.prepare = true
+	}
 	return
 }
 
@@ -118,18 +146,37 @@ func (db *masterSlave) Begin(ctx context.Context, options TransactionOptions) (t
 		return
 	}
 	tx = &DefaultTransaction{
-		core: core,
+		core:       core,
+		prepare:    db.prepare,
+		statements: db.masterStatements,
 	}
 	return
 }
 
 func (db *masterSlave) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
-	pos := atomic.AddUint32(&db.pos, 1)
-	slaver := db.slavers[pos%db.slaversLen]
-	r, queryErr := slaver.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if queryErr != nil {
-		err = queryErr
-		return
+	pos := atomic.AddUint32(&db.pos, 1) % db.slaversLen
+	var r *sql.Rows
+	if db.prepare {
+		stmts := db.slaversStatements[pos]
+		stmt, prepareErr := stmts.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.QueryContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				rows, err = db.Query(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		slaver := db.slavers[pos]
+		r, err = slaver.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	rows = &DefaultRows{
 		core: r,
@@ -138,21 +185,39 @@ func (db *masterSlave) Query(ctx context.Context, query []byte, args []interface
 }
 
 func (db *masterSlave) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
-	r, execErr := db.master.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if execErr != nil {
-		err = execErr
-		return
-	}
-	lastInsertId, lastInsertIdErr := r.LastInsertId()
-	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
+	var r sql.Result
+	if db.prepare {
+		stmt, prepareErr := db.masterStatements.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.ExecContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				result, err = db.Execute(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = db.master.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	rowsAffected, rowsAffectedErr := r.RowsAffected()
 	if rowsAffectedErr != nil {
 		err = rowsAffectedErr
 		return
 	}
+
+	lastInsertId, lastInsertIdErr := r.LastInsertId()
+	if lastInsertIdErr != nil {
+		err = lastInsertIdErr
+		return
+	}
+
 	result = Result{
 		LastInsertId: lastInsertId,
 		RowsAffected: rowsAffected,
@@ -162,6 +227,13 @@ func (db *masterSlave) Execute(ctx context.Context, query []byte, args []interfa
 
 func (db *masterSlave) Close(_ context.Context) (err error) {
 	errs := errors.MakeErrors()
+	if db.prepare {
+		db.masterStatements.Close()
+		for _, statement := range db.slaversStatements {
+			statement.Close()
+		}
+	}
+
 	if closeErr := db.master.Close(); closeErr != nil {
 		errs.Append(closeErr)
 	}

@@ -14,17 +14,20 @@ func Standalone() Database {
 }
 
 type standaloneConfig struct {
-	Driver      string        `json:"driver"`
-	DSN         string        `json:"dsn"`
-	MaxIdles    int           `json:"maxIdles"`
-	MaxOpens    int           `json:"maxOpens"`
-	MaxIdleTime time.Duration `json:"maxIdleTime"`
-	MaxLifetime time.Duration `json:"maxLifetime"`
+	Driver      string           `json:"driver"`
+	DSN         string           `json:"dsn"`
+	MaxIdles    int              `json:"maxIdles"`
+	MaxOpens    int              `json:"maxOpens"`
+	MaxIdleTime time.Duration    `json:"maxIdleTime"`
+	MaxLifetime time.Duration    `json:"maxLifetime"`
+	Statements  StatementsConfig `json:"statements"`
 }
 
 type standalone struct {
-	log  logs.Logger
-	core *sql.DB
+	log        logs.Logger
+	core       *sql.DB
+	prepare    bool
+	statements *Statements
 }
 
 func (db *standalone) Name() string {
@@ -65,6 +68,22 @@ func (db *standalone) Construct(options Options) (err error) {
 		err = errors.Warning("sql: standalone database construct failed").WithCause(err)
 		return
 	}
+	if config.Statements.Enable {
+		cacheSize := config.Statements.CacheSize
+		if cacheSize < 1 {
+			cacheSize = 1024
+		}
+		evictTimeoutSeconds := config.Statements.EvictTimeoutSeconds
+		if evictTimeoutSeconds < 1 {
+			evictTimeoutSeconds = 10
+		}
+		db.statements, err = NewStatements(db.log, db.core, cacheSize, time.Duration(evictTimeoutSeconds)*time.Second)
+		if err != nil {
+			err = errors.Warning("sql: standalone database construct failed").WithCause(err)
+			return
+		}
+		db.prepare = true
+	}
 	return
 }
 
@@ -78,17 +97,36 @@ func (db *standalone) Begin(ctx context.Context, options TransactionOptions) (tx
 		return
 	}
 	tx = &DefaultTransaction{
-		core: core,
+		core:       core,
+		prepare:    db.prepare,
+		statements: db.statements,
 	}
 	return
 }
 
 func (db *standalone) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
-	r, queryErr := db.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if queryErr != nil {
-		err = queryErr
-		return
+	var r *sql.Rows
+	if db.prepare {
+		stmt, prepareErr := db.statements.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.QueryContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				rows, err = db.Query(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = db.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
+
 	rows = &DefaultRows{
 		core: r,
 	}
@@ -96,10 +134,26 @@ func (db *standalone) Query(ctx context.Context, query []byte, args []interface{
 }
 
 func (db *standalone) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
-	r, execErr := db.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if execErr != nil {
-		err = execErr
-		return
+	var r sql.Result
+	if db.prepare {
+		stmt, prepareErr := db.statements.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.ExecContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				result, err = db.Execute(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = db.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	lastInsertId, lastInsertIdErr := r.LastInsertId()
 	if lastInsertIdErr != nil {
@@ -119,6 +173,9 @@ func (db *standalone) Execute(ctx context.Context, query []byte, args []interfac
 }
 
 func (db *standalone) Close(_ context.Context) (err error) {
+	if db.prepare {
+		db.statements.Close()
+	}
 	err = db.core.Close()
 	return
 }

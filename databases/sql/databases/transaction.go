@@ -3,6 +3,7 @@ package databases
 import (
 	"context"
 	"database/sql"
+	"github.com/aacfactory/errors"
 	"unsafe"
 )
 
@@ -21,7 +22,9 @@ type Transaction interface {
 }
 
 type DefaultTransaction struct {
-	core *sql.Tx
+	core       *sql.Tx
+	prepare    bool
+	statements *Statements
 }
 
 func (tx *DefaultTransaction) Commit() error {
@@ -33,10 +36,26 @@ func (tx *DefaultTransaction) Rollback() error {
 }
 
 func (tx *DefaultTransaction) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
-	r, queryErr := tx.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if queryErr != nil {
-		err = queryErr
-		return
+	var r *sql.Rows
+	if tx.prepare {
+		stmt, prepareErr := tx.statements.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.QueryContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				rows, err = tx.Query(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = tx.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	rows = &DefaultRows{
 		core: r,
@@ -45,19 +64,35 @@ func (tx *DefaultTransaction) Query(ctx context.Context, query []byte, args []in
 }
 
 func (tx *DefaultTransaction) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
-	r, execErr := tx.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if execErr != nil {
-		err = execErr
+	var r sql.Result
+	if tx.prepare {
+		stmt, prepareErr := tx.statements.Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.ExecContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				result, err = tx.Execute(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = tx.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
+	}
+	rowsAffected, rowsAffectedErr := r.RowsAffected()
+	if rowsAffectedErr != nil {
+		err = rowsAffectedErr
 		return
 	}
 	lastInsertId, lastInsertIdErr := r.LastInsertId()
 	if lastInsertIdErr != nil {
 		err = lastInsertIdErr
-		return
-	}
-	rowsAffected, rowsAffectedErr := r.RowsAffected()
-	if rowsAffectedErr != nil {
-		err = rowsAffectedErr
 		return
 	}
 	result = Result{

@@ -16,19 +16,22 @@ func Cluster() Database {
 }
 
 type clusterConfig struct {
-	Driver      string        `json:"driver"`
-	DSN         []string      `json:"dsn"`
-	MaxIdles    int           `json:"maxIdles"`
-	MaxOpens    int           `json:"maxOpens"`
-	MaxIdleTime time.Duration `json:"maxIdleTime"`
-	MaxLifetime time.Duration `json:"maxLifetime"`
+	Driver      string           `json:"driver"`
+	DSN         []string         `json:"dsn"`
+	MaxIdles    int              `json:"maxIdles"`
+	MaxOpens    int              `json:"maxOpens"`
+	MaxIdleTime time.Duration    `json:"maxIdleTime"`
+	MaxLifetime time.Duration    `json:"maxLifetime"`
+	Statements  StatementsConfig `json:"statements"`
 }
 
 type cluster struct {
-	log      logs.Logger
-	nodes    []*sql.DB
-	nodesLen uint32
-	pos      uint32
+	log        logs.Logger
+	nodes      []*sql.DB
+	nodesLen   uint32
+	pos        uint32
+	prepare    bool
+	statements []*Statements
 }
 
 func (db *cluster) Name() string {
@@ -78,17 +81,31 @@ func (db *cluster) Construct(options Options) (err error) {
 		err = errors.Warning("sql: cluster database construct failed").WithCause(fmt.Errorf("no slavers"))
 		return
 	}
-	return
-}
-
-func (db *cluster) next() (node *sql.DB) {
-	pos := atomic.AddUint32(&db.pos, 1)
-	node = db.nodes[pos%db.nodesLen]
+	if config.Statements.Enable {
+		cacheSize := config.Statements.CacheSize
+		if cacheSize < 1 {
+			cacheSize = 1024
+		}
+		evictTimeoutSeconds := config.Statements.EvictTimeoutSeconds
+		if evictTimeoutSeconds < 1 {
+			evictTimeoutSeconds = 10
+		}
+		for _, node := range db.nodes {
+			statements, stmtsErr := NewStatements(db.log, node, cacheSize, time.Duration(evictTimeoutSeconds)*time.Second)
+			if stmtsErr != nil {
+				err = errors.Warning("sql: cluster database construct failed").WithCause(stmtsErr)
+				return
+			}
+			db.statements = append(db.statements, statements)
+		}
+		db.prepare = true
+	}
 	return
 }
 
 func (db *cluster) Begin(ctx context.Context, options TransactionOptions) (tx Transaction, err error) {
-	core, begErr := db.next().BeginTx(ctx, &sql.TxOptions{
+	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
+	core, begErr := db.nodes[pos].BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.IsolationLevel(options.Isolation),
 		ReadOnly:  options.Readonly,
 	})
@@ -96,17 +113,42 @@ func (db *cluster) Begin(ctx context.Context, options TransactionOptions) (tx Tr
 		err = begErr
 		return
 	}
-	tx = &DefaultTransaction{
-		core: core,
+	if db.prepare {
+		tx = &DefaultTransaction{
+			core:       core,
+			prepare:    true,
+			statements: db.statements[pos],
+		}
+	} else {
+		tx = &DefaultTransaction{
+			core: core,
+		}
 	}
 	return
 }
 
 func (db *cluster) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
-	r, queryErr := db.next().QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if queryErr != nil {
-		err = queryErr
-		return
+	var r *sql.Rows
+	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
+	if db.prepare {
+		stmt, prepareErr := db.statements[pos].Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.QueryContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				rows, err = db.Query(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = db.nodes[pos].QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	rows = &DefaultRows{
 		core: r,
@@ -115,21 +157,40 @@ func (db *cluster) Query(ctx context.Context, query []byte, args []interface{}) 
 }
 
 func (db *cluster) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
-	r, execErr := db.next().ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
-	if execErr != nil {
-		err = execErr
-		return
-	}
-	lastInsertId, lastInsertIdErr := r.LastInsertId()
-	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
+	var r sql.Result
+	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
+	if db.prepare {
+		stmt, prepareErr := db.statements[pos].Get(query)
+		if prepareErr != nil {
+			err = prepareErr
+			return
+		}
+		r, err = stmt.ExecContext(ctx, args...)
+		if err != nil {
+			if errors.Contains(err, ErrStatementClosed) {
+				result, err = db.Execute(ctx, query, args)
+				return
+			}
+			return
+		}
+	} else {
+		r, err = db.nodes[pos].ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		if err != nil {
+			return
+		}
 	}
 	rowsAffected, rowsAffectedErr := r.RowsAffected()
 	if rowsAffectedErr != nil {
 		err = rowsAffectedErr
 		return
 	}
+
+	lastInsertId, lastInsertIdErr := r.LastInsertId()
+	if lastInsertIdErr != nil {
+		err = lastInsertIdErr
+		return
+	}
+
 	result = Result{
 		LastInsertId: lastInsertId,
 		RowsAffected: rowsAffected,
@@ -138,9 +199,14 @@ func (db *cluster) Execute(ctx context.Context, query []byte, args []interface{}
 }
 
 func (db *cluster) Close(_ context.Context) (err error) {
+	if db.prepare {
+		for _, statements := range db.statements {
+			statements.Close()
+		}
+	}
 	errs := errors.MakeErrors()
-	for _, slaver := range db.nodes {
-		if closeErr := slaver.Close(); closeErr != nil {
+	for _, node := range db.nodes {
+		if closeErr := node.Close(); closeErr != nil {
 			errs.Append(closeErr)
 		}
 	}
