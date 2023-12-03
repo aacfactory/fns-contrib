@@ -6,7 +6,6 @@ import (
 	"github.com/aacfactory/json"
 	"reflect"
 	"time"
-	"unsafe"
 )
 
 var (
@@ -34,10 +33,4 @@ var (
 
 func Instance[T any]() (v T) {
 	return
-}
-
-type FieldName []byte
-
-func (name FieldName) String() string {
-	return unsafe.String(unsafe.SliceData(name), len(name))
 }

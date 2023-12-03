@@ -29,7 +29,9 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 			fv := rv.FieldByName(target.Field)
 			if fv.Type().Kind() == reflect.Ptr {
 				if fv.IsNil() {
-					fv = reflect.New(reflect.TypeOf(target.ZeroValue()))
+					//fv = reflect.New(reflect.TypeOf(target.ZeroValue()))
+					arguments = append(arguments, nil)
+					break
 				}
 				fv = fv.Elem()
 			}
@@ -47,6 +49,13 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 			arguments = append(arguments, argument)
 		case Json:
 			fv := rv.FieldByName(target.Field)
+			if fv.Type().Kind() == reflect.Ptr {
+				if fv.IsNil() {
+					arguments = append(arguments, nil)
+					break
+				}
+				fv = fv.Elem()
+			}
 			argument, argumentErr := json.Marshal(fv.Interface())
 			if argumentErr != nil {
 				err = errors.Warning("sql: encode field value failed").WithCause(argumentErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
@@ -80,14 +89,17 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 		argument = fv.Interface()
 		break
 	case Reference:
-		fv := rv.FieldByName(target.Field)
-		if fv.Type().Kind() == reflect.Ptr {
-			fv = fv.Elem()
-		}
 		_, refField, mapping, ok := target.Reference()
 		if !ok {
 			err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
+		}
+		fv := rv.FieldByName(target.Field)
+		if fv.Type().Kind() == reflect.Ptr {
+			if fv.IsNil() {
+				fv.Set(reflect.New(fv.Type()).Elem())
+			}
+			fv = fv.Elem()
 		}
 		ref := fv.Interface()
 		argument, err = mapping.ArgumentByField(ref, refField)
