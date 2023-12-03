@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/singleflight"
 	"reflect"
 	"sync"
@@ -144,6 +145,30 @@ func (spec *Specification) AuditVersion() (v *Column, has bool) {
 		}
 	}
 	has = v != nil
+	return
+}
+
+func (spec *Specification) String() (s string) {
+	buf := bytebufferpool.Get()
+	defer bytebufferpool.Put(buf)
+	_, _ = buf.WriteString(fmt.Sprintf("Specification: %s\n", spec.Key))
+	_, _ = buf.WriteString(fmt.Sprintf("  schema: %s\n", spec.Schema))
+	_, _ = buf.WriteString(fmt.Sprintf("  name: %s\n", spec.Name))
+	_, _ = buf.WriteString(fmt.Sprintf("  view: %v\n", spec.View))
+	_, _ = buf.WriteString(fmt.Sprintf("  columns: %v\n", len(spec.Columns)))
+	for _, column := range spec.Columns {
+		_, _ = buf.WriteString(fmt.Sprintf("    %s\n", column.String()))
+	}
+	_, _ = buf.WriteString(fmt.Sprintf("  conflicts: %+v\n", spec.Conflicts))
+	_, _ = buf.WriteString(fmt.Sprintf("  cascades[%v]: ", len(spec.DeleteCascades)))
+	for i, cascade := range spec.DeleteCascades {
+		if i > 0 {
+			_, _ = buf.WriteString(", ")
+		}
+		_, _ = buf.WriteString(fmt.Sprintf("%s", cascade.Field))
+	}
+	_, _ = buf.WriteString("\n")
+	s = buf.String()
 	return
 }
 
