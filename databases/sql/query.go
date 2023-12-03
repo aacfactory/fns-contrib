@@ -113,7 +113,11 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 				err = errors.Warning("sql: query failed").WithCause(queryErr)
 				return
 			}
-			v = rows
+			v, err = NewRows(rows)
+			if err != nil {
+				err = errors.Warning("sql: query failed").WithCause(err)
+				return
+			}
 			return
 		}
 	}

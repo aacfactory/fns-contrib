@@ -64,13 +64,13 @@ func (tx *DefaultTransaction) Query(ctx context.Context, query []byte, args []in
 			return
 		}
 		st = tx.core.Stmt(st)
-		r, err = st.QueryContext(ctx, args...)
+		r, err = st.Query(args...)
 		release()
 		if err != nil {
 			return
 		}
 	} else {
-		r, err = tx.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = tx.core.Query(unsafe.String(unsafe.SliceData(query), len(query)), args...)
 		if err != nil {
 			return
 		}
@@ -95,13 +95,13 @@ func (tx *DefaultTransaction) Execute(ctx context.Context, query []byte, args []
 			return
 		}
 		st = tx.core.Stmt(st)
-		r, err = st.ExecContext(ctx, args...)
+		r, err = st.Exec(args...)
 		release()
 		if err != nil {
 			return
 		}
 	} else {
-		r, err = tx.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = tx.core.Exec(unsafe.String(unsafe.SliceData(query), len(query)), args...)
 		if err != nil {
 			return
 		}

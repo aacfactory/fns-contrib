@@ -110,12 +110,16 @@ func Begin(ctx context.Context, options ...databases.TransactionOption) (err err
 		EndpointId: address.EndpointId,
 		Origin:     unsafe.String(unsafe.SliceData(pid), len(pid)),
 	})
+	if address.tx != nil {
+		withTransaction(ctx, address.tx)
+	}
 	return
 }
 
 type transactionAddress struct {
 	Id         string `json:"id"`
 	EndpointId string `json:"endpointId"`
+	tx         *transactions.Transaction
 }
 
 var (
@@ -158,10 +162,10 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 			err = errors.Warning("sql: begin transaction failed").WithCause(acquireErr)
 			return
 		}
-		withTransaction(r, tx)
 		v = transactionAddress{
 			Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
 			EndpointId: fn.endpointId,
+			tx:         tx,
 		}
 		return
 	}
@@ -186,10 +190,10 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("maybe duplicate begon"))
 		return
 	}
-	withTransaction(r, tx)
 	v = transactionAddress{
 		Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
 		EndpointId: fn.endpointId,
+		tx:         tx,
 	}
 	return
 }
@@ -234,7 +238,7 @@ func Commit(ctx context.Context) (err error) {
 		return
 	}
 	log := logs.Load(ctx)
-	if log.DebugEnabled() {
+	if log != nil && log.DebugEnabled() {
 		if committed {
 			log.Debug().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: transaction committed"))
 		} else {
@@ -319,13 +323,13 @@ func Rollback(ctx context.Context) {
 	// load info
 	info, has, loadErr := loadTransactionInfo(ctx)
 	if loadErr != nil {
-		if log.DebugEnabled() {
+		if log != nil && log.DebugEnabled() {
 			log.Debug().With("transaction", "rollback").Cause(loadErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
 		}
 		return
 	}
 	if !has {
-		if log.DebugEnabled() {
+		if log != nil && log.DebugEnabled() {
 			log.Debug().With("transaction", "rollback").Cause(errors.Warning("sql: no transaction")).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
 		}
 		return
@@ -337,7 +341,7 @@ func Rollback(ctx context.Context) {
 	}
 	_, handleErr := eps.Request(ctx, ep, transactionRollbackFnName, nil, services.WithEndpointId(bytex.FromString(info.EndpointId)))
 	if handleErr != nil {
-		if log.DebugEnabled() {
+		if log != nil && log.DebugEnabled() {
 			log.Debug().With("transaction", "rollback").Cause(handleErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
 		}
 		return

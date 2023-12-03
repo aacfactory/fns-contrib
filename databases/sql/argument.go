@@ -12,28 +12,28 @@ import (
 	"time"
 )
 
-type Arguments []interface{}
+type Arguments []any
 
 func (arguments *Arguments) Len() (n int) {
 	n = len(*arguments)
 	return
 }
 
-func (arguments *Arguments) Append(v interface{}) {
+func (arguments *Arguments) Append(v any) {
 	vv := *arguments
 	vv = append(vv, v)
 	*arguments = vv
 	return
 }
 
-func (arguments *Arguments) MarshalJSON() (p []byte, err error) {
+func (arguments Arguments) MarshalJSON() (p []byte, err error) {
 	size := arguments.Len()
 	if size == 0 {
 		p = []byte{'[', ']'}
 		return
 	}
 	vv := make([]Argument, 0, arguments.Len())
-	for _, v := range *arguments {
+	for _, v := range arguments {
 		argument, argumentErr := NewArgument(v)
 		if argumentErr != nil {
 			err = argumentErr
@@ -64,7 +64,7 @@ func (arguments *Arguments) UnmarshalJSON(p []byte) (err error) {
 	return
 }
 
-func NewArgument(v interface{}) (argument Argument, err error) {
+func NewArgument(v any) (argument Argument, err error) {
 	if v == nil {
 		argument.Nil = true
 		return
@@ -268,13 +268,13 @@ func NewArgument(v interface{}) (argument Argument, err error) {
 }
 
 type Argument struct {
-	Nil   bool            `json:"nil"`
-	Type  string          `json:"type"`
-	Value json.RawMessage `json:"value"`
-	Name  string          `json:"name"`
+	Nil   bool   `json:"nil"`
+	Type  string `json:"type"`
+	Value []byte `json:"value"`
+	Name  string `json:"name"`
 }
 
-func (argument *Argument) Interface() (v interface{}, err error) {
+func (argument Argument) Interface() (v any, err error) {
 	if argument.Nil {
 		if argument.Name != "" {
 			v = sql.Named(argument.Name, nil)
