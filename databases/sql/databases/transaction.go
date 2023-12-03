@@ -106,16 +106,18 @@ func (tx *DefaultTransaction) Execute(ctx context.Context, query []byte, args []
 			return
 		}
 	}
+
 	rowsAffected, rowsAffectedErr := r.RowsAffected()
 	if rowsAffectedErr != nil {
 		err = rowsAffectedErr
 		return
 	}
+
 	lastInsertId, lastInsertIdErr := r.LastInsertId()
 	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
+		lastInsertId = -1
 	}
+
 	result = Result{
 		LastInsertId: lastInsertId,
 		RowsAffected: rowsAffected,

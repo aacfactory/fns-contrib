@@ -2,6 +2,7 @@ package sql
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/times"
@@ -45,7 +46,7 @@ var (
 
 type NullJson[E any] struct {
 	Valid bool
-	Value E
+	E     E
 }
 
 func (n *NullJson[E]) UnmarshalJSON(p []byte) error {
@@ -53,13 +54,13 @@ func (n *NullJson[E]) UnmarshalJSON(p []byte) error {
 		n.Valid = false
 		return nil
 	}
-	if reflect.TypeOf(n.Value).Kind() == reflect.Ptr {
-		err := json.Unmarshal(p, n.Value)
+	if reflect.TypeOf(n.E).Kind() == reflect.Ptr {
+		err := json.Unmarshal(p, n.E)
 		if err != nil {
 			return err
 		}
 	} else {
-		err := json.Unmarshal(p, &n.Value)
+		err := json.Unmarshal(p, &n.E)
 		if err != nil {
 			return err
 		}
@@ -70,9 +71,9 @@ func (n *NullJson[E]) UnmarshalJSON(p []byte) error {
 
 func (n NullJson[E]) MarshalJSON() ([]byte, error) {
 	if n.Valid {
-		return json.Marshal(n.Value)
+		return json.Marshal(n.E)
 	}
-	return nil, nil
+	return nullBytes, nil
 }
 
 func (n *NullJson[E]) Scan(src any) error {
@@ -88,6 +89,17 @@ func (n *NullJson[E]) Scan(src any) error {
 		return errors.Warning("sql: null json scan failed").WithCause(err)
 	}
 	return nil
+}
+
+func (n NullJson[E]) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	p, encodeErr := json.Marshal(n.E)
+	if encodeErr != nil {
+		return nil, errors.Warning("sql: null json make driver value failed").WithCause(encodeErr)
+	}
+	return p, nil
 }
 
 type NullBytes struct {
@@ -116,4 +128,18 @@ func (n *NullBytes) Scan(src any) error {
 		return errors.Warning("sql: null bytes scan failed").WithCause(fmt.Errorf("src is not bytes or string"))
 	}
 	return nil
+}
+
+func (n NullBytes) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Bytes, nil
+}
+
+func (n NullBytes) MarshalJSON() ([]byte, error) {
+	if n.Valid {
+		return json.Marshal(n.Bytes)
+	}
+	return nil, nil
 }

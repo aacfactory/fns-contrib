@@ -206,6 +206,7 @@ func (db *masterSlave) Execute(ctx context.Context, query []byte, args []interfa
 			return
 		}
 	}
+
 	rowsAffected, rowsAffectedErr := r.RowsAffected()
 	if rowsAffectedErr != nil {
 		err = rowsAffectedErr
@@ -214,8 +215,7 @@ func (db *masterSlave) Execute(ctx context.Context, query []byte, args []interfa
 
 	lastInsertId, lastInsertIdErr := r.LastInsertId()
 	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
+		lastInsertId = -1
 	}
 
 	result = Result{

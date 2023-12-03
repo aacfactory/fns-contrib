@@ -187,8 +187,7 @@ func (db *cluster) Execute(ctx context.Context, query []byte, args []interface{}
 
 	lastInsertId, lastInsertIdErr := r.LastInsertId()
 	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
+		lastInsertId = -1
 	}
 
 	result = Result{

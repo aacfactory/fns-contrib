@@ -155,16 +155,18 @@ func (db *standalone) Execute(ctx context.Context, query []byte, args []interfac
 			return
 		}
 	}
-	lastInsertId, lastInsertIdErr := r.LastInsertId()
-	if lastInsertIdErr != nil {
-		err = lastInsertIdErr
-		return
-	}
+
 	rowsAffected, rowsAffectedErr := r.RowsAffected()
 	if rowsAffectedErr != nil {
 		err = rowsAffectedErr
 		return
 	}
+
+	lastInsertId, lastInsertIdErr := r.LastInsertId()
+	if lastInsertIdErr != nil {
+		lastInsertId = -1
+	}
+
 	result = Result{
 		LastInsertId: lastInsertId,
 		RowsAffected: rowsAffected,
