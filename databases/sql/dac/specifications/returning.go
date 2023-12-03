@@ -9,8 +9,8 @@ import (
 	"reflect"
 )
 
-func WriteInsertReturning[T Table](ctx context.Context, rows sql.Rows, returning []int, entries []T) (affected int64, err error) {
-	spec, specErr := GetSpecification(ctx, TableInstance[T]())
+func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning []int, entries []T) (affected int64, err error) {
+	spec, specErr := GetSpecification(ctx, Instance[T]())
 	if specErr != nil {
 		err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
 		return

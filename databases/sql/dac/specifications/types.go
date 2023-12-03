@@ -30,3 +30,7 @@ var (
 	jsonMarshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 	scannerType       = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 )
+
+func Instance[T any]() (v T) {
+	return
+}

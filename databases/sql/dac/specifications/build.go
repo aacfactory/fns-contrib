@@ -13,16 +13,20 @@ import (
 	"time"
 )
 
-func BuildInsert[T Table](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []int, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -90,16 +94,20 @@ func BuildInsert[T Table](ctx context.Context, entries ...T) (method Method, que
 	return
 }
 
-func BuildInsertOrUpdate[T Table](ctx context.Context, entry T) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, returning []int, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -157,16 +165,20 @@ func BuildInsertOrUpdate[T Table](ctx context.Context, entry T) (method Method, 
 	return
 }
 
-func BuildInsertWhenExist[T Table](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -229,16 +241,20 @@ func BuildInsertWhenExist[T Table](ctx context.Context, entry T, src QueryExpr) 
 	return
 }
 
-func BuildInsertWhenNotExist[T Table](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -301,16 +317,20 @@ func BuildInsertWhenNotExist[T Table](ctx context.Context, entry T, src QueryExp
 	return
 }
 
-func BuildUpdate[T Table](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
+func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -368,16 +388,20 @@ func BuildUpdate[T Table](ctx context.Context, entry T) (method Method, query []
 	return
 }
 
-func BuildUpdateFields[T Table](ctx context.Context, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error) {
+func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	// audit
@@ -515,16 +539,20 @@ func BuildUpdateFields[T Table](ctx context.Context, fields []FieldValue, cond C
 	return
 }
 
-func BuildDelete[T Table](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
+func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	var fields []int
@@ -581,7 +609,7 @@ func BuildDelete[T Table](ctx context.Context, entry T) (method Method, query []
 	return
 }
 
-func BuildDeleteAnyByCondition(ctx context.Context, entry Table, cond Condition) (method Method, query []byte, arguments []any, err error) {
+func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -590,6 +618,10 @@ func BuildDeleteAnyByCondition(ctx context.Context, entry Table, cond Condition)
 	spec, specErr := GetSpecification(ctx, entry)
 	if specErr != nil {
 		err = specErr
+		return
+	}
+	if spec.View {
+		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
 	var audits []int
@@ -652,21 +684,21 @@ func BuildDeleteAnyByCondition(ctx context.Context, entry Table, cond Condition)
 	return
 }
 
-func BuildDeleteByCondition[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
-	method, query, arguments, err = BuildDeleteAnyByCondition(ctx, TableInstance[T](), cond)
+func BuildDeleteByCondition[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+	method, query, arguments, err = BuildDeleteAnyByCondition(ctx, Instance[T](), cond)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func BuildCount[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+func BuildCount[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
@@ -679,13 +711,13 @@ func BuildCount[T Table](ctx context.Context, cond Condition) (method Method, qu
 	return
 }
 
-func BuildExist[T Table](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
+func BuildExist[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr
@@ -698,13 +730,13 @@ func BuildExist[T Table](ctx context.Context, cond Condition) (method Method, qu
 	return
 }
 
-func BuildQuery[T Table](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error) {
+func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := TableInstance[T]()
+	t := Instance[T]()
 	spec, specErr := GetSpecification(ctx, t)
 	if specErr != nil {
 		err = specErr

@@ -148,23 +148,17 @@ func (spec *Specification) AuditVersion() (v *Column, has bool) {
 }
 
 var (
-	values = sync.Map{}
-	dict   = NewDict()
-	group  = singleflight.Group{}
+	tables    = sync.Map{}
+	sequences = sync.Map{}
+	dict      = NewDict()
+	group     = singleflight.Group{}
 )
 
-func GetSpecification(ctx context.Context, e any) (spec *Specification, err error) {
-	table, tableErr := AsTable(e)
-	if tableErr != nil {
-		err = tableErr
-		return
-	}
-
+func GetSpecification(ctx context.Context, table any) (spec *Specification, err error) {
 	rt := reflect.TypeOf(table)
-
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 
-	scanned, has := values.Load(key)
+	scanned, has := tables.Load(key)
 	if has {
 		spec, has = scanned.(*Specification)
 		if !has {
@@ -196,7 +190,7 @@ func GetSpecification(ctx context.Context, e any) (spec *Specification, err erro
 		}
 		reflect.ValueOf(current).Elem().Set(reflect.ValueOf(s).Elem())
 		v = current
-		values.Store(key, v)
+		tables.Store(key, v)
 		return
 	})
 	if err != nil {
@@ -208,12 +202,17 @@ func GetSpecification(ctx context.Context, e any) (spec *Specification, err erro
 	return
 }
 
-func ScanTable(ctx context.Context, table Table) (spec *Specification, err error) {
+func ScanTable(ctx context.Context, table any) (spec *Specification, err error) {
 	rv := reflect.Indirect(reflect.ValueOf(table))
 	rt := rv.Type()
-
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
-	info := table.TableInfo()
+	info, infoErr := GetTableInfo(table)
+	if infoErr != nil {
+		err = errors.Warning("sql: scan table failed").
+			WithCause(infoErr).
+			WithMeta("struct", key)
+		return
+	}
 	name := info.name
 	if name == "" {
 		err = errors.Warning("sql: scan table failed").

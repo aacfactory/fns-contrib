@@ -15,7 +15,7 @@ type Context interface {
 	Localization(key any) (content [][]byte, has bool)
 }
 
-func Todo(ctx context.Context, key Table, dialect Dialect) Context {
+func Todo(ctx context.Context, key any, dialect Dialect) Context {
 	return &renderCtx{
 		Context: ctx,
 		dialect: dialect,

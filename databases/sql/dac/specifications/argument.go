@@ -6,8 +6,8 @@ import (
 	"reflect"
 )
 
-func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (arguments []any, err error) {
-	rv := reflect.ValueOf(instance)
+func (spec *Specification) Arguments(instance any, fieldIndexes []int) (arguments []any, err error) {
+	rv := reflect.Indirect(reflect.ValueOf(instance))
 	for _, index := range fieldIndexes {
 		var target *Column
 		for _, column := range spec.Columns {
@@ -38,11 +38,7 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 				err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 				return
 			}
-			ref, isTable := fv.Interface().(Table)
-			if !isTable {
-				err = errors.Warning("sql: type of reference field is not Table").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
-				return
-			}
+			ref := fv.Interface()
 			argument, argumentErr := mapping.ArgumentByField(ref, refField)
 			if argumentErr != nil {
 				err = errors.Warning("sql: get field value failed").WithCause(argumentErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
@@ -65,8 +61,8 @@ func (spec *Specification) Arguments(instance Table, fieldIndexes []int) (argume
 	return
 }
 
-func (spec *Specification) ArgumentByField(instance Table, field string) (argument any, err error) {
-	rv := reflect.ValueOf(instance)
+func (spec *Specification) ArgumentByField(instance any, field string) (argument any, err error) {
+	rv := reflect.Indirect(reflect.ValueOf(instance))
 	var target *Column
 	for _, column := range spec.Columns {
 		if column.Field == field {
@@ -93,11 +89,7 @@ func (spec *Specification) ArgumentByField(instance Table, field string) (argume
 			err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
 		}
-		ref, isTable := fv.Interface().(Table)
-		if !isTable {
-			err = errors.Warning("sql: type of reference field is not Table").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
-			return
-		}
+		ref := fv.Interface()
 		argument, err = mapping.ArgumentByField(ref, refField)
 		if err != nil {
 			err = errors.Warning("sql: get field value failed").WithCause(err).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)

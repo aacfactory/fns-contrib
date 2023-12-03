@@ -9,7 +9,7 @@ import (
 )
 
 func Exist[T Table](ctx context.Context, cond conditions.Condition) (has bool, err error) {
-	_, query, arguments, buildErr := specifications.BuildCount[T](ctx, specifications.Condition{Condition: cond})
+	_, query, arguments, buildErr := specifications.BuildExist[T](ctx, specifications.Condition{Condition: cond})
 	if buildErr != nil {
 		err = errors.Warning("sql: exist failed").WithCause(buildErr)
 		return

@@ -1,7 +1,6 @@
 package dac
 
 import (
-	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"strings"
 )
 
@@ -39,16 +38,44 @@ func Conflicts(conflicts ...string) TableInfoOption {
 	}
 }
 
-func TableInfo(name string, options ...TableInfoOption) specifications.TableInfo {
+func Info(name string, options ...TableInfoOption) TableInfo {
 	opt := TableInfoOptions{}
 	for _, option := range options {
 		option(&opt)
 	}
-	return specifications.NewTableInfo(opt.schema, strings.TrimSpace(name), opt.view, opt.conflicts)
+	return TableInfo{
+		name:      strings.TrimSpace(name),
+		schema:    opt.schema,
+		view:      opt.view,
+		conflicts: opt.conflicts,
+	}
+}
+
+type TableInfo struct {
+	name      string
+	schema    string
+	view      bool
+	conflicts []string
+}
+
+func (info TableInfo) Schema() string {
+	return info.schema
+}
+
+func (info TableInfo) Name() string {
+	return info.name
+}
+
+func (info TableInfo) View() bool {
+	return info.view
+}
+
+func (info TableInfo) Conflicts() []string {
+	return info.conflicts
 }
 
 // Table
 // the recv of TableInfo method must be value, can not be ptr
 type Table interface {
-	specifications.Table
+	TableInfo() TableInfo
 }

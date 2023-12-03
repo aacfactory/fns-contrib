@@ -104,7 +104,7 @@ func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err err
 }
 
 func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) (affected int64, err error) {
-	spec, specErr := specifications.GetSpecification(ctx, specifications.TableInstance[T]())
+	spec, specErr := specifications.GetSpecification(ctx, specifications.Instance[T]())
 	if specErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(specErr)
 		return

@@ -9,8 +9,8 @@ import (
 	"strconv"
 )
 
-func ScanRows[T Table](ctx context.Context, rows sql.Rows, columns []int) (entries []T, err error) {
-	spec, specErr := GetSpecification(ctx, TableInstance[T]())
+func ScanRows[T any](ctx context.Context, rows sql.Rows, columns []int) (entries []T, err error) {
+	spec, specErr := GetSpecification(ctx, Instance[T]())
 	if specErr != nil {
 		err = specErr
 		return
@@ -35,7 +35,7 @@ func ScanRows[T Table](ctx context.Context, rows sql.Rows, columns []int) (entri
 			err = scanErr
 			return
 		}
-		entry := TableInstance[T]()
+		entry := Instance[T]()
 		rv := reflect.Indirect(reflect.ValueOf(&entry))
 		for i, field := range fields {
 			fieldIdx := columns[i]
