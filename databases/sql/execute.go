@@ -7,8 +7,11 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/context"
+	fLog "github.com/aacfactory/fns/logs"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/logs"
+	"time"
 )
 
 var (
@@ -18,7 +21,21 @@ var (
 func Execute(ctx context.Context, query []byte, arguments ...interface{}) (result databases.Result, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
+		var log logs.Logger
+		debug := debugLogEnabled(ctx)
+		handleBegin := time.Time{}
+		if debug {
+			log = fLog.Load(ctx)
+			if log.DebugEnabled() {
+				handleBegin = time.Now()
+			}
+		}
 		result, err = tx.Execute(ctx, query, arguments)
+		if debug && log.DebugEnabled() {
+			latency := time.Now().Sub(handleBegin)
+			log.Debug().With("succeed", err == nil).With("latency", latency.String()).With("transaction", tx.Id).
+				Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", arguments)))
+		}
 		if err != nil {
 			err = errors.Warning("sql: execute failed").WithCause(err)
 			return
@@ -62,6 +79,8 @@ type executeParam struct {
 }
 
 type executeFn struct {
+	debug bool
+	log   logs.Logger
 	db    databases.Database
 	group *transactions.Group
 }
@@ -97,7 +116,17 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 	if has {
 		tx, hasTx := fn.group.Get(bytex.FromString(info.Id))
 		if hasTx && !tx.Closed() {
+			handleBegin := time.Time{}
+			if fn.debug && fn.log.DebugEnabled() {
+				useDebugLog(r)
+				handleBegin = time.Now()
+			}
 			result, executeErr := tx.Execute(r, query, param.Arguments)
+			if fn.debug && fn.log.DebugEnabled() {
+				latency := time.Now().Sub(handleBegin)
+				fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).With("transaction", info.Id).
+					Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+			}
 			if executeErr != nil {
 				err = errors.Warning("sql: execute failed").WithCause(executeErr)
 				return
@@ -106,7 +135,17 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 			return
 		}
 	}
+	handleBegin := time.Time{}
+	if fn.debug && fn.log.DebugEnabled() {
+		useDebugLog(r)
+		handleBegin = time.Now()
+	}
 	result, executeErr := fn.db.Execute(r, query, param.Arguments)
+	if fn.debug && fn.log.DebugEnabled() {
+		latency := time.Now().Sub(handleBegin)
+		fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).
+			Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+	}
 	if executeErr != nil {
 		err = errors.Warning("sql: execute failed").WithCause(executeErr)
 		return

@@ -8,12 +8,15 @@ import (
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/fns/context"
+	fLog "github.com/aacfactory/fns/logs"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/json"
+	"github.com/aacfactory/logs"
 	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/singleflight"
 	"strconv"
+	"time"
 )
 
 var (
@@ -23,7 +26,21 @@ var (
 func Query(ctx context.Context, query []byte, arguments ...interface{}) (v Rows, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
+		var log logs.Logger
+		debug := debugLogEnabled(ctx)
+		handleBegin := time.Time{}
+		if debug {
+			log = fLog.Load(ctx)
+			if log.DebugEnabled() {
+				handleBegin = time.Now()
+			}
+		}
 		rows, queryErr := tx.Query(ctx, query, arguments)
+		if debug && log.DebugEnabled() {
+			latency := time.Now().Sub(handleBegin)
+			log.Debug().With("succeed", queryErr == nil).With("latency", latency.String()).With("transaction", tx.Id).
+				Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", arguments)))
+		}
 		if queryErr != nil {
 			err = errors.Warning("sql: query failed").WithCause(queryErr)
 			return
@@ -72,6 +89,8 @@ type queryParam struct {
 }
 
 type queryFn struct {
+	debug   bool
+	log     logs.Logger
 	db      databases.Database
 	group   *transactions.Group
 	barrier singleflight.Group
@@ -108,7 +127,17 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 	if has {
 		tx, hasTx := fn.group.Get(bytex.FromString(info.Id))
 		if hasTx && !tx.Closed() {
+			handleBegin := time.Time{}
+			if fn.debug && fn.log.DebugEnabled() {
+				useDebugLog(r)
+				handleBegin = time.Now()
+			}
 			rows, queryErr := tx.Query(r, query, param.Arguments)
+			if fn.debug && fn.log.DebugEnabled() {
+				latency := time.Now().Sub(handleBegin)
+				fn.log.Debug().With("succeed", queryErr == nil).With("latency", latency.String()).With("transaction", info.Id).
+					Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+			}
 			if queryErr != nil {
 				err = errors.Warning("sql: query failed").WithCause(queryErr)
 				return
@@ -140,6 +169,11 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 	_, _ = buf.Write(ap)
 	key := strconv.FormatUint(mmhash.Sum64(buf.Bytes()), 16)
 	bytebufferpool.Put(buf)
+	handleBegin := time.Time{}
+	if fn.debug && fn.log.DebugEnabled() {
+		useDebugLog(r)
+		handleBegin = time.Now()
+	}
 	v, err, _ = fn.barrier.Do(key, func() (v interface{}, err error) {
 		rows, queryErr := fn.db.Query(r, query, param.Arguments)
 		if queryErr != nil {
@@ -154,5 +188,10 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 		return
 	})
 	fn.barrier.Forget(key)
+	if fn.debug && fn.log.DebugEnabled() {
+		latency := time.Now().Sub(handleBegin)
+		fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
+			Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+	}
 	return
 }

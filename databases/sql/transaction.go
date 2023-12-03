@@ -113,6 +113,9 @@ func Begin(ctx context.Context, options ...databases.TransactionOption) (err err
 	if address.tx != nil {
 		withTransaction(ctx, address.tx)
 	}
+	if address.debug {
+		useDebugLog(ctx)
+	}
 	return
 }
 
@@ -120,6 +123,7 @@ type transactionAddress struct {
 	Id         string `json:"id"`
 	EndpointId string `json:"endpointId"`
 	tx         *transactions.Transaction
+	debug      bool
 }
 
 var (
@@ -132,6 +136,7 @@ type transactionBeginParam struct {
 }
 
 type transactionBeginFn struct {
+	debug      bool
 	endpointId string
 	isolation  databases.Isolation
 	db         databases.Database
@@ -166,6 +171,7 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 			Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
 			EndpointId: fn.endpointId,
 			tx:         tx,
+			debug:      fn.debug,
 		}
 		return
 	}
@@ -194,6 +200,7 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 		Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
 		EndpointId: fn.endpointId,
 		tx:         tx,
+		debug:      fn.debug,
 	}
 	return
 }

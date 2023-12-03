@@ -9,5 +9,6 @@ type Config struct {
 	Kind              string              `json:"kind"`
 	Isolation         databases.Isolation `json:"isolation"`
 	TransactionMaxAge int                 `json:"transactionMaxAge"`
+	DebugLog          bool                `json:"debugLog"`
 	Options           json.RawMessage     `json:"options"`
 }

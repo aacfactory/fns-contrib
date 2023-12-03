@@ -74,6 +74,7 @@ type service struct {
 	group     *transactions.Group
 	isolation databases.Isolation
 	dialect   string
+	debug     bool
 }
 
 func (svc *service) Construct(options services.Options) (err error) {
@@ -154,8 +155,10 @@ func (svc *service) Construct(options services.Options) (err error) {
 			return
 		}
 	}
+	svc.debug = config.DebugLog
 	// fn
 	svc.AddFunction(&transactionBeginFn{
+		debug:      svc.debug,
 		endpointId: svc.Id(),
 		isolation:  svc.isolation,
 		db:         svc.db,
@@ -172,11 +175,15 @@ func (svc *service) Construct(options services.Options) (err error) {
 		group:      svc.group,
 	})
 	svc.AddFunction(&queryFn{
+		debug:   svc.debug,
+		log:     svc.Log().With("fn", "query"),
 		db:      svc.db,
 		group:   svc.group,
 		barrier: singleflight.Group{},
 	})
 	svc.AddFunction(&executeFn{
+		debug: svc.debug,
+		log:   svc.Log().With("fn", "execute"),
 		db:    svc.db,
 		group: svc.group,
 	})
@@ -194,4 +201,20 @@ func Use(ctx context.Context, endpointName []byte) context.Context {
 func used(ctx context.Context) []byte {
 	name, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
 	return name
+}
+
+var (
+	debugContextKey = []byte("@fns:sql:debug:log")
+)
+
+func useDebugLog(ctx context.Context) {
+	ctx.SetLocalValue(debugContextKey, true)
+}
+
+func debugLogEnabled(ctx context.Context) bool {
+	ok, has := context.LocalValue[bool](ctx, debugContextKey)
+	if has {
+		return ok
+	}
+	return false
 }
