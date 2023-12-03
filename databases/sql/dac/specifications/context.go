@@ -1,6 +1,8 @@
 package specifications
 
-import "context"
+import (
+	"context"
+)
 
 type Context interface {
 	context.Context
@@ -21,6 +23,16 @@ func Todo(ctx context.Context, key any, dialect Dialect) Context {
 		dialect: dialect,
 		ph:      dialect.QueryPlaceholder(),
 		key:     key,
+	}
+}
+
+func Fork(ctx Context) Context {
+	rc := ctx.(*renderCtx)
+	return &renderCtx{
+		Context: ctx,
+		dialect: rc.dialect,
+		ph:      rc.dialect.QueryPlaceholder(),
+		key:     rc.key,
 	}
 }
 

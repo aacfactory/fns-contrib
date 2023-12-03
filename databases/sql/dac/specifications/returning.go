@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning []int, entries []T) (affected int64, err error) {
+func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning []string, entries []T) (affected int64, err error) {
 	spec, specErr := GetSpecification(ctx, Instance[T]())
 	if specErr != nil {
 		err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
@@ -18,8 +18,8 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 	rowValues := make([][]any, 0, len(entries))
 	for rows.Next() {
 		items := make([]any, 0, 1)
-		for _, rfi := range returning {
-			column, hasColumn := spec.ColumnByFieldIdx(rfi)
+		for _, rfn := range returning {
+			column, hasColumn := spec.ColumnByField(rfn)
 			if !hasColumn {
 				err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
 				return
@@ -46,13 +46,13 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 			row := rowValues[i]
 			rv := reflect.Indirect(reflect.ValueOf(&entry))
 			for j, item := range row {
-				fieldIdx := returning[j]
-				fv := rv.Field(fieldIdx)
+				fieldName := returning[j]
+				fv := rv.FieldByName(fieldName)
 				switch f := item.(type) {
 				case ScanValue:
 					fsv, valid := f.Value()
 					if valid {
-						column, _ := spec.ColumnByFieldIdx(fieldIdx)
+						column, _ := spec.ColumnByField(fieldName)
 						switch column.Type.Name {
 						case DateType:
 							fv.Set(reflect.ValueOf(fsv))
@@ -96,10 +96,10 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 		}
 		pos := len(returning)
 		tmpConflicts := make([]*Column, 0, len(conflicts))
-		for i, idx := range returning {
+		for i, fieldName := range returning {
 			matched := -1
 			for j, conflict := range conflicts {
-				if conflict.FieldIdx == idx {
+				if conflict.Field == fieldName {
 					matched = j
 					if pos > i {
 						pos = i
@@ -128,19 +128,19 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 				rv := reflect.Indirect(reflect.ValueOf(&entry))
 				matched := 0
 				for j, value := range conflictValues {
-					if reflect.Indirect(rv.Field(conflicts[j].FieldIdx)).Equal(reflect.Indirect(reflect.ValueOf(value))) {
+					if reflect.Indirect(rv.FieldByName(conflicts[j].Field)).Equal(reflect.Indirect(reflect.ValueOf(value))) {
 						matched++
 					}
 				}
 				if matched == len(conflictValues) {
 					for j, item := range items {
-						fieldIdx := returning[j]
-						fv := rv.Field(fieldIdx)
+						fieldName := returning[j]
+						fv := rv.FieldByName(fieldName)
 						switch f := item.(type) {
 						case ScanValue:
 							fsv, valid := f.Value()
 							if valid {
-								column, _ := spec.ColumnByFieldIdx(fieldIdx)
+								column, _ := spec.ColumnByField(fieldName)
 								switch column.Type.Name {
 								case DateType:
 									fv.Set(reflect.ValueOf(fsv))

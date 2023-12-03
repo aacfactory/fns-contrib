@@ -21,6 +21,10 @@ type Specification struct {
 	DeleteCascades []*Column
 }
 
+func (spec *Specification) Instance() (v any) {
+	return reflect.Zero(spec.Type).Interface()
+}
+
 func (spec *Specification) DeleteCascadeColumns() (columns []*Column, has bool) {
 	has = len(spec.DeleteCascades) > 0
 	if has {
@@ -44,17 +48,6 @@ func (spec *Specification) ConflictColumns() (columns []*Column, err error) {
 func (spec *Specification) ColumnByField(fieldName string) (column *Column, has bool) {
 	for _, c := range spec.Columns {
 		if c.Field == fieldName {
-			column = c
-			has = true
-			break
-		}
-	}
-	return
-}
-
-func (spec *Specification) ColumnByFieldIdx(fieldIdx int) (column *Column, has bool) {
-	for _, c := range spec.Columns {
-		if c.FieldIdx == fieldIdx {
 			column = c
 			has = true
 			break

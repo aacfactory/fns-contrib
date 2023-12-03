@@ -56,6 +56,7 @@ type Method int
 type QueryPlaceholder interface {
 	Next() (v []byte)
 	SkipCursor(n int)
+	Current() (v []byte)
 }
 
 type Render interface {
@@ -66,17 +67,17 @@ type Dialect interface {
 	Name() string
 	FormatIdent(ident []byte) []byte
 	QueryPlaceholder() QueryPlaceholder
-	Insert(ctx Context, spec *Specification, values int) (method Method, query []byte, fields []int, returning []int, err error)
-	InsertOrUpdate(ctx Context, spec *Specification) (method Method, query []byte, fields []int, returning []int, err error)
-	InsertWhenExist(ctx Context, spec *Specification, src QueryExpr) (method Method, query []byte, fields []int, arguments []any, returning []int, err error)
-	InsertWhenNotExist(ctx Context, spec *Specification, src QueryExpr) (method Method, query []byte, fields []int, arguments []any, returning []int, err error)
-	Update(ctx Context, spec *Specification) (method Method, query []byte, fields []int, err error)
+	Insert(ctx Context, spec *Specification, values int) (method Method, query []byte, fields []string, returning []string, err error)
+	InsertOrUpdate(ctx Context, spec *Specification) (method Method, query []byte, fields []string, returning []string, err error)
+	InsertWhenExist(ctx Context, spec *Specification, src QueryExpr) (method Method, query []byte, fields []string, arguments []any, returning []string, err error)
+	InsertWhenNotExist(ctx Context, spec *Specification, src QueryExpr) (method Method, query []byte, fields []string, arguments []any, returning []string, err error)
+	Update(ctx Context, spec *Specification) (method Method, query []byte, fields []string, err error)
 	UpdateFields(ctx Context, spec *Specification, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error)
-	Delete(ctx Context, spec *Specification) (method Method, query []byte, fields []int, err error)
-	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, audits []int, arguments []any, err error)
+	Delete(ctx Context, spec *Specification) (method Method, query []byte, fields []string, err error)
+	DeleteByConditions(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, audits []string, arguments []any, err error)
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
-	Query(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error)
+	Query(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error)
 }
 
 var (

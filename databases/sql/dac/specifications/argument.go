@@ -6,12 +6,12 @@ import (
 	"reflect"
 )
 
-func (spec *Specification) Arguments(instance any, fieldIndexes []int) (arguments []any, err error) {
+func (spec *Specification) Arguments(instance any, fieldNames []string) (arguments []any, err error) {
 	rv := reflect.Indirect(reflect.ValueOf(instance))
-	for _, index := range fieldIndexes {
+	for _, fieldName := range fieldNames {
 		var target *Column
 		for _, column := range spec.Columns {
-			if column.FieldIdx == index {
+			if column.Field == fieldName {
 				target = column
 				break
 			}
@@ -22,11 +22,11 @@ func (spec *Specification) Arguments(instance any, fieldIndexes []int) (argument
 		}
 		switch target.Kind {
 		case Normal, Pk, Acb, Act, Amb, Amt, Adb, Adt, Aol:
-			fv := rv.Field(target.FieldIdx)
+			fv := rv.FieldByName(target.Field)
 			arguments = append(arguments, fv.Interface())
 			break
 		case Reference:
-			fv := rv.Field(target.FieldIdx)
+			fv := rv.FieldByName(target.Field)
 			if fv.Type().Kind() == reflect.Ptr {
 				if fv.IsNil() {
 					fv = reflect.New(reflect.TypeOf(target.ZeroValue()))
@@ -46,7 +46,7 @@ func (spec *Specification) Arguments(instance any, fieldIndexes []int) (argument
 			}
 			arguments = append(arguments, argument)
 		case Json:
-			fv := rv.Field(target.FieldIdx)
+			fv := rv.FieldByName(target.Field)
 			argument, argumentErr := json.Marshal(fv.Interface())
 			if argumentErr != nil {
 				err = errors.Warning("sql: encode field value failed").WithCause(argumentErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
@@ -76,11 +76,11 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 	}
 	switch target.Kind {
 	case Normal, Pk, Acb, Act, Amb, Amt, Adb, Adt, Aol:
-		fv := rv.Field(target.FieldIdx)
+		fv := rv.FieldByName(target.Field)
 		argument = fv.Interface()
 		break
 	case Reference:
-		fv := rv.Field(target.FieldIdx)
+		fv := rv.FieldByName(target.Field)
 		if fv.Type().Kind() == reflect.Ptr {
 			fv = fv.Elem()
 		}
@@ -96,7 +96,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 			return
 		}
 	case Json:
-		fv := rv.Field(target.FieldIdx)
+		fv := rv.FieldByName(target.Field)
 		encode, encodeErr := json.Marshal(fv.Interface())
 		if encodeErr != nil {
 			err = errors.Warning("sql: encode field value failed").WithCause(encodeErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)

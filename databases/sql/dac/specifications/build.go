@@ -9,11 +9,10 @@ import (
 	"github.com/aacfactory/fns/services/authorizations"
 	"github.com/aacfactory/json"
 	"reflect"
-	"strconv"
 	"time"
 )
 
-func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -48,7 +47,7 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 			}
 			rv := reflect.ValueOf(&entry)
 			if by != nil {
-				rby := rv.Elem().Field(by.FieldIdx)
+				rby := rv.Elem().FieldByName(by.Field)
 				if rby.IsZero() {
 					if by.Type.Name == StringType {
 						rby.SetString(auth.Id.String())
@@ -58,7 +57,7 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 				}
 			}
 			if at != nil {
-				rat := rv.Elem().Field(at.FieldIdx)
+				rat := rv.Elem().FieldByName(at.Field)
 				if at.Type.Value.ConvertibleTo(datetimeType) {
 					rat.Set(reflect.ValueOf(time.Now()))
 				} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -78,7 +77,7 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 			entries[i] = entry
 		}
 	}
-	var fields []int
+	var fields []string
 	method, query, fields, returning, err = dialect.Insert(Todo(ctx, t, dialect), spec, len(entries))
 	if err != nil {
 		return
@@ -94,7 +93,7 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 	return
 }
 
-func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -128,7 +127,7 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, qu
 		}
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().Field(by.FieldIdx)
+			rby := rv.Elem().FieldByName(by.Field)
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -138,7 +137,7 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, qu
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().Field(at.FieldIdx)
+			rat := rv.Elem().FieldByName(at.Field)
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -156,7 +155,7 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, qu
 			}
 		}
 	}
-	var fields []int
+	var fields []string
 	method, query, fields, returning, err = dialect.InsertOrUpdate(Todo(ctx, t, dialect), spec)
 	if err != nil {
 		return
@@ -165,7 +164,7 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, qu
 	return
 }
 
-func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -199,7 +198,7 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 		}
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().Field(by.FieldIdx)
+			rby := rv.Elem().FieldByName(by.Field)
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -209,7 +208,7 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().Field(at.FieldIdx)
+			rat := rv.Elem().FieldByName(at.Field)
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -227,7 +226,7 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 			}
 		}
 	}
-	var fields []int
+	var fields []string
 	var srcArguments []any
 	method, query, fields, srcArguments, returning, err = dialect.InsertWhenExist(Todo(ctx, t, dialect), spec, src)
 	if err != nil {
@@ -241,7 +240,7 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 	return
 }
 
-func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []int, err error) {
+func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -275,7 +274,7 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr)
 		}
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().Field(by.FieldIdx)
+			rby := rv.Elem().FieldByName(by.Field)
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -285,7 +284,7 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr)
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().Field(at.FieldIdx)
+			rat := rv.Elem().FieldByName(at.Field)
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -303,7 +302,7 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr)
 			}
 		}
 	}
-	var fields []int
+	var fields []string
 	var srcArguments []any
 	method, query, fields, srcArguments, returning, err = dialect.InsertWhenNotExist(Todo(ctx, t, dialect), spec, src)
 	if err != nil {
@@ -351,7 +350,7 @@ func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []by
 		}
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().Field(by.FieldIdx)
+			rby := rv.Elem().FieldByName(by.Field)
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -361,7 +360,7 @@ func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []by
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().Field(at.FieldIdx)
+			rat := rv.Elem().FieldByName(at.Field)
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -379,7 +378,7 @@ func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []by
 			}
 		}
 	}
-	var fields []int
+	var fields []string
 	method, query, fields, err = dialect.Update(Todo(ctx, t, dialect), spec)
 	if err != nil {
 		return
@@ -521,8 +520,8 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 				return
 			}
 			rv := reflect.ValueOf(&t)
-			rv.Field(column.FieldIdx).Set(reflect.ValueOf(field.Value))
-			arguments, err = spec.Arguments(t, []int{column.FieldIdx})
+			rv.FieldByName(column.Field).Set(reflect.ValueOf(field.Value))
+			arguments, err = spec.Arguments(t, []string{column.Field})
 			if err != nil {
 				err = errors.Warning(fmt.Sprintf("sql: scan reference %s field value faield", field.Name)).WithCause(err).WithMeta("table", spec.Key)
 				return
@@ -555,7 +554,7 @@ func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []by
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	var fields []int
+	var fields []string
 	method, query, fields, err = dialect.Delete(Todo(ctx, t, dialect), spec)
 	if err != nil {
 		return
@@ -577,7 +576,7 @@ func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []by
 		}
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().Field(by.FieldIdx)
+			rby := rv.Elem().FieldByName(by.Field)
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -587,7 +586,7 @@ func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []by
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().Field(at.FieldIdx)
+			rat := rv.Elem().FieldByName(at.Field)
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -624,7 +623,7 @@ func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	var audits []int
+	var audits []string
 	method, query, audits, arguments, err = dialect.DeleteByConditions(Todo(ctx, entry, dialect), spec, cond)
 	if err != nil {
 		return
@@ -649,10 +648,10 @@ func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (
 			return
 		}
 		auditArgs := make([]any, 0, 2)
-		for _, auditFieldIdx := range audits {
-			column, hasColumn := spec.ColumnByFieldIdx(auditFieldIdx)
+		for _, auditFieldName := range audits {
+			column, hasColumn := spec.ColumnByField(auditFieldName)
 			if !hasColumn {
-				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("column was not found")).WithMeta("fieldIdx", strconv.Itoa(auditFieldIdx))
+				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("column was not found")).WithMeta("field", auditFieldName)
 				return
 			}
 			if by != nil && column.Name == by.Name {
@@ -730,7 +729,7 @@ func BuildExist[T any](ctx context.Context, cond Condition) (method Method, quer
 	return
 }
 
-func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []int, err error) {
+func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr

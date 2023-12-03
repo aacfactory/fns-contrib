@@ -203,11 +203,10 @@ func (ct *ColumnType) String() string {
 // Column
 // 'column:"{name},{kind},{options}"'
 type Column struct {
-	Field    string
-	FieldIdx int
-	Name     string
-	Kind     ColumnKind
-	Type     ColumnType
+	Field string
+	Name  string
+	Kind  ColumnKind
+	Type  ColumnType
 }
 
 func (column *Column) Incr() bool {
@@ -353,6 +352,18 @@ func (column *Column) ZeroValue() (v any) {
 	return
 }
 
+func (column *Column) PtrValue() (v any) {
+	switch column.Type.Value.Kind() {
+	case reflect.Ptr:
+		v = reflect.New(column.Type.Value.Elem()).Interface()
+		break
+	default:
+		v = reflect.New(column.Type.Value).Interface()
+		break
+	}
+	return
+}
+
 func (column *Column) ScanValue() (v interface{}, err error) {
 	if column.Type.Value.Implements(scannerType) {
 		typ := column.Type.Value
@@ -415,9 +426,9 @@ func (column *Column) String() (s string) {
 		}
 	}
 	s = fmt.Sprintf(
-		"%s => field:%s[%d], kind: %s, type: %s",
+		"%s => field:%s, kind: %s, type: %s",
 		column.Name,
-		column.Field, column.FieldIdx,
+		column.Field,
 		kind, column.Type.String(),
 	)
 	return
@@ -721,11 +732,10 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 	typ.fillName()
 
 	column = &Column{
-		Field:    rt.Name,
-		FieldIdx: ri,
-		Name:     name,
-		Kind:     kind,
-		Type:     typ,
+		Field: rt.Name,
+		Name:  name,
+		Kind:  kind,
+		Type:  typ,
 	}
 
 	if !column.Valid() {
