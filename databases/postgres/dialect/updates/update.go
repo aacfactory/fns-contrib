@@ -25,7 +25,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 		tableName = append(schema, tableName...)
 	}
 
-	indexes := make([]int, 0, 1)
+	indexes := make([]string, 0, 1)
 
 	// pk
 	pk, hasPk := spec.Pk()
@@ -77,7 +77,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		indexes = append(indexes, column.FieldIdx)
+		indexes = append(indexes, column.Field)
 		n++
 	}
 
@@ -90,7 +90,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.NextQueryPlaceholder())
-	indexes = append(indexes, pk.FieldIdx)
+	indexes = append(indexes, pk.Field)
 	if hasVer {
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AND)
@@ -100,7 +100,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		indexes = append(indexes, ver.FieldIdx)
+		indexes = append(indexes, ver.Field)
 	}
 
 	query := buf.Bytes()
@@ -117,10 +117,10 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 type UpdateGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []int
+	values  []string
 }
 
-func (generic *UpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []int, err error) {
+func (generic *UpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []string, err error) {
 	method = specifications.ExecuteMethod
 	fields = generic.values
 

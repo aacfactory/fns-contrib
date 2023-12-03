@@ -24,9 +24,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
 
-	_, _ = buf.Write(specifications.LB)
-
-	fields := make([]int, 0, 1)
+	fields := make([]string, 0, 1)
 	for i, column := range spec.Columns {
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
@@ -37,12 +35,12 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 			return
 		}
 		_, _ = buf.Write(fragment)
-		fields = append(fields, i)
+		fields = append(fields, column.Field)
 	}
-	_, _ = buf.Write(specifications.RB)
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(tableName)
 
 	query := buf.Bytes()
@@ -59,10 +57,10 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 type QueryGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	columns []int
+	columns []string
 }
 
-func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, arguments []any, columns []int, err error) {
+func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, arguments []any, columns []string, err error) {
 	method = specifications.QueryMethod
 
 	buf := bytebufferpool.Get()
@@ -74,7 +72,7 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.WHERE)
 		_, _ = buf.Write(specifications.SPACE)
-		arguments, err = cond.Render(ctx, w)
+		arguments, err = cond.Render(ctx, buf)
 		if err != nil {
 			return
 		}
@@ -107,13 +105,13 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.OFFSET)
 		_, _ = buf.Write(specifications.SPACE)
-		ls := strconv.Itoa(length)
-		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.LIMIT)
-		_, _ = buf.Write(specifications.OFFSET)
 		os := strconv.Itoa(offset)
 		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(os), len(os)))
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.LIMIT)
+		_, _ = buf.Write(specifications.SPACE)
+		ls := strconv.Itoa(length)
+		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
 	}
 
 	query := buf.Bytes()

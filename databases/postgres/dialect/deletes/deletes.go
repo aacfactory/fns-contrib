@@ -15,7 +15,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	indexes := make([]int, 0, 1)
+	indexes := make([]string, 0, 1)
 	// name
 	tableName := ctx.FormatIdent([]byte(spec.Name))
 	if spec.Schema != "" {
@@ -52,7 +52,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, by.FieldIdx)
+			indexes = append(indexes, by.Field)
 			n++
 		}
 		if at != nil {
@@ -64,7 +64,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, at.FieldIdx)
+			indexes = append(indexes, at.Field)
 			n++
 		}
 		// version
@@ -100,7 +100,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.NextQueryPlaceholder())
-	indexes = append(indexes, pk.FieldIdx)
+	indexes = append(indexes, pk.Field)
 	// version
 	if hasVer {
 		_, _ = buf.Write(specifications.SPACE)
@@ -111,7 +111,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		indexes = append(indexes, ver.FieldIdx)
+		indexes = append(indexes, ver.Field)
 	}
 	// where <<<
 
@@ -129,10 +129,10 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 type DeleteGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []int
+	values  []string
 }
 
-func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []int, err error) {
+func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []string, err error) {
 	method = specifications.ExecuteMethod
 	fields = generic.values
 

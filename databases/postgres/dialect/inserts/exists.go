@@ -34,11 +34,11 @@ type InsertWhenExistsGeneric struct {
 	spec      *specifications.Specification
 	method    specifications.Method
 	content   []byte
-	values    []int
-	returning []int
+	values    []string
+	returning []string
 }
 
-func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.Writer, src specifications.QueryExpr) (method specifications.Method, fields []int, arguments []any, returning []int, err error) {
+func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.Writer, src specifications.QueryExpr) (method specifications.Method, fields []string, arguments []any, returning []string, err error) {
 	method = generic.method
 	fields = generic.values
 

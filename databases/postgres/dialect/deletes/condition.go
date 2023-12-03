@@ -11,7 +11,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		generic = &DeleteByConditionsGeneric{}
 		return
 	}
-	var audits []int
+	var audits []string
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
@@ -51,7 +51,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			audits = append(audits, by.FieldIdx)
+			audits = append(audits, by.Field)
 			n++
 		}
 		if at != nil {
@@ -63,7 +63,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			audits = append(audits, at.FieldIdx)
+			audits = append(audits, at.Field)
 			n++
 		}
 
@@ -80,6 +80,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 	generic = &DeleteByConditionsGeneric{
 		spec:    spec,
 		content: query,
+		audits:  audits,
 	}
 
 	return
@@ -88,10 +89,10 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 type DeleteByConditionsGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	audits  []int
+	audits  []string
 }
 
-func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, audits []int, arguments []any, err error) {
+func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, audits []string, arguments []any, err error) {
 	method = specifications.ExecuteMethod
 	audits = generic.audits
 

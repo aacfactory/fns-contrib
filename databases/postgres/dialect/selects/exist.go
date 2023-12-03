@@ -34,7 +34,6 @@ func NewExistGeneric(ctx specifications.Context, spec *specifications.Specificat
 	generic = &ExistGeneric{
 		spec:    spec,
 		content: query,
-		values:  nil,
 	}
 	return
 }
@@ -42,7 +41,6 @@ func NewExistGeneric(ctx specifications.Context, spec *specifications.Specificat
 type ExistGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []int
 }
 
 func (generic *ExistGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {

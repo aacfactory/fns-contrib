@@ -39,7 +39,6 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 	generic = &CountGeneric{
 		spec:    spec,
 		content: query,
-		values:  nil,
 	}
 
 	return
@@ -48,7 +47,6 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 type CountGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []int
 }
 
 func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {

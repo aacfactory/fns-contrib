@@ -46,10 +46,10 @@ func (dialect *Dialect) FormatIdent(ident []byte) []byte {
 }
 
 func (dialect *Dialect) QueryPlaceholder() specifications.QueryPlaceholder {
-	return &Placeholder{}
+	return &Placeholder{count: 0}
 }
 
-func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification, values int) (method specifications.Method, query []byte, fields []int, returning []int, err error) {
+func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.Specification, values int) (method specifications.Method, query []byte, fields []string, returning []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -70,7 +70,7 @@ func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.
 	return
 }
 
-func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, returning []int, err error) {
+func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []string, returning []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert or update failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -91,7 +91,7 @@ func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifi
 	return
 }
 
-func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []int, arguments []any, returning []int, err error) {
+func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []string, arguments []any, returning []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert when exist failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -112,7 +112,7 @@ func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specif
 	return
 }
 
-func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []int, arguments []any, returning []int, err error) {
+func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *specifications.Specification, src specifications.QueryExpr) (method specifications.Method, query []byte, fields []string, arguments []any, returning []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate insert when not exist failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -133,7 +133,7 @@ func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *spe
 	return
 }
 
-func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, err error) {
+func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate update failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -175,7 +175,7 @@ func (dialect *Dialect) UpdateFields(ctx specifications.Context, spec *specifica
 	return
 }
 
-func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []int, err error) {
+func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.Specification) (method specifications.Method, query []byte, fields []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate delete failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -196,7 +196,7 @@ func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.
 	return
 }
 
-func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, audits []int, arguments []any, err error) {
+func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition) (method specifications.Method, query []byte, audits []string, arguments []any, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate delete by conditions failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
@@ -259,7 +259,7 @@ func (dialect *Dialect) Count(ctx specifications.Context, spec *specifications.S
 	return
 }
 
-func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []int, err error) {
+func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, having specifications.Having, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []string, err error) {
 	generic, has, getErr := dialect.generics.Get(ctx, spec)
 	if getErr != nil {
 		err = errors.Warning("sql: dialect generate query failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)

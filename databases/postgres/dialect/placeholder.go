@@ -1,6 +1,7 @@
 package dialect
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -17,4 +18,8 @@ func (ph *Placeholder) Next() (v []byte) {
 
 func (ph *Placeholder) SkipCursor(n int) {
 	ph.count = ph.count + n
+}
+
+func (ph *Placeholder) Current() (v []byte) {
+	return []byte(fmt.Sprintf("$%d", ph.count))
 }

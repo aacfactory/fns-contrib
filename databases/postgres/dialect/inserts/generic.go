@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (query []byte, vr ValueRender, indexes []int, returning []int, err error) {
+func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (query []byte, vr ValueRender, indexes []string, returning []string, err error) {
 	vr = NewValueRender()
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
@@ -38,12 +38,12 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	}
 	var pkName []byte
 	if pk.Incr() {
-		returning = append(returning, pk.FieldIdx)
+		returning = append(returning, pk.Field)
 	} else {
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
 		vr.Add()
-		indexes = append(indexes, pk.FieldIdx)
+		indexes = append(indexes, pk.Field)
 		n++
 	}
 	// ver
@@ -68,7 +68,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 			continue
 		}
 		if column.Incr() {
-			returning = append(returning, column.FieldIdx)
+			returning = append(returning, column.Field)
 			continue
 		}
 
@@ -78,7 +78,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		}
 		_, _ = buf.Write(columnName)
 		vr.Add()
-		indexes = append(indexes, column.FieldIdx)
+		indexes = append(indexes, column.Field)
 		n++
 	}
 
@@ -97,7 +97,7 @@ var (
 	srcPlaceHold = []byte("$$SOURCE_QUERY$$")
 )
 
-func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, indexes []int, returning []int, err error) {
+func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, indexes []string, returning []string, err error) {
 	method = specifications.ExecuteMethod
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
@@ -127,11 +127,11 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	}
 	var pkName []byte
 	if pk.Incr() {
-		returning = append(returning, pk.FieldIdx)
+		returning = append(returning, pk.Field)
 	} else {
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
-		indexes = append(indexes, pk.FieldIdx)
+		indexes = append(indexes, pk.Field)
 		n++
 	}
 
@@ -156,7 +156,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			continue
 		}
 		if column.Incr() {
-			returning = append(returning, column.FieldIdx)
+			returning = append(returning, column.Field)
 			continue
 		}
 		columnName := ctx.FormatIdent([]byte(column.Name))
@@ -164,7 +164,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			_, _ = buf.Write(specifications.COMMA)
 		}
 		_, _ = buf.Write(columnName)
-		indexes = append(indexes, column.FieldIdx)
+		indexes = append(indexes, column.Field)
 		n++
 	}
 
@@ -274,7 +274,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			if i > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			column, has := spec.ColumnByFieldIdx(r)
+			column, has := spec.ColumnByField(r)
 			if has {
 				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
 			}

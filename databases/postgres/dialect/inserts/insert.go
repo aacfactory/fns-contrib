@@ -25,7 +25,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 	// conflict
 	var conflictFragment []byte
 	conflicts := spec.Conflicts
-	var conflictFieldIndexes []int
+	var conflictFieldIndexes []string
 	conflictColumns := make([][]byte, 0, 1)
 	if len(conflicts) > 0 {
 		_, _ = buf.Write(specifications.SPACE)
@@ -34,7 +34,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.CONFLICT)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.LB)
-		conflictFieldIndexes = make([]int, 0, len(conflicts))
+		conflictFieldIndexes = make([]string, 0, len(conflicts))
 		n := 0
 		for _, conflict := range conflicts {
 			cc, hasCC := spec.ColumnByField(conflict)
@@ -48,7 +48,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			}
 			conflictColumn := ctx.FormatIdent([]byte(cc.Name))
 			conflictColumns = append(conflictColumns, conflictColumn)
-			conflictFieldIndexes = append(conflictFieldIndexes, cc.FieldIdx)
+			conflictFieldIndexes = append(conflictFieldIndexes, cc.Field)
 			_, _ = buf.Write(conflictColumn)
 			n++
 		}
@@ -72,7 +72,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			if i > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			column, has := spec.ColumnByFieldIdx(r)
+			column, has := spec.ColumnByField(r)
 			if has {
 				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
 			}
@@ -108,11 +108,11 @@ type InsertGeneric struct {
 	vr                ValueRender
 	conflictFragment  []byte
 	returningFragment []byte
-	returning         []int
-	values            []int
+	returning         []string
+	values            []string
 }
 
-func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, values int) (method specifications.Method, fields []int, returning []int, err error) {
+func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, values int) (method specifications.Method, fields []string, returning []string, err error) {
 	method = generic.method
 	returning = generic.returning
 	fields = generic.values

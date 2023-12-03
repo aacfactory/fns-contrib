@@ -38,47 +38,47 @@ func (generics *Generics) Get(ctx specifications.Context, spec *specifications.S
 	}
 	v, createErr, _ := generics.group.Do(spec.Key, func() (v interface{}, err error) {
 		gen := &Generic{}
-		gen.Insert, err = inserts.NewInsertGeneric(ctx, spec)
+		gen.Insert, err = inserts.NewInsertGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.InsertOrUpdate, err = inserts.NewInsertOrUpdateGeneric(ctx, spec)
+		gen.InsertOrUpdate, err = inserts.NewInsertOrUpdateGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.InsertWhenExist, err = inserts.NewInsertWhenExistsGeneric(ctx, spec)
+		gen.InsertWhenExist, err = inserts.NewInsertWhenExistsGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.InsertWhenNotExist, err = inserts.NewInsertWhenNotExistsGeneric(ctx, spec)
+		gen.InsertWhenNotExist, err = inserts.NewInsertWhenNotExistsGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.Update, err = updates.NewUpdateGeneric(ctx, spec)
+		gen.Update, err = updates.NewUpdateGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.UpdateFields, err = updates.NewUpdateFieldsGeneric(ctx, spec)
+		gen.UpdateFields, err = updates.NewUpdateFieldsGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.Delete, err = deletes.NewDeleteGeneric(ctx, spec)
+		gen.Delete, err = deletes.NewDeleteGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.DeleteByConditions, err = deletes.NewDeleteByConditionsGeneric(ctx, spec)
+		gen.DeleteByConditions, err = deletes.NewDeleteByConditionsGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.Count, err = selects.NewCountGeneric(ctx, spec)
+		gen.Count, err = selects.NewCountGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.Exist, err = selects.NewExistGeneric(ctx, spec)
+		gen.Exist, err = selects.NewExistGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}
-		gen.Query, err = selects.NewQueryGeneric(ctx, spec)
+		gen.Query, err = selects.NewQueryGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}

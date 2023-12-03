@@ -94,7 +94,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, column.FieldIdx)
+			indexes = append(indexes, column.Field)
 			n++
 		}
 
@@ -110,7 +110,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 			if i > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			column, has := spec.ColumnByFieldIdx(r)
+			column, has := spec.ColumnByField(r)
 			if has {
 				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
 			}
@@ -133,11 +133,11 @@ type InsertOrUpdateGeneric struct {
 	spec      *specifications.Specification
 	method    specifications.Method
 	content   []byte
-	returning []int
-	values    []int
+	returning []string
+	values    []string
 }
 
-func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []int, returning []int, err error) {
+func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []string, returning []string, err error) {
 	method = generic.method
 	returning = generic.returning
 	fields = generic.values
