@@ -10,6 +10,7 @@ import (
 	"github.com/aacfactory/json"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -44,6 +45,12 @@ func NewRows(rows databases.Rows) (v Rows, err error) {
 	return
 }
 
+var (
+	scanValueSlicePool = sync.Pool{New: func() any {
+		return make([]any, 0, 1)
+	}}
+)
+
 type Rows struct {
 	idx         int
 	rows        databases.Rows
@@ -64,7 +71,7 @@ func (rows *Rows) Close() error {
 	return rows.rows.Close()
 }
 
-func (rows *Rows) MarshalJSON() (p []byte, err error) {
+func (rows Rows) MarshalJSON() (p []byte, err error) {
 	if len(rows.values) > 0 {
 		tr := transferRows{
 			ColumnTypes: rows.columnTypes,
@@ -79,21 +86,29 @@ func (rows *Rows) MarshalJSON() (p []byte, err error) {
 	}
 	rows.values = make([]Row, 0, 1)
 	for rows.rows.Next() {
-		dsts := make([]interface{}, 0, rows.columnLen)
+		dsts := scanValueSlicePool.Get().([]any)
+		for i := 0; i < rows.columnLen; i++ {
+			dst := rows.columnTypes[i].ScanValue()
+			dsts = append(dsts, &dst)
+		}
 		scanErr := rows.rows.Scan(dsts...)
 		if scanErr != nil {
+			scanValueSlicePool.Put(dsts[:0])
 			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
 			return
 		}
 		row := make(Row, 0, rows.columnLen)
-		for _, dst := range dsts {
-			column, columnErr := NewColumn(dst)
+		for i := 0; i < rows.columnLen; i++ {
+			ct := rows.columnTypes[i]
+			column, columnErr := ct.Value(dsts[i])
 			if columnErr != nil {
+				scanValueSlicePool.Put(dsts[:0])
 				err = errors.Warning("sql: encode rows failed").WithCause(columnErr)
 				return
 			}
 			row = append(row, column)
 		}
+		scanValueSlicePool.Put(dsts[:0])
 		rows.values = append(rows.values, row)
 	}
 	_ = rows.rows.Close()
@@ -141,7 +156,8 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 		err = rows.rows.Scan(dst...)
 		return
 	}
-	if rows.idx >= rows.size {
+	if rows.idx > rows.size {
+		err = sql.ErrNoRows
 		return
 	}
 	dstLen := len(dst)
@@ -152,7 +168,7 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 		err = errors.Warning("sql: scan failed").WithCause(fmt.Errorf("size is not matched"))
 		return
 	}
-	row := rows.values[rows.idx]
+	row := rows.values[rows.idx-1]
 	for i := 0; i < rows.columnLen; i++ {
 		item := dst[i]
 		if item == nil {
@@ -397,7 +413,7 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 				return
 			}
 			if ct.Type == "json" {
-				decodeErr := json.Unmarshal(column, item)
+				decodeErr := json.Unmarshal(column.Value, item)
 				if decodeErr != nil {
 					err = errors.Warning("sql: scan failed").WithCause(decodeErr).WithMeta("column", ct.Name)
 					return

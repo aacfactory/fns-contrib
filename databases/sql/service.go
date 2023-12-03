@@ -82,7 +82,7 @@ func (svc *service) Construct(options services.Options) (err error) {
 		return
 	}
 	config := Config{}
-	configErr := options.Config.As(config)
+	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(configErr)
 		return

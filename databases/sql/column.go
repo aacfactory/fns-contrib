@@ -2,6 +2,7 @@ package sql
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/times"
@@ -85,45 +86,213 @@ type ColumnType struct {
 	Type         string `json:"type"`
 }
 
-func NewColumn(src any) (c Column, err error) {
-	if src == nil {
-		return
-	}
-	c, err = json.Marshal(src)
-	if err != nil {
-		err = errors.Warning("sql: new column failed").WithCause(err)
-		return
+func (ct ColumnType) ScanValue() (sv any) {
+	switch ct.Type {
+	case "string":
+		sv = ""
+		break
+	case "bool":
+		sv = false
+		break
+	case "int":
+		sv = int64(0)
+		break
+	case "float":
+		sv = float64(0)
+		break
+	case "datetime":
+		sv = time.Time{}
+		break
+	case "date":
+		sv = times.Date{}
+		break
+	case "time":
+		sv = times.Time{}
+		break
+	case "byte":
+		sv = byte(0)
+		break
+	default:
+		sv = []byte{}
+		break
 	}
 	return
 }
 
-type Column []byte
-
-func (c *Column) UnmarshalJSON(p []byte) error {
-	r := json.RawMessage(*c)
-	err := r.UnmarshalJSON(p)
-	if err != nil {
-		return err
+func (ct ColumnType) Value(v any) (c Column, err error) {
+	if v == nil {
+		c = Column{
+			Nil:   true,
+			Value: nullBytes,
+		}
+		return
 	}
-	*c = append((*c)[0:0], r...)
-	return nil
+	rv := reflect.Indirect(reflect.ValueOf(v))
+	if rv.IsNil() {
+		c = Column{
+			Nil:   true,
+			Value: nullBytes,
+		}
+		return
+	}
+	vi := rv.Interface()
+	var s any
+	switch ct.Type {
+	case "string":
+		vv, ok := vi.(string)
+		if ok {
+			s = vv
+			break
+
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not string")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "bool":
+		vv, ok := vi.(bool)
+		if ok {
+			s = vv
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not bool")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "int":
+		i, ok := vi.(int)
+		if ok {
+			s = i
+			break
+		}
+		i8, i8ok := vi.(int8)
+		if i8ok {
+			s = i8
+			break
+		}
+		i16, i16ok := vi.(int16)
+		if i16ok {
+			s = i16
+			break
+		}
+		i32, i32ok := vi.(int32)
+		if i32ok {
+			s = i32
+			break
+		}
+		i64, i64ok := vi.(int64)
+		if i64ok {
+			s = i64
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not int")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "float":
+		f32, f32ok := vi.(float32)
+		if f32ok {
+			s = f32
+			break
+		}
+		f64, f64ok := vi.(float64)
+		if f64ok {
+			s = f64
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not float")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "datetime":
+		t, ok := vi.(time.Time)
+		if ok {
+			s = t
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "date":
+		t, ok := vi.(time.Time)
+		if ok {
+			s = times.DataOf(t)
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "time":
+		t, ok := vi.(time.Time)
+		if ok {
+			s = times.TimeOf(t)
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "byte":
+		b, ok := vi.(byte)
+		if ok {
+			s = b
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not byte")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	case "bytes":
+		p, ok := vi.([]byte)
+		if ok {
+			if json.Validate(p) {
+				s = json.RawMessage(p)
+				break
+			}
+			s = p
+			break
+		}
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("value is not bytes")).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	default:
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(fmt.Errorf("%s is unsupported", ct.Type)).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	}
+	value, encodeErr := json.Marshal(s)
+	if encodeErr != nil {
+		err = errors.Warning("sql: column type make value failed").
+			WithCause(encodeErr).
+			WithMeta("name", ct.Name).WithMeta("databaseType", ct.DatabaseType).WithMeta("type", ct.Type)
+		return
+	}
+	c = Column{
+		Nil:   false,
+		Value: value,
+	}
+	return
 }
 
-func (c *Column) MarshalJSON() ([]byte, error) {
-	return json.RawMessage(*c).MarshalJSON()
+type Column struct {
+	Nil   bool   `json:"nil"`
+	Value []byte `json:"value"`
 }
 
-func (c *Column) Len() int {
-	return len(*c)
+func (c Column) Len() int {
+	return len(c.Value)
 }
 
-func (c *Column) IsNil() bool {
-	p := *c
-	return len(p) == 0 || bytes.Equal(p, nullBytes)
+func (c Column) IsNil() bool {
+	return c.Nil
 }
 
-func (c *Column) String() (v string, err error) {
-	p := *c
+func (c Column) String() (v string, err error) {
+	p := c.Value
 	pLen := len(p)
 	if pLen == 0 {
 		return
@@ -136,8 +305,8 @@ func (c *Column) String() (v string, err error) {
 	return
 }
 
-func (c *Column) Bool() (v bool, err error) {
-	p := *c
+func (c Column) Bool() (v bool, err error) {
+	p := c.Value
 	pLen := len(p)
 	if pLen == 0 {
 		return
@@ -155,8 +324,8 @@ func (c *Column) Bool() (v bool, err error) {
 	return
 }
 
-func (c *Column) Int() (v int64, err error) {
-	p := *c
+func (c Column) Int() (v int64, err error) {
+	p := c.Value
 	pLen := len(p)
 	if pLen == 0 {
 		return
@@ -169,8 +338,8 @@ func (c *Column) Int() (v int64, err error) {
 	return
 }
 
-func (c *Column) Uint() (v uint64, err error) {
-	p := *c
+func (c Column) Uint() (v uint64, err error) {
+	p := c.Value
 	pLen := len(p)
 	if pLen == 0 {
 		return
@@ -183,8 +352,8 @@ func (c *Column) Uint() (v uint64, err error) {
 	return
 }
 
-func (c *Column) Float() (v float64, err error) {
-	p := *c
+func (c Column) Float() (v float64, err error) {
+	p := c.Value
 	pLen := len(p)
 	if pLen == 0 {
 		return
@@ -197,90 +366,32 @@ func (c *Column) Float() (v float64, err error) {
 	return
 }
 
-func (c *Column) Datetime() (v time.Time, err error) {
-	str, strErr := c.String()
-	if strErr != nil {
-		err = errors.Warning("sql: value of column is not datetime")
-		return
-	}
-	v, err = time.Parse(time.RFC3339, str)
-	if err != nil {
-		err = errors.Warning("sql: value of column is not datetime")
-		return
-	}
+func (c Column) Datetime() (v time.Time, err error) {
+	err = json.Unmarshal(c.Value, &v)
 	return
 }
 
-func (c *Column) Date() (v times.Date, err error) {
-	p := *c
-	pLen := len(p)
-	if pLen == 0 {
-		return
-	}
-	err = json.Unmarshal(p, &v)
-	if err != nil {
-		err = errors.Warning("sql: value of column is not date")
-		return
-	}
+func (c Column) Date() (v times.Date, err error) {
+	err = json.Unmarshal(c.Value, &v)
 	return
 }
 
-func (c *Column) Time() (v times.Time, err error) {
-	p := *c
-	pLen := len(p)
-	if pLen == 0 {
-		return
-	}
-	err = json.Unmarshal(p, &v)
-	if err != nil {
-		err = errors.Warning("sql: value of column is not time")
-		return
-	}
+func (c Column) Time() (v times.Time, err error) {
+	err = json.Unmarshal(c.Value, &v)
 	return
 }
 
-func (c *Column) Json() (v []byte, err error) {
-	p := *c
-	pLen := len(p)
-	if pLen == 0 {
-		return
-	}
-	if json.Validate(p) {
-		v = p
-		return
-	}
-	err = errors.Warning("sql: value of column is not json")
+func (c Column) Json() (v []byte, err error) {
+	v = c.Value
 	return
 }
 
-func (c *Column) Bytes() (v []byte, err error) {
-	p := *c
-	pLen := len(p)
-	if pLen == 0 {
-		return
-	}
-	if json.Validate(p) {
-		v = p
-		return
-	}
-	err = json.Unmarshal(p, &v)
-	if err != nil {
-		err = errors.Warning("sql: value of column is not bytes")
-		return
-	}
+func (c Column) Bytes() (v []byte, err error) {
+	v = c.Value
 	return
 }
 
-func (c *Column) Byte() (v byte, err error) {
-	p := *c
-	pLen := len(p)
-	if pLen == 0 {
-		return
-	}
-	err = json.Unmarshal(p, &v)
-	if err != nil {
-		err = errors.Warning("sql: value of column is not byte")
-		return
-	}
+func (c Column) Byte() (v byte, err error) {
+	err = json.Unmarshal(c.Value, &v)
 	return
 }
