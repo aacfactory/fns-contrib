@@ -9,8 +9,6 @@ import (
 )
 
 func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
-	// todo audit
-
 	_, query, arguments, buildErr := specifications.BuildUpdate[T](ctx, entry)
 	if buildErr != nil {
 		err = errors.Warning("sql: update failed").WithCause(buildErr)

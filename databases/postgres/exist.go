@@ -8,8 +8,8 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Count[T Table](ctx context.Context, cond conditions.Condition) (count int64, err error) {
+func Exist[T Table](ctx context.Context, cond conditions.Condition) (has bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	count, err = dac.Count[T](ctx, cond)
+	has, err = dac.Exist[T](ctx, cond)
 	return
 }

@@ -8,8 +8,14 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Count[T Table](ctx context.Context, cond conditions.Condition) (count int64, err error) {
+func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	count, err = dac.Count[T](ctx, cond)
+	v, affected, err = dac.Delete[T](ctx, entry)
+	return
+}
+
+func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) (affected int64, err error) {
+	sql.ForceDialect(ctx, dialect.Name)
+	affected, err = dac.DeleteByCondition[T](ctx, cond)
 	return
 }
