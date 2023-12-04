@@ -13,8 +13,7 @@ import (
 type QueryOptions struct {
 	cond     conditions.Condition
 	orders   orders.Orders
-	groupBys groups.Fields
-	having   groups.HavingCondition
+	groupBys groups.GroupBy
 }
 
 type QueryOption func(options *QueryOptions)
@@ -39,15 +38,9 @@ func Desc(name string) orders.Orders {
 	return orders.Desc(name)
 }
 
-func GroupBy(fields ...string) QueryOption {
+func Group(group groups.GroupBy) QueryOption {
 	return func(options *QueryOptions) {
-		options.groupBys = groups.GroupBy(fields...)
-	}
-}
-
-func Having(cond conditions.Condition) QueryOption {
-	return func(options *QueryOptions) {
-		options.having = groups.Having(cond)
+		options.groupBys = group
 	}
 }
 
@@ -61,8 +54,7 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		ctx,
 		specifications.Condition{Condition: opt.cond},
 		specifications.Orders(opt.orders),
-		specifications.GroupBy(opt.groupBys),
-		specifications.Having{HavingCondition: opt.having},
+		specifications.GroupBy{GroupBy: opt.groupBys},
 		offset, length,
 	)
 	if buildErr != nil {

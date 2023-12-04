@@ -1,7 +1,26 @@
 package groups
 
-type Fields []string
+import "github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
 
-func GroupBy(field ...string) Fields {
-	return field
+type GroupBy struct {
+	Selects []string
+	Bys     []string
+	Havings conditions.Condition
+}
+
+func (fields GroupBy) By(field ...string) GroupBy {
+	fields.Bys = append(fields.Bys, field...)
+	return fields
+}
+
+func (fields GroupBy) Having(condition conditions.Condition) GroupBy {
+	fields.Havings = condition
+	return fields
+}
+
+func Group(field ...string) GroupBy {
+	return GroupBy{
+		Selects: field,
+		Bys:     nil,
+	}
 }

@@ -7,6 +7,7 @@ import (
 type TableInfoOptions struct {
 	schema    string
 	view      bool
+	viewBase  Table
 	conflicts []string
 }
 
@@ -18,9 +19,10 @@ func Schema(schema string) TableInfoOption {
 	}
 }
 
-func View() TableInfoOption {
+func View1(base Table) TableInfoOption {
 	return func(options *TableInfoOptions) {
 		options.view = true
+		options.viewBase = base
 	}
 }
 
@@ -78,4 +80,10 @@ func (info TableInfo) Conflicts() []string {
 // the recv of TableInfo method must be value, can not be ptr
 type Table interface {
 	TableInfo() TableInfo
+}
+
+type ViewInfo struct {
+}
+
+type View interface {
 }

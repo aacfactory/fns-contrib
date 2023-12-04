@@ -729,7 +729,7 @@ func BuildExist[T any](ctx context.Context, cond Condition) (method Method, quer
 	return
 }
 
-func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, having Having, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
+func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -741,7 +741,7 @@ func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, group
 		err = specErr
 		return
 	}
-	method, query, arguments, columns, err = dialect.Query(Todo(ctx, t, dialect), spec, cond, orders, groupBy, having, offset, length)
+	method, query, arguments, columns, err = dialect.Query(Todo(ctx, t, dialect), spec, cond, orders, groupBy, offset, length)
 	if err != nil {
 		return
 	}
