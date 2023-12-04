@@ -29,7 +29,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 		hostSchemaName = append(hostSchemaName, '.')
 		hostTableName = append(hostSchemaName, hostTableName...)
 	}
-	hostColumnName := ctx.FormatIdent([]byte(column.Name))
+	hostColumnIdent := ctx.FormatIdent([]byte(column.Name))
 
 	hostField, awayField, mapping, orders, length, ok := column.Links()
 	if !ok {
@@ -39,6 +39,15 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 			WithMeta("field", column.Field)
 		return
 	}
+	hostColumn, hasHostColumn := mapping.ColumnByField(hostField)
+	if !hasHostColumn {
+		err = errors.Warning("sql: render reference field failed").
+			WithCause(fmt.Errorf("%s is not found in %s", hostField, mapping.Key)).
+			WithMeta("table", spec.Key).
+			WithMeta("field", column.Field)
+		return
+	}
+	hostColumnName := ctx.FormatIdent([]byte(hostColumn.Name))
 
 	awayColumn, hasAwayColumn := mapping.ColumnByField(awayField)
 	if !hasAwayColumn {
@@ -77,10 +86,12 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.STAR)
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
+	_, _ = buf.Write(specifications.SPACE)
 	// src >>>
 	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write(specifications.SELECT)
+	_, _ = buf.Write(specifications.SPACE)
 	for i, mappingColumn := range mapping.Columns {
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
@@ -93,7 +104,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 		_, _ = buf.Write(mappingColumnFragment)
 	}
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
@@ -146,6 +157,10 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
+	_, _ = buf.Write(specifications.SPACE)
+	_, _ = buf.Write(specifications.FROM)
+	_, _ = buf.Write(specifications.SPACE)
+
 	_, _ = buf.Write(srcName)
 
 	_, _ = buf.Write(specifications.RB)
@@ -155,7 +170,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte(hostField)))
+	_, _ = buf.Write(hostColumnIdent)
 
 	fragment = []byte(buf.String())
 	return

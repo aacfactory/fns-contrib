@@ -10,7 +10,7 @@ import (
 
 var (
 	SELECT    = []byte("SELECT")
-	FORM      = []byte("FROM")
+	FROM      = []byte("FROM")
 	WHERE     = []byte("WHERE")
 	INSERT    = []byte("INSERT")
 	UPDATE    = []byte("UPDATE")

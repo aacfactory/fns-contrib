@@ -85,7 +85,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	} else {
 		_, _ = buf.Write(specifications.DELETE)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.FORM)
+		_, _ = buf.Write(specifications.FROM)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(tableName)
 		_, _ = buf.Write(specifications.SPACE)

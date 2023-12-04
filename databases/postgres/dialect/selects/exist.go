@@ -25,7 +25,7 @@ func NewExistGeneric(ctx specifications.Context, spec *specifications.Specificat
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.FormatIdent([]byte("_EXIST_")))
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(tableName)
 

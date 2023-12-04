@@ -61,7 +61,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			_, _ = buf.Write(RB)
 		}
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(FORM)
+		_, _ = buf.Write(FROM)
 		_, _ = buf.Write(SPACE)
 		_, _ = buf.Write(tableName)
 		if expr.Cond.Exist() {

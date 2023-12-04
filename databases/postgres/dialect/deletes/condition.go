@@ -70,7 +70,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 	} else {
 		_, _ = buf.Write(specifications.DELETE)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.FORM)
+		_, _ = buf.Write(specifications.FROM)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(tableName)
 	}

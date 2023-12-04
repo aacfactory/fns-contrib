@@ -49,7 +49,7 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 	}
 
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(tableName)
 

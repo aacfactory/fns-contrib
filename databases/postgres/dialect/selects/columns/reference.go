@@ -66,10 +66,13 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	_, _ = buf.Write(specifications.STAR)
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
+	_, _ = buf.Write(specifications.SPACE)
+
 	// src >>>
 	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write(specifications.SELECT)
+	_, _ = buf.Write(specifications.SPACE)
 	for i, mappingColumn := range mapping.Columns {
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
@@ -82,7 +85,7 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 		_, _ = buf.Write(mappingColumnFragment)
 	}
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
@@ -106,6 +109,7 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
+	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(srcName)
 	// json <<<
 	_, _ = buf.Write(specifications.RB)

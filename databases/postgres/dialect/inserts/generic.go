@@ -197,7 +197,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		n++
 	}
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write(specifications.SELECT)
@@ -224,7 +224,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write([]byte("1"))
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FORM)
+	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.LB)
 	_, _ = buf.Write(srcPlaceHold)
