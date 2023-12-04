@@ -5,6 +5,7 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/groups"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/orders"
 	"github.com/aacfactory/fns/context"
 	"sync"
@@ -32,12 +33,8 @@ func Desc(name string) orders.Orders {
 	return orders.Desc(name)
 }
 
-func GroupBy(fields ...string) QueryOption {
-	return QueryOption(dac.GroupBy(fields...))
-}
-
-func Having(cond conditions.Condition) QueryOption {
-	return QueryOption(dac.Having(cond))
+func GroupBy(group groups.GroupBy) QueryOption {
+	return QueryOption(dac.Group(group))
 }
 
 var (
