@@ -48,193 +48,287 @@ func ScanRows[T any](ctx context.Context, rows sql.Rows, columns []string) (entr
 			if fieldValue.IsNil() {
 				continue
 			}
-			fi := fieldValue.Interface()
 			fieldName := columns[i]
-			ft, _ := rv.Type().FieldByName(fieldName)
 			fv := rv.FieldByName(fieldName)
 			column, _ := spec.ColumnByField(fieldName)
-			switch column.Type.Name {
-			case StringType:
-				vv, ok := fi.(string)
-				if ok {
-					fv.SetString(vv)
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not string")).
-					WithMeta("name", column.Name)
-				return
-			case BoolType:
-				vv, ok := fi.(bool)
-				if ok {
-					fv.SetBool(vv)
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not string")).
-					WithMeta("name", column.Name)
-				return
-			case IntType:
-				ii, ok := fi.(int)
-				if ok {
-					fv.SetInt(int64(ii))
-					break
-				}
-				i8, i8ok := fi.(int8)
-				if i8ok {
-					fv.SetInt(int64(i8))
-					break
-				}
-				i16, i16ok := fi.(int16)
-				if i16ok {
-					fv.SetInt(int64(i16))
-					break
-				}
-				i32, i32ok := fi.(int32)
-				if i32ok {
-					fv.SetInt(int64(i32))
-					break
-				}
-				i64, i64ok := fi.(int64)
-				if i64ok {
-					fv.SetInt(i64)
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not int")).
-					WithMeta("name", column.Name)
-				return
-			case FloatType:
-				f32, f32ok := fi.(float32)
-				if f32ok {
-					fv.SetFloat(float64(f32))
-					break
-				}
-				f64, f64ok := fi.(float64)
-				if f64ok {
-					fv.SetFloat(f64)
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not float")).
-					WithMeta("name", column.Name)
-				return
-			case ByteType:
-				b, ok := fi.(byte)
-				if ok {
-					fv.Set(reflect.ValueOf(b))
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not byte")).
-					WithMeta("name", column.Name)
-				return
-			case BytesType:
-				p, ok := fi.([]byte)
-				if ok {
-					fv.SetBytes(p)
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not bytes")).
-					WithMeta("name", column.Name)
-				return
-			case DatetimeType:
-				t, ok := fi.(time.Time)
-				if ok {
-					fv.Set(reflect.ValueOf(t))
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not time.Time")).
-					WithMeta("name", column.Name)
-				return
-			case DateType:
-				t, ok := fi.(time.Time)
-				if ok {
-					fv.Set(reflect.ValueOf(times.DataOf(t)))
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not time.Time")).
-					WithMeta("name", column.Name)
-				return
-			case TimeType:
-				t, ok := fi.(time.Time)
-				if ok {
-					fv.Set(reflect.ValueOf(times.TimeOf(t)))
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not time.Time")).
-					WithMeta("name", column.Name)
-				return
-			case JsonType, MappingType:
-				p, ok := fi.([]byte)
-				if ok {
-					if json.IsNull(p) {
-						break
-					}
-					if !json.Validate(p) {
-						err = errors.Warning("sql: scan rows failed").
-							WithCause(fmt.Errorf("value is not valid json bytes")).
-							WithMeta("name", column.Name)
-						return
-					}
-					if column.Type.Value.ConvertibleTo(bytesType) {
-						fv.SetBytes(p)
-						break
-					}
-					if column.Type.Value.Kind() == reflect.Ptr {
-						fv.Set(reflect.New(ft.Type.Elem()))
-						decodeErr := json.Unmarshal(p, fv.Interface())
-						if decodeErr != nil {
-							err = errors.Warning("sql: scan rows failed").
-								WithCause(fmt.Errorf("value is not valid json bytes")).WithCause(decodeErr).
-								WithMeta("name", column.Name)
-							return
-						}
-					} else {
-						element := reflect.New(ft.Type).Interface()
-						decodeErr := json.Unmarshal(p, element)
-						if decodeErr != nil {
-							err = errors.Warning("sql: scan rows failed").
-								WithCause(fmt.Errorf("value is not valid json bytes")).WithCause(decodeErr).
-								WithMeta("name", column.Name)
-							return
-						}
-						fv.Set(reflect.ValueOf(element).Elem())
-					}
-					break
-				}
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("value is not bytes")).
-					WithMeta("name", column.Name)
-				return
-			case ScanType:
-				scanner, ok := column.PtrValue().(stdsql.Scanner)
-				if !ok {
-					err = errors.Warning("sql: scan rows failed").
-						WithCause(fmt.Errorf("field is not sql.Scanner")).
-						WithMeta("name", column.Name)
-					return
-				}
-				scanFieldValueErr := scanner.Scan(reflect.ValueOf(fi).Elem().Interface())
-				if scanFieldValueErr != nil {
-					err = errors.Warning("sql: scan rows failed").
-						WithCause(fmt.Errorf("scan field value failed")).WithCause(scanFieldValueErr).
-						WithMeta("name", column.Name)
-					return
-				}
-				break
-			default:
-				err = errors.Warning("sql: scan rows failed").
-					WithCause(fmt.Errorf("type of field is invalid")).
-					WithMeta("name", column.Name)
+			fieldErr := ScanColumn(column, field, fv)
+			if fieldErr != nil {
+				err = fieldErr
 				return
 			}
 		}
 		entries = append(entries, entry)
+	}
+	return
+}
+
+func ScanColumn(column *Column, columnPtrValue any, field reflect.Value) (err error) {
+	value := reflect.Indirect(reflect.ValueOf(columnPtrValue))
+	if value.IsNil() {
+		return
+	}
+	columnValue := value.Interface()
+	switch column.Type.Name {
+	case StringType:
+		vv, ok := columnValue.(string)
+		if ok {
+			if field.Type().Kind() == reflect.String {
+				field.SetString(vv)
+			} else if field.Type().ConvertibleTo(nullStringType) {
+				field.Set(reflect.ValueOf(stdsql.NullString{
+					String: vv,
+					Valid:  vv != "",
+				}).Convert(field.Type()))
+			} else {
+				err = errors.Warning("sql: scan rows failed").
+					WithCause(fmt.Errorf("field is not string")).
+					WithMeta("name", column.Name)
+				return
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not string")).
+			WithMeta("name", column.Name)
+		return
+	case BoolType:
+		vv, ok := columnValue.(bool)
+		if ok {
+			if field.Type().Kind() == reflect.Bool {
+				field.SetBool(vv)
+			} else if field.Type().ConvertibleTo(nullStringType) {
+				field.Set(reflect.ValueOf(stdsql.NullBool{
+					Bool:  vv,
+					Valid: true,
+				}).Convert(field.Type()))
+			} else {
+				err = errors.Warning("sql: scan rows failed").
+					WithCause(fmt.Errorf("field is not bool")).
+					WithMeta("name", column.Name)
+				return
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not bool")).
+			WithMeta("name", column.Name)
+		return
+	case IntType:
+		n, ok := AsInt(columnValue)
+		if ok {
+			switch field.Type().Kind() {
+			case reflect.Int64, reflect.Int, reflect.Int32, reflect.Int16, reflect.Int8:
+				field.SetInt(n)
+				break
+			default:
+				if field.Type().ConvertibleTo(nullInt64Type) {
+					field.Set(reflect.ValueOf(stdsql.NullInt64{
+						Int64: n,
+						Valid: true,
+					}).Convert(field.Type()))
+				} else if field.Type().ConvertibleTo(nullInt32Type) {
+					field.Set(reflect.ValueOf(stdsql.NullInt32{
+						Int32: int32(n),
+						Valid: true,
+					}).Convert(field.Type()))
+				} else if field.Type().ConvertibleTo(nullInt16Type) {
+					field.Set(reflect.ValueOf(stdsql.NullInt16{
+						Int16: int16(n),
+						Valid: true,
+					}).Convert(field.Type()))
+				} else {
+					err = errors.Warning("sql: scan rows failed").
+						WithCause(fmt.Errorf("field is not int")).
+						WithMeta("name", column.Name)
+					return
+				}
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not int")).
+			WithMeta("name", column.Name)
+		return
+	case FloatType:
+		f, ok := AsFloat(columnValue)
+		if ok {
+			switch field.Type().Kind() {
+			case reflect.Float64, reflect.Float32:
+				field.SetFloat(f)
+				break
+			default:
+				if field.Type().ConvertibleTo(nullFloatType) {
+					field.Set(reflect.ValueOf(stdsql.NullFloat64{
+						Float64: f,
+						Valid:   true,
+					}).Convert(field.Type()))
+				} else {
+					err = errors.Warning("sql: scan rows failed").
+						WithCause(fmt.Errorf("field is not float")).
+						WithMeta("name", column.Name)
+					return
+				}
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not float")).
+			WithMeta("name", column.Name)
+		return
+	case ByteType:
+		b, ok := columnValue.(byte)
+		if ok {
+			switch field.Type().Kind() {
+			case reflect.Uint8:
+				field.Set(reflect.ValueOf(b))
+				break
+			default:
+				if field.Type().ConvertibleTo(nullByteType) {
+					field.Set(reflect.ValueOf(stdsql.NullByte{
+						Byte:  b,
+						Valid: true,
+					}).Convert(field.Type()))
+				} else {
+					err = errors.Warning("sql: scan rows failed").
+						WithCause(fmt.Errorf("field is not byte")).
+						WithMeta("name", column.Name)
+					return
+				}
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not byte")).
+			WithMeta("name", column.Name)
+		return
+	case BytesType:
+		p, ok := columnValue.([]byte)
+		if ok {
+			if field.Type().ConvertibleTo(bytesType) {
+				field.Set(reflect.ValueOf(p).Convert(field.Type()))
+			} else if field.Type().ConvertibleTo(nullBytesType) {
+				field.Set(reflect.ValueOf(sql.NullBytes{
+					Bytes: p,
+					Valid: true,
+				}).Convert(field.Type()))
+			} else {
+				err = errors.Warning("sql: scan rows failed").
+					WithCause(fmt.Errorf("field is not bytes")).
+					WithMeta("name", column.Name)
+				return
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not bytes")).
+			WithMeta("name", column.Name)
+		return
+	case DatetimeType:
+		t, ok := columnValue.(time.Time)
+		if ok {
+			if field.Type().ConvertibleTo(timeType) {
+				field.Set(reflect.ValueOf(t).Convert(field.Type()))
+			} else if field.Type().ConvertibleTo(nullTimeType) {
+				field.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  t,
+					Valid: !t.IsZero(),
+				}).Convert(field.Type()))
+			} else {
+				err = errors.Warning("sql: scan rows failed").
+					WithCause(fmt.Errorf("field is not time.Time")).
+					WithMeta("name", column.Name)
+				return
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", column.Name)
+		return
+	case DateType:
+		t, ok := columnValue.(time.Time)
+		if ok {
+			field.Set(reflect.ValueOf(times.DataOf(t)))
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", column.Name)
+		return
+	case TimeType:
+		t, ok := columnValue.(time.Time)
+		if ok {
+			field.Set(reflect.ValueOf(times.TimeOf(t)))
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not time.Time")).
+			WithMeta("name", column.Name)
+		return
+	case JsonType, MappingType:
+		p, ok := columnValue.([]byte)
+		if ok {
+			if json.IsNull(p) {
+				break
+			}
+			if !json.Validate(p) {
+				err = errors.Warning("sql: scan rows failed").
+					WithCause(fmt.Errorf("value is not valid json bytes")).
+					WithMeta("name", column.Name)
+				return
+			}
+			if column.Type.Value.ConvertibleTo(bytesType) {
+				field.SetBytes(p)
+				break
+			}
+			if column.Type.Value.Kind() == reflect.Ptr {
+				field.Set(reflect.New(field.Type().Elem()))
+				decodeErr := json.Unmarshal(p, field.Interface())
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan rows failed").
+						WithCause(fmt.Errorf("value is not valid json bytes")).WithCause(decodeErr).
+						WithMeta("name", column.Name)
+					return
+				}
+			} else {
+				element := reflect.New(field.Type()).Interface()
+				decodeErr := json.Unmarshal(p, element)
+				if decodeErr != nil {
+					err = errors.Warning("sql: scan rows failed").
+						WithCause(fmt.Errorf("value is not valid json bytes")).WithCause(decodeErr).
+						WithMeta("name", column.Name)
+					return
+				}
+				field.Set(reflect.ValueOf(element).Elem())
+			}
+			break
+		}
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("value is not bytes")).
+			WithMeta("name", column.Name)
+		return
+	case ScanType:
+		scanner, ok := column.PtrValue().(stdsql.Scanner)
+		if !ok {
+			err = errors.Warning("sql: scan rows failed").
+				WithCause(fmt.Errorf("field is not sql.Scanner")).
+				WithMeta("name", column.Name)
+			return
+		}
+		scanFieldValueErr := scanner.Scan(reflect.ValueOf(columnValue).Elem().Interface())
+		if scanFieldValueErr != nil {
+			err = errors.Warning("sql: scan rows failed").
+				WithCause(fmt.Errorf("scan field value failed")).WithCause(scanFieldValueErr).
+				WithMeta("name", column.Name)
+			return
+		}
+		field.Set(reflect.ValueOf(scanner))
+		break
+	default:
+		err = errors.Warning("sql: scan rows failed").
+			WithCause(fmt.Errorf("type of field is invalid")).
+			WithMeta("name", column.Name)
+		return
 	}
 	return
 }
