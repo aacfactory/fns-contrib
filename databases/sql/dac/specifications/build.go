@@ -747,3 +747,22 @@ func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, offse
 	}
 	return
 }
+
+func BuildView[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
+	dialect, dialectErr := LoadDialect(ctx)
+	if dialectErr != nil {
+		err = dialectErr
+		return
+	}
+	t := Instance[T]()
+	spec, specErr := GetSpecification(ctx, t)
+	if specErr != nil {
+		err = specErr
+		return
+	}
+	method, query, arguments, columns, err = dialect.View(Todo(ctx, t, dialect), spec, cond, orders, groupBy, offset, length)
+	if err != nil {
+		return
+	}
+	return
+}

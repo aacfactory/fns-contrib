@@ -4,14 +4,16 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/groups"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/orders"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/aacfactory/fns/context"
 )
 
 type QueryOptions struct {
-	cond   conditions.Condition
-	orders orders.Orders
+	cond    conditions.Condition
+	orders  orders.Orders
+	groupBy groups.GroupBy
 }
 
 type QueryOption func(options *QueryOptions)
@@ -25,6 +27,12 @@ func Conditions(cond conditions.Condition) QueryOption {
 func Orders(orders orders.Orders) QueryOption {
 	return func(options *QueryOptions) {
 		options.orders = orders
+	}
+}
+
+func GroupBy(by groups.GroupBy) QueryOption {
+	return func(options *QueryOptions) {
+		options.groupBy = by
 	}
 }
 
