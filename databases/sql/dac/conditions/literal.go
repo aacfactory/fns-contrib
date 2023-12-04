@@ -43,18 +43,6 @@ func Float64(f float64) Literal {
 	}
 }
 
-func Uint(n uint) Literal {
-	return Literal{
-		value: strconv.FormatUint(uint64(n), 10),
-	}
-}
-
-func Uint64(n uint64) Literal {
-	return Literal{
-		value: strconv.FormatUint(n, 10),
-	}
-}
-
 func Datetime(t time.Time) Literal {
 	return Literal{
 		value: "'" + t.Format(time.RFC3339Nano) + "'",
