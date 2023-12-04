@@ -8,6 +8,15 @@ func Query(query any, field string, cond Condition) QueryExpr {
 	}
 }
 
+func AggregateQuery(query any, aggregate string, field string, cond Condition) QueryExpr {
+	return QueryExpr{
+		Query:     query,
+		Aggregate: aggregate,
+		Field:     field,
+		Cond:      cond,
+	}
+}
+
 func LitQuery(query string) QueryExpr {
 	return QueryExpr{
 		Query: query,
@@ -17,7 +26,16 @@ func LitQuery(query string) QueryExpr {
 }
 
 type QueryExpr struct {
-	Query any
-	Field string
-	Cond  Condition
+	Query     any
+	Aggregate string
+	Field     string
+	Cond      Condition
 }
+
+const (
+	AVG   = "AVG"
+	SUM   = "SUM"
+	COUNT = "COUNT"
+	MAX   = "MAX"
+	MIN   = "MIN"
+)

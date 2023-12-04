@@ -44,14 +44,6 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 		}
 		argument = append(argument, sub...)
 		break
-	case conditions.AggregateExpr:
-		sub, subErr := AggregateExpr{expr}.Render(ctx, buf)
-		if subErr != nil {
-			err = errors.Warning("sql: predicate render failed").WithCause(subErr)
-			return
-		}
-		argument = append(argument, sub...)
-		break
 	case []any:
 		if p.Operator != conditions.BETWEEN && p.Operator != conditions.IN && p.Operator != conditions.NOTIN {
 			err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s only can has one expression", p.Field))
@@ -96,17 +88,6 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 				bytebufferpool.Put(sbb)
 				argument = append(argument, sub...)
 				break
-			case conditions.AggregateExpr:
-				sbb := bytebufferpool.Get()
-				sub, subErr := AggregateExpr{se}.Render(ctx, sbb)
-				if subErr != nil {
-					bytebufferpool.Put(sbb)
-					err = errors.Warning("sql: predicate render failed").WithCause(subErr)
-					return
-				}
-				exprs = append(exprs, sbb.Bytes())
-				bytebufferpool.Put(sbb)
-				argument = append(argument, sub...)
 			default:
 				exprs = append(exprs, ctx.NextQueryPlaceholder())
 				argument = append(argument, se)

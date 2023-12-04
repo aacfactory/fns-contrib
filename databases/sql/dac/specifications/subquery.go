@@ -52,7 +52,14 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		_, _ = buf.Write(LB)
 		_, _ = buf.Write(SELECT)
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(column[0])
+		if expr.Aggregate == "" {
+			_, _ = buf.Write(column[0])
+		} else {
+			_, _ = buf.WriteString(expr.Aggregate)
+			_, _ = buf.Write(LB)
+			_, _ = buf.Write(column[0])
+			_, _ = buf.Write(RB)
+		}
 		_, _ = buf.Write(SPACE)
 		_, _ = buf.Write(FORM)
 		_, _ = buf.Write(SPACE)
