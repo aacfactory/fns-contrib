@@ -86,14 +86,6 @@ func Float64(f float64) conditions.Literal {
 	return conditions.Float64(f)
 }
 
-func Uint(n uint) conditions.Literal {
-	return conditions.Uint(n)
-}
-
-func Uint64(n uint64) conditions.Literal {
-	return conditions.Uint64(n)
-}
-
 func Time(t time.Time) conditions.Literal {
 	return conditions.Datetime(t)
 }
