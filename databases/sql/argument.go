@@ -14,15 +14,8 @@ import (
 
 type Arguments []any
 
-func (arguments *Arguments) Len() (n int) {
-	n = len(*arguments)
-	return
-}
-
-func (arguments *Arguments) Append(v any) {
-	vv := *arguments
-	vv = append(vv, v)
-	*arguments = vv
+func (arguments Arguments) Len() (n int) {
+	n = len(arguments)
 	return
 }
 
@@ -83,6 +76,22 @@ func NewArgument(v any) (argument Argument, err error) {
 		argument.Type = "string"
 		argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", vv))
 		break
+	case NullString:
+		argument.Type = "string"
+		if vv.Valid {
+			argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", vv.String))
+		} else {
+			argument.Nil = true
+		}
+		break
+	case sql.NullString:
+		argument.Type = "string"
+		if vv.Valid {
+			argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", vv.String))
+		} else {
+			argument.Nil = true
+		}
+		break
 	case bool:
 		argument.Type = "bool"
 		if vv {
@@ -91,50 +100,14 @@ func NewArgument(v any) (argument Argument, err error) {
 			argument.Value = falseBytes
 		}
 		break
-	case int, int8, int16, int32, int64:
-		argument.Type = "int"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case float32, float64:
-		argument.Type = "float"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case uint, uint16, uint32, uint64:
-		argument.Type = "uint"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case time.Time:
-		argument.Type = "datetime"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case times.Date, json.Date:
-		argument.Type = "date"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case times.Time, json.Time:
-		argument.Type = "time"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case json.RawMessage:
-		argument.Type = "json"
-		argument.Value = vv
-		break
-	case stdJson.RawMessage:
-		argument.Type = "json"
-		argument.Value = json.RawMessage(vv)
-		break
-	case []byte, sql.RawBytes:
-		argument.Type = "bytes"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case byte:
-		argument.Type = "byte"
-		argument.Value, _ = json.Marshal(vv)
-		break
-	case sql.NullByte:
-		argument.Type = "byte"
+	case NullBool:
+		argument.Type = "bool"
 		if vv.Valid {
-			argument.Value, _ = json.Marshal(vv.Byte)
+			if vv.Bool {
+				argument.Value = trueBytes
+			} else {
+				argument.Value = falseBytes
+			}
 		} else {
 			argument.Nil = true
 		}
@@ -151,26 +124,14 @@ func NewArgument(v any) (argument Argument, err error) {
 			argument.Nil = true
 		}
 		break
-	case sql.NullFloat64:
-		argument.Type = "float"
-		if vv.Valid {
-			argument.Value, _ = json.Marshal(vv.Float64)
-		} else {
-			argument.Nil = true
-		}
+	case int, int8, int16, int32, int64:
+		argument.Type = "int"
+		argument.Value, _ = json.Marshal(vv)
 		break
-	case sql.NullInt16:
+	case NullInt64:
 		argument.Type = "int"
 		if vv.Valid {
-			argument.Value, _ = json.Marshal(vv.Int16)
-		} else {
-			argument.Nil = true
-		}
-		break
-	case sql.NullInt32:
-		argument.Type = "int"
-		if vv.Valid {
-			argument.Value, _ = json.Marshal(vv.Int32)
+			argument.Value, _ = json.Marshal(vv.Int64)
 		} else {
 			argument.Nil = true
 		}
@@ -183,10 +144,74 @@ func NewArgument(v any) (argument Argument, err error) {
 			argument.Nil = true
 		}
 		break
-	case sql.NullString:
-		argument.Type = "string"
+	case NullInt32:
+		argument.Type = "int"
 		if vv.Valid {
-			argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", vv.String))
+			argument.Value, _ = json.Marshal(vv.Int32)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case sql.NullInt32:
+		argument.Type = "int"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Int32)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case NullInt16:
+		argument.Type = "int"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Int16)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case sql.NullInt16:
+		argument.Type = "int"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Int16)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case float32, float64:
+		argument.Type = "float"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case NullFloat64:
+		argument.Type = "float"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Float64)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case sql.NullFloat64:
+		argument.Type = "float"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Float64)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case time.Time:
+		argument.Type = "datetime"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case times.Date, json.Date:
+		argument.Type = "date"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case times.Time, json.Time:
+		argument.Type = "time"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case NullTime:
+		argument.Type = "datetime"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Time)
 		} else {
 			argument.Nil = true
 		}
@@ -199,6 +224,38 @@ func NewArgument(v any) (argument Argument, err error) {
 			argument.Nil = true
 		}
 		break
+	case json.RawMessage:
+		argument.Type = "json"
+		argument.Value = vv
+		break
+	case stdJson.RawMessage:
+		argument.Type = "json"
+		argument.Value = vv
+		break
+	case []byte, sql.RawBytes:
+		argument.Type = "bytes"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case NullBytes:
+		argument.Type = "byte"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Bytes)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case byte:
+		argument.Type = "byte"
+		argument.Value, _ = json.Marshal(vv)
+		break
+	case sql.NullByte:
+		argument.Type = "byte"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Byte)
+		} else {
+			argument.Nil = true
+		}
+		break
 	default:
 		rv := reflect.ValueOf(v)
 		rt := rv.Type()
@@ -206,61 +263,148 @@ func NewArgument(v any) (argument Argument, err error) {
 			err = errors.Warning("sql: new argument failed").WithCause(fmt.Errorf("value must be object value")).WithMeta("type", rt.String())
 			return
 		}
-		if rt.ConvertibleTo(stringType) {
+		switch rt.Kind() {
+		case reflect.String:
 			argument.Type = "string"
-			argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", rv.Convert(stringType).String()))
-		} else if rt.ConvertibleTo(boolType) {
+			argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", rv.String()))
+			break
+		case reflect.Bool:
 			argument.Type = "bool"
-			if rv.Convert(boolType).Bool() {
+			if rv.Bool() {
 				argument.Value = trueBytes
 			} else {
 				argument.Value = falseBytes
 			}
-		} else if rt.ConvertibleTo(intType) {
+			break
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			argument.Type = "int"
-			argument.Value, _ = json.Marshal(rv.Convert(intType).Int())
-		} else if rt.ConvertibleTo(floatType) {
+			argument.Value, _ = json.Marshal(rv.Int())
+			break
+		case reflect.Float32, reflect.Float64:
 			argument.Type = "float"
-			argument.Value, _ = json.Marshal(rv.Convert(floatType).Float())
-		} else if rt.ConvertibleTo(uintType) {
-			argument.Type = "uint"
-			argument.Value, _ = json.Marshal(rv.Convert(uintType).Uint())
-		} else if rt.ConvertibleTo(datetimeType) {
-			argument.Type = "datetime"
-			argument.Value, _ = json.Marshal(rv.Convert(datetimeType).Interface())
-		} else if rt.ConvertibleTo(dateType) {
-			argument.Type = "date"
-			argument.Value, _ = json.Marshal(rv.Convert(dateType).Interface())
-		} else if rt.ConvertibleTo(timeType) {
-			argument.Type = "time"
-			argument.Value, _ = json.Marshal(rv.Convert(timeType).Interface())
-		} else if rt.ConvertibleTo(jsonDateType) {
-			argument.Type = "date"
-			argument.Value, _ = json.Marshal(rv.Convert(jsonDateType).Interface())
-		} else if rt.ConvertibleTo(jsonTimeType) {
-			argument.Type = "time"
-			argument.Value, _ = json.Marshal(rv.Convert(jsonTimeType).Interface())
-		} else if rt.ConvertibleTo(bytesType) {
-			argument.Type = "bytes"
-			argument.Value, _ = json.Marshal(rv.Convert(bytesType).Bytes())
-		} else if rt.ConvertibleTo(byteType) {
-			argument.Type = "byte"
-			argument.Value, _ = json.Marshal(rv.Convert(byteType).Interface())
-		} else {
-			if rt.Implements(jsonMarshalerType) || reflect.New(rt).Type().Implements(jsonMarshalerType) {
-				p, encodeErr := json.Marshal(v)
-				if encodeErr != nil {
-					err = errors.Warning("sql: new argument failed").
-						WithCause(fmt.Errorf("type of value implements json.Marshaler but encode failed")).
-						WithCause(encodeErr).WithMeta("type", rt.String())
-					return
-				}
-				argument.Type = "json"
-				argument.Value = p
+			argument.Value, _ = json.Marshal(rv.Float())
+			break
+		default:
+			if rt.ConvertibleTo(datetimeType) {
+				argument.Type = "datetime"
+				argument.Value, _ = json.Marshal(rv.Convert(datetimeType).Interface())
 				break
+			} else if rt.ConvertibleTo(dateType) {
+				argument.Type = "date"
+				argument.Value, _ = json.Marshal(rv.Convert(dateType).Interface())
+				break
+			} else if rt.ConvertibleTo(timeType) {
+				argument.Type = "time"
+				argument.Value, _ = json.Marshal(rv.Convert(timeType).Interface())
+				break
+			} else if rt.ConvertibleTo(jsonDateType) {
+				argument.Type = "date"
+				argument.Value, _ = json.Marshal(rv.Convert(jsonDateType).Interface())
+				break
+			} else if rt.ConvertibleTo(jsonTimeType) {
+				argument.Type = "time"
+				argument.Value, _ = json.Marshal(rv.Convert(jsonTimeType).Interface())
+				break
+			} else if rt.ConvertibleTo(bytesType) {
+				argument.Type = "bytes"
+				argument.Value, _ = json.Marshal(rv.Convert(bytesType).Bytes())
+				break
+			} else if rt.ConvertibleTo(byteType) {
+				argument.Type = "byte"
+				argument.Value, _ = json.Marshal(rv.Convert(byteType).Interface())
+				break
+			} else if rt.ConvertibleTo(nullStringType) {
+				argument.Type = "string"
+				value := rv.Convert(nullStringType).Interface().(sql.NullString)
+				if value.Valid {
+					argument.Value = bytex.FromString(fmt.Sprintf("\"%s\"", value.String))
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullBoolType) {
+				argument.Type = "bool"
+				value := rv.Convert(nullBoolType).Interface().(sql.NullBool)
+				if value.Valid {
+					if value.Bool {
+						argument.Value = trueBytes
+					} else {
+						argument.Value = falseBytes
+					}
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullInt64Type) {
+				argument.Type = "int"
+				value := rv.Convert(nullInt64Type).Interface().(sql.NullInt64)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Int64)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullInt32Type) {
+				argument.Type = "int"
+				value := rv.Convert(nullInt32Type).Interface().(sql.NullInt32)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Int32)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullInt16Type) {
+				argument.Type = "int"
+				value := rv.Convert(nullInt16Type).Interface().(sql.NullInt16)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Int16)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullFloatType) {
+				argument.Type = "float"
+				value := rv.Convert(nullFloatType).Interface().(sql.NullFloat64)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Float64)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullTimeType) {
+				argument.Type = "datetime"
+				value := rv.Convert(nullTimeType).Interface().(sql.NullTime)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Time)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else if rt.ConvertibleTo(nullByteType) {
+				argument.Type = "byte"
+				value := rv.Convert(nullByteType).Interface().(sql.NullByte)
+				if value.Valid {
+					argument.Value, _ = json.Marshal(value.Byte)
+				} else {
+					argument.Nil = true
+				}
+				break
+			} else {
+				if rt.Implements(jsonMarshalerType) || reflect.New(rt).Type().Implements(jsonMarshalerType) {
+					p, encodeErr := json.Marshal(v)
+					if encodeErr != nil {
+						err = errors.Warning("sql: new argument failed").
+							WithCause(fmt.Errorf("type of value implements json.Marshaler but encode failed")).
+							WithCause(encodeErr).WithMeta("type", rt.String())
+						return
+					}
+					argument.Type = "json"
+					argument.Value = p
+					break
+				}
+				err = errors.Warning("sql: new argument failed").WithCause(fmt.Errorf("type of value is not supported")).WithMeta("type", rt.String())
+				return
 			}
-			err = errors.Warning("sql: new argument failed").WithCause(fmt.Errorf("type of value is not supported")).WithMeta("type", rt.String())
-			return
 		}
 		break
 	}

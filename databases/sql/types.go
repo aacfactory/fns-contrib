@@ -12,11 +12,6 @@ import (
 )
 
 var (
-	stringType        = reflect.TypeOf("")
-	boolType          = reflect.TypeOf(false)
-	intType           = reflect.TypeOf(int64(0))
-	floatType         = reflect.TypeOf(float64(0))
-	uintType          = reflect.TypeOf(uint64(0))
 	datetimeType      = reflect.TypeOf(time.Time{})
 	dateType          = reflect.TypeOf(times.Date{})
 	timeType          = reflect.TypeOf(times.Time{})
@@ -24,7 +19,6 @@ var (
 	byteType          = reflect.TypeOf(byte(0))
 	jsonDateType      = reflect.TypeOf(json.Date{})
 	jsonTimeType      = reflect.TypeOf(json.Time{})
-	anyType           = reflect.TypeOf(new(any)).Elem()
 	rawType           = reflect.TypeOf(sql.RawBytes{})
 	jsonMarshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 	nullStringType    = reflect.TypeOf(sql.NullString{})
@@ -35,7 +29,6 @@ var (
 	nullFloatType     = reflect.TypeOf(sql.NullFloat64{})
 	nullByteType      = reflect.TypeOf(sql.NullByte{})
 	nullTimeType      = reflect.TypeOf(sql.NullTime{})
-	nullBytesType     = reflect.TypeOf(NullBytes{})
 )
 
 var (
@@ -43,6 +36,44 @@ var (
 	trueBytes  = []byte("true")
 	falseBytes = []byte("false")
 )
+
+type Scanner interface {
+	sql.Scanner
+	driver.Valuer
+	json.Marshaler
+}
+
+type NullString struct {
+	sql.NullString
+}
+
+type NullBool struct {
+	sql.NullBool
+}
+
+type NullInt16 struct {
+	sql.NullInt16
+}
+
+type NullInt32 struct {
+	sql.NullInt32
+}
+
+type NullInt64 struct {
+	sql.NullInt64
+}
+
+type NullFloat64 struct {
+	sql.NullFloat64
+}
+
+type NullByte struct {
+	sql.NullByte
+}
+
+type NullTime struct {
+	sql.NullTime
+}
 
 type NullJson[E any] struct {
 	Valid bool
