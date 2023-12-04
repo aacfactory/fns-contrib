@@ -10,8 +10,14 @@ import (
 type TableInfo struct {
 	schema    string
 	name      string
-	view      bool
 	conflicts []string
+}
+
+func MaybeTable(e any) (ok bool) {
+	rv := reflect.Indirect(reflect.ValueOf(e))
+	rt := rv.Type()
+	_, ok = rt.MethodByName("TableInfo")
+	return
 }
 
 func GetTableInfo(e any) (info TableInfo, err error) {
@@ -54,18 +60,6 @@ func GetTableInfo(e any) (info TableInfo, err error) {
 		return
 	}
 	schema := schemaResults[0].String()
-	// view
-	_, hasViewFunc := result.Type().MethodByName("View")
-	if !hasViewFunc {
-		err = errors.Warning(fmt.Sprintf("sql: %s.%s has not TableInfo func", rt.PkgPath(), rt.Name()))
-		return
-	}
-	viewResults := result.MethodByName("View").Call(nil)
-	if len(viewResults) != 1 && viewResults[0].Type().Kind() != reflect.Bool {
-		err = errors.Warning(fmt.Sprintf("sql: %s.%s has invalid TableInfo func", rt.PkgPath(), rt.Name()))
-		return
-	}
-	view := viewResults[0].Bool()
 	// conflicts
 	_, hasConflictsFunc := result.Type().MethodByName("Conflicts")
 	if !hasConflictsFunc {
@@ -85,7 +79,6 @@ func GetTableInfo(e any) (info TableInfo, err error) {
 	info = TableInfo{
 		schema:    strings.TrimSpace(schema),
 		name:      strings.TrimSpace(name),
-		view:      view,
 		conflicts: conflicts,
 	}
 	return

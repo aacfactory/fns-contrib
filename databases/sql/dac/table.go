@@ -6,8 +6,6 @@ import (
 
 type TableInfoOptions struct {
 	schema    string
-	view      bool
-	viewBase  Table
 	conflicts []string
 }
 
@@ -16,13 +14,6 @@ type TableInfoOption func(options *TableInfoOptions)
 func Schema(schema string) TableInfoOption {
 	return func(options *TableInfoOptions) {
 		options.schema = strings.TrimSpace(schema)
-	}
-}
-
-func View1(base Table) TableInfoOption {
-	return func(options *TableInfoOptions) {
-		options.view = true
-		options.viewBase = base
 	}
 }
 
@@ -48,7 +39,6 @@ func Info(name string, options ...TableInfoOption) TableInfo {
 	return TableInfo{
 		name:      strings.TrimSpace(name),
 		schema:    opt.schema,
-		view:      opt.view,
 		conflicts: opt.conflicts,
 	}
 }
@@ -56,7 +46,6 @@ func Info(name string, options ...TableInfoOption) TableInfo {
 type TableInfo struct {
 	name      string
 	schema    string
-	view      bool
 	conflicts []string
 }
 
@@ -66,10 +55,6 @@ func (info TableInfo) Schema() string {
 
 func (info TableInfo) Name() string {
 	return info.name
-}
-
-func (info TableInfo) View() bool {
-	return info.view
 }
 
 func (info TableInfo) Conflicts() []string {
@@ -83,7 +68,42 @@ type Table interface {
 }
 
 type ViewInfo struct {
+	pure   bool
+	name   string
+	schema string
+	base   Table
+}
+
+func (info ViewInfo) Pure() (string, string, bool) {
+	return info.schema, info.name, info.pure
+}
+
+func (info ViewInfo) Base() Table {
+	return info.base
+}
+
+func TableView(table Table) ViewInfo {
+	return ViewInfo{
+		pure:   false,
+		name:   "",
+		schema: "",
+		base:   table,
+	}
+}
+
+func PureView(name string, schema ...string) ViewInfo {
+	s := ""
+	if len(schema) > 0 {
+		s = schema[0]
+	}
+	return ViewInfo{
+		pure:   true,
+		name:   strings.TrimSpace(name),
+		schema: s,
+		base:   nil,
+	}
 }
 
 type View interface {
+	ViewInfo() ViewInfo
 }

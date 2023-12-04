@@ -11,26 +11,18 @@ import (
 )
 
 type Specification struct {
-	Key            string
-	Schema         string
-	Name           string
-	View           bool
-	Type           reflect.Type
-	Columns        []*Column
-	Conflicts      []string
-	DeleteCascades []*Column
+	Key       string
+	Schema    string
+	Name      string
+	View      bool
+	ViewBase  *Specification
+	Type      reflect.Type
+	Columns   []*Column
+	Conflicts []string
 }
 
 func (spec *Specification) Instance() (v any) {
 	return reflect.Zero(spec.Type).Interface()
-}
-
-func (spec *Specification) DeleteCascadeColumns() (columns []*Column, has bool) {
-	has = len(spec.DeleteCascades) > 0
-	if has {
-		columns = spec.DeleteCascades
-	}
-	return
 }
 
 func (spec *Specification) ConflictColumns() (columns []*Column, err error) {
@@ -147,20 +139,18 @@ func (spec *Specification) String() (s string) {
 	_, _ = buf.WriteString(fmt.Sprintf("Specification: %s\n", spec.Key))
 	_, _ = buf.WriteString(fmt.Sprintf("  schema: %s\n", spec.Schema))
 	_, _ = buf.WriteString(fmt.Sprintf("  name: %s\n", spec.Name))
-	_, _ = buf.WriteString(fmt.Sprintf("  view: %v\n", spec.View))
+	_, _ = buf.WriteString(fmt.Sprintf("  view: %v", spec.View))
+	if spec.ViewBase == nil {
+		_, _ = buf.WriteString(" pure")
+	} else {
+		_, _ = buf.WriteString(fmt.Sprintf(" base(%s)", spec.ViewBase.Key))
+	}
+	_, _ = buf.WriteString("\n")
 	_, _ = buf.WriteString(fmt.Sprintf("  columns: %v\n", len(spec.Columns)))
 	for _, column := range spec.Columns {
 		_, _ = buf.WriteString(fmt.Sprintf("    %s\n", column.String()))
 	}
 	_, _ = buf.WriteString(fmt.Sprintf("  conflicts: %+v\n", spec.Conflicts))
-	_, _ = buf.WriteString(fmt.Sprintf("  cascades[%v]: ", len(spec.DeleteCascades)))
-	for i, cascade := range spec.DeleteCascades {
-		if i > 0 {
-			_, _ = buf.WriteString(", ")
-		}
-		_, _ = buf.WriteString(fmt.Sprintf("%s", cascade.Field))
-	}
-	_, _ = buf.WriteString("\n")
 	s = buf.String()
 	return
 }
@@ -172,15 +162,15 @@ var (
 	group     = singleflight.Group{}
 )
 
-func GetSpecification(ctx context.Context, table any) (spec *Specification, err error) {
-	rt := reflect.TypeOf(table)
+func GetSpecification(ctx context.Context, e any) (spec *Specification, err error) {
+	rt := reflect.TypeOf(e)
 	key := fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name())
 
 	scanned, has := tables.Load(key)
 	if has {
 		spec, has = scanned.(*Specification)
 		if !has {
-			err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("stored table specification is invalid type"))
+			err = errors.Warning("sql: get specification failed").WithCause(fmt.Errorf("stored specification is invalid type"))
 			return
 		}
 		return
@@ -192,7 +182,7 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 	if processing != nil {
 		spec, has = processing.(*Specification)
 		if !has {
-			err = errors.Warning("sql: get table specification failed").WithCause(fmt.Errorf("processing table specification is invalid type"))
+			err = errors.Warning("sql: get specification failed").WithCause(fmt.Errorf("processing specification is invalid type"))
 			return
 		}
 		return
@@ -201,12 +191,21 @@ func GetSpecification(ctx context.Context, table any) (spec *Specification, err 
 	scanned, err, _ = group.Do(key, func() (v interface{}, err error) {
 		current := &Specification{}
 		ctx = context.WithValue(ctx, ctxKey, current)
-		s, scanErr := ScanTable(ctx, table)
+		var result *Specification
+		var scanErr error
+		if MaybeTable(e) {
+			result, scanErr = ScanTable(ctx, e)
+		} else if MaybeView(e) {
+			result, scanErr = ScanView(ctx, e)
+		} else {
+			err = errors.Warning("sql: get specification failed").WithCause(fmt.Errorf("invalid type"))
+			return
+		}
 		if scanErr != nil {
 			err = scanErr
 			return
 		}
-		reflect.ValueOf(current).Elem().Set(reflect.ValueOf(s).Elem())
+		reflect.ValueOf(current).Elem().Set(reflect.ValueOf(result).Elem())
 		v = current
 		tables.Store(key, v)
 		return
@@ -239,7 +238,6 @@ func ScanTable(ctx context.Context, table any) (spec *Specification, err error) 
 		return
 	}
 	schema := info.schema
-	view := info.view
 	conflicts := info.conflicts
 
 	columns, columnsErr := scanTableFields(ctx, rt)
@@ -250,31 +248,14 @@ func ScanTable(ctx context.Context, table any) (spec *Specification, err error) 
 		return
 	}
 
-	deleteCascades := make([]*Column, 0, 1)
-	for _, column := range columns {
-		if column.Kind == Links {
-			_, _, cascade, _, _, _, has := column.Links()
-			if has && cascade {
-				deleteCascades = append(deleteCascades, column)
-			}
-		}
-		if column.Kind == Link {
-			_, _, cascade, _, has := column.Link()
-			if has && cascade {
-				deleteCascades = append(deleteCascades, column)
-			}
-		}
-	}
-
 	spec = &Specification{
-		Key:            key,
-		Schema:         schema,
-		Name:           name,
-		View:           view,
-		Type:           rt,
-		Columns:        columns,
-		Conflicts:      conflicts,
-		DeleteCascades: deleteCascades,
+		Key:       key,
+		Schema:    schema,
+		Name:      name,
+		View:      false,
+		Type:      rt,
+		Columns:   columns,
+		Conflicts: conflicts,
 	}
 
 	tableNames := make([][]byte, 0, 1)
