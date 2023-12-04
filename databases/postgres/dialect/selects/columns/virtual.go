@@ -30,7 +30,8 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		return
 	}
 	name := ctx.FormatIdent([]byte(column.Name))
-	if kind == specifications.BasicVirtualQuery {
+	switch kind {
+	case specifications.BasicVirtualQuery:
 		_, _ = buf.Write(specifications.LB)
 		_, _ = buf.Write([]byte(query))
 		_, _ = buf.Write(specifications.RB)
@@ -38,18 +39,10 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(name)
-	} else {
+		break
+	case specifications.ObjectVirtualQuery:
 		src := ctx.FormatIdent([]byte(fmt.Sprintf("%s_virtual", column.Field)))
 		_, _ = buf.Write(specifications.LB)
-		if kind == specifications.ArrayVirtualQuery {
-			_, _ = buf.Write(specifications.SELECT)
-			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write([]byte("to_json"))
-			_, _ = buf.Write(specifications.LB)
-			_, _ = buf.Write([]byte("ARRAY"))
-			_, _ = buf.Write(specifications.LB)
-		}
-
 		_, _ = buf.Write(specifications.SELECT)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write([]byte("row_to_json"))
@@ -68,15 +61,63 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(src)
-
-		if kind == specifications.ArrayVirtualQuery {
-			_, _ = buf.Write(specifications.RB)
-			_, _ = buf.Write(specifications.AS)
-		}
 		_, _ = buf.Write(specifications.RB)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(name)
+		break
+	case specifications.ArrayVirtualQuery:
+		src := ctx.FormatIdent([]byte(fmt.Sprintf("%s_virtual", column.Field)))
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write(specifications.SELECT)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write([]byte("to_json"))
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write([]byte("ARRAY"))
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write(specifications.SELECT)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write([]byte("row_to_json"))
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write(src)
+		_, _ = buf.Write(specifications.DOT)
+		_, _ = buf.Write(specifications.STAR)
+		_, _ = buf.Write(specifications.RB)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.FORM)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write([]byte(query))
+		_, _ = buf.Write(specifications.RB)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(src)
+		_, _ = buf.Write(specifications.RB)
+		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.RB)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(name)
+		break
+	case specifications.AggregateVirtualQuery:
+		_, _ = buf.Write([]byte(query))
+		_, _ = buf.Write(specifications.LB)
+		_, _ = buf.Write(name)
+		_, _ = buf.Write(specifications.RB)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.SPACE)
+		_, _ = buf.Write(name)
+		_ = buf.WriteByte('_')
+		_, _ = buf.Write([]byte(query))
+		break
+	default:
+		err = errors.Warning("sql: render virtual field failed").
+			WithCause(fmt.Errorf("kind of %s is not valid virtual", column.Field)).
+			WithMeta("table", spec.Key).
+			WithMeta("field", column.Field)
+		return
 	}
 
 	fragment = buf.Bytes()
