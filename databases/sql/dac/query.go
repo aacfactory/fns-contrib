@@ -4,16 +4,14 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
-	"github.com/aacfactory/fns-contrib/databases/sql/dac/groups"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/orders"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/aacfactory/fns/context"
 )
 
 type QueryOptions struct {
-	cond     conditions.Condition
-	orders   orders.Orders
-	groupBys groups.GroupBy
+	cond   conditions.Condition
+	orders orders.Orders
 }
 
 type QueryOption func(options *QueryOptions)
@@ -38,12 +36,6 @@ func Desc(name string) orders.Orders {
 	return orders.Desc(name)
 }
 
-func Group(group groups.GroupBy) QueryOption {
-	return func(options *QueryOptions) {
-		options.groupBys = group
-	}
-}
-
 func Query[T Table](ctx context.Context, offset int, length int, options ...QueryOption) (entries []T, err error) {
 	opt := QueryOptions{}
 	for _, option := range options {
@@ -54,7 +46,6 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		ctx,
 		specifications.Condition{Condition: opt.cond},
 		specifications.Orders(opt.orders),
-		specifications.GroupBy{GroupBy: opt.groupBys},
 		offset, length,
 	)
 	if buildErr != nil {

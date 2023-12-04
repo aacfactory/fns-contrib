@@ -1,7 +1,6 @@
 package selects
 
 import (
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
@@ -47,53 +46,28 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	query := buf.Bytes()
 
 	generic = &QueryGeneric{
-		spec:      spec,
-		tableName: tableName,
-		content:   query,
-		columns:   fields,
+		spec:    spec,
+		content: query,
+		columns: fields,
 	}
 
 	return
 }
 
 type QueryGeneric struct {
-	spec      *specifications.Specification
-	tableName []byte
-	content   []byte
-	columns   []string
+	spec    *specifications.Specification
+	content []byte
+	columns []string
 }
 
-func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, offset int, length int) (method specifications.Method, arguments []any, columns []string, err error) {
+func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, offset int, length int) (method specifications.Method, arguments []any, columns []string, err error) {
 	method = specifications.QueryMethod
+	columns = generic.columns
 
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	if groupBy.Exist() {
-		_, _ = buf.Write(specifications.SELECT)
-		_, _ = buf.Write(specifications.SPACE)
-		for i, field := range groupBy.Selects {
-			if i > 0 {
-				_, _ = buf.Write(specifications.COMMA)
-			}
-			column, has := ctx.Localization(field)
-			if !has {
-				err = errors.Warning("sql: query render failed").WithCause(fmt.Errorf("get %s localization failed", field))
-				return
-			}
-			_, _ = buf.Write(column[0])
-
-			columns = append(columns, field)
-		}
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.FORM)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(generic.tableName)
-		columns = groupBy.Selects
-	} else {
-		_, _ = buf.Write(generic.content)
-		columns = generic.columns
-	}
+	_, _ = buf.Write(generic.content)
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)
@@ -104,6 +78,7 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 			return
 		}
 	}
+
 	if len(orders) > 0 {
 		_, _ = buf.Write(specifications.SPACE)
 		_, orderErr := orders.Render(ctx, buf)
@@ -111,15 +86,6 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 			err = orderErr
 			return
 		}
-	}
-	if groupBy.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		groupByArgs, groupByErr := groupBy.Render(ctx, buf)
-		if groupByErr != nil {
-			err = groupByErr
-			return
-		}
-		arguments = append(arguments, groupByArgs...)
 	}
 
 	if length > 0 {
