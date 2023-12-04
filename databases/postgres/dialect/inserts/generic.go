@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (query []byte, vr ValueRender, indexes []string, returning []string, err error) {
+func generateInsertQuery(ctx specifications.Context, spec *specifications.Specification) (query []byte, vr ValueRender, fields []string, returning []string, err error) {
 	vr = NewValueRender()
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
@@ -43,7 +43,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
 		vr.Add()
-		indexes = append(indexes, pk.Field)
+		fields = append(fields, pk.Field)
 		n++
 	}
 	// ver
@@ -78,7 +78,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		}
 		_, _ = buf.Write(columnName)
 		vr.Add()
-		indexes = append(indexes, column.Field)
+		fields = append(fields, column.Field)
 		n++
 	}
 

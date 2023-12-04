@@ -15,7 +15,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	}
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	indexes := make([]string, 0, 1)
+	fields := make([]string, 0, 1)
 	// name
 	tableName := ctx.FormatIdent([]byte(spec.Name))
 	if spec.Schema != "" {
@@ -52,7 +52,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, by.Field)
+			fields = append(fields, by.Field)
 			n++
 		}
 		if at != nil {
@@ -64,7 +64,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, at.Field)
+			fields = append(fields, at.Field)
 			n++
 		}
 		// version
@@ -100,7 +100,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.NextQueryPlaceholder())
-	indexes = append(indexes, pk.Field)
+	fields = append(fields, pk.Field)
 	// version
 	if hasVer {
 		_, _ = buf.Write(specifications.SPACE)
@@ -111,7 +111,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(ctx.NextQueryPlaceholder())
-		indexes = append(indexes, ver.Field)
+		fields = append(fields, ver.Field)
 	}
 	// where <<<
 
@@ -120,7 +120,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	generic = &DeleteGeneric{
 		spec:    spec,
 		content: query,
-		values:  indexes,
+		fields:  fields,
 	}
 
 	return
@@ -129,12 +129,12 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 type DeleteGeneric struct {
 	spec    *specifications.Specification
 	content []byte
-	values  []string
+	fields  []string
 }
 
 func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []string, err error) {
 	method = specifications.ExecuteMethod
-	fields = generic.values
+	fields = generic.fields
 
 	_, err = w.Write(generic.content)
 	if err != nil {

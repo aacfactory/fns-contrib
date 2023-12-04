@@ -14,7 +14,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		return
 	}
 	method := specifications.ExecuteMethod
-	query, vr, indexes, returning, generateErr := generateInsertQuery(ctx, spec)
+	query, vr, fields, returning, generateErr := generateInsertQuery(ctx, spec)
 	if generateErr != nil {
 		err = errors.Warning("sql: new insert generic failed").WithCause(generateErr).WithMeta("table", spec.Key)
 		return
@@ -96,7 +96,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		conflictFragment:  conflictFragment,
 		returningFragment: returningFragment,
 		returning:         returning,
-		values:            indexes,
+		fields:            fields,
 	}
 	return
 }
@@ -109,13 +109,13 @@ type InsertGeneric struct {
 	conflictFragment  []byte
 	returningFragment []byte
 	returning         []string
-	values            []string
+	fields            []string
 }
 
 func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, values int) (method specifications.Method, fields []string, returning []string, err error) {
 	method = generic.method
 	returning = generic.returning
-	fields = generic.values
+	fields = generic.fields
 
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)

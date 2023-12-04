@@ -1,4 +1,4 @@
-package selects
+package views
 
 import (
 	"github.com/aacfactory/errors"
@@ -10,16 +10,26 @@ import (
 	"unsafe"
 )
 
-func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *QueryGeneric, err error) {
+func NewViewGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *ViewGeneric, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
-	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+	var tableName []byte
+	if spec.ViewBase == nil {
+		tableName = ctx.FormatIdent([]byte(spec.Name))
+		if spec.Schema != "" {
+			schema := ctx.FormatIdent([]byte(spec.Schema))
+			schema = append(schema, '.')
+			tableName = append(schema, tableName...)
+		}
+	} else {
+		tableName = ctx.FormatIdent([]byte(spec.ViewBase.Name))
+		if spec.ViewBase.Schema != "" {
+			schema := ctx.FormatIdent([]byte(spec.ViewBase.Schema))
+			schema = append(schema, '.')
+			tableName = append(schema, tableName...)
+		}
 	}
+	// name
 
 	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
@@ -31,7 +41,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 		}
 		fragment, columnErr := columns.Fragment(ctx, spec, column)
 		if columnErr != nil {
-			err = errors.Warning("sql: new query generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
+			err = errors.Warning("sql: new view generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
 			return
 		}
 		_, _ = buf.Write(fragment)
@@ -45,7 +55,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 	query := buf.Bytes()
 
-	generic = &QueryGeneric{
+	generic = &ViewGeneric{
 		spec:    spec,
 		content: query,
 		fields:  fields,
@@ -54,13 +64,14 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	return
 }
 
-type QueryGeneric struct {
+type ViewGeneric struct {
 	spec    *specifications.Specification
 	content []byte
 	fields  []string
 }
 
-func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, offset int, length int) (method specifications.Method, arguments []any, fields []string, err error) {
+func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, offset int, length int) (method specifications.Method, arguments []any, fields []string, err error) {
+
 	method = specifications.QueryMethod
 	fields = generic.fields
 
@@ -84,6 +95,15 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, orderErr := orders.Render(ctx, buf)
 		if orderErr != nil {
 			err = orderErr
+			return
+		}
+	}
+
+	if groupBy.Exist() {
+		_, _ = buf.Write(specifications.SPACE)
+		_, groupByErr := groupBy.Render(specifications.SwitchKey(ctx, generic.spec.Instance()), buf)
+		if groupByErr != nil {
+			err = groupByErr
 			return
 		}
 	}

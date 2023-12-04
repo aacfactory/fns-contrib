@@ -279,3 +279,7 @@ func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.S
 	query = buf.Bytes()
 	return
 }
+
+func (dialect *Dialect) View(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []string, err error) {
+	return
+}

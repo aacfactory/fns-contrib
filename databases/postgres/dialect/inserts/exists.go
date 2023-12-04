@@ -13,7 +13,7 @@ func NewInsertWhenExistsGeneric(ctx specifications.Context, spec *specifications
 		generic = &InsertWhenExistsGeneric{}
 		return
 	}
-	method, query, indexes, returning, generateErr := generateInsertExistOrNotQuery(ctx, spec, true)
+	method, query, fields, returning, generateErr := generateInsertExistOrNotQuery(ctx, spec, true)
 	if generateErr != nil {
 		err = errors.Warning("sql: new insert when exist generic failed").WithCause(generateErr).WithMeta("table", spec.Key)
 		return
@@ -23,7 +23,7 @@ func NewInsertWhenExistsGeneric(ctx specifications.Context, spec *specifications
 		spec:      spec,
 		method:    method,
 		content:   query,
-		values:    indexes,
+		fields:    fields,
 		returning: returning,
 	}
 
@@ -34,15 +34,15 @@ type InsertWhenExistsGeneric struct {
 	spec      *specifications.Specification
 	method    specifications.Method
 	content   []byte
-	values    []string
+	fields    []string
 	returning []string
 }
 
 func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.Writer, src specifications.QueryExpr) (method specifications.Method, fields []string, arguments []any, returning []string, err error) {
 	method = generic.method
-	fields = generic.values
+	fields = generic.fields
 
-	ctx.SkipNextQueryPlaceholderCursor(len(generic.values))
+	ctx.SkipNextQueryPlaceholderCursor(len(generic.fields))
 
 	srcBuf := bytebufferpool.Get()
 	defer bytebufferpool.Put(srcBuf)

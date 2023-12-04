@@ -12,7 +12,7 @@ type GroupBy struct {
 }
 
 func (group GroupBy) Exist() bool {
-	return len(group.Selects) > 0 && len(group.Bys) > 0
+	return len(group.Bys) > 0
 }
 
 func (group GroupBy) Render(ctx Context, w io.Writer) (argument []any, err error) {

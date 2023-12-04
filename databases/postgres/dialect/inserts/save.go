@@ -15,7 +15,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 	}
 	method := specifications.ExecuteMethod
 
-	query, vr, indexes, returning, generateErr := generateInsertQuery(ctx, spec)
+	query, vr, fields, returning, generateErr := generateInsertQuery(ctx, spec)
 	if generateErr != nil {
 		err = errors.Warning("sql: new insert or update generic failed").WithCause(generateErr).WithMeta("table", spec.Key)
 		return
@@ -59,7 +59,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 		_, _ = buf.Write(specifications.SET)
 		_, _ = buf.Write(specifications.SPACE)
 
-		ctx.SkipNextQueryPlaceholderCursor(len(indexes))
+		ctx.SkipNextQueryPlaceholderCursor(len(fields))
 		n = 0
 		for _, column := range spec.Columns {
 			skip := column.Kind == specifications.Pk ||
@@ -94,7 +94,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(ctx.NextQueryPlaceholder())
-			indexes = append(indexes, column.Field)
+			fields = append(fields, column.Field)
 			n++
 		}
 
@@ -124,7 +124,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 		method:    method,
 		content:   query,
 		returning: returning,
-		values:    indexes,
+		fields:    fields,
 	}
 	return
 }
@@ -134,13 +134,13 @@ type InsertOrUpdateGeneric struct {
 	method    specifications.Method
 	content   []byte
 	returning []string
-	values    []string
+	fields    []string
 }
 
 func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writer) (method specifications.Method, fields []string, returning []string, err error) {
 	method = generic.method
 	returning = generic.returning
-	fields = generic.values
+	fields = generic.fields
 
 	_, err = w.Write(generic.content)
 	if err != nil {

@@ -41,7 +41,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			tableName = append(tableNames[0], '.')
 			tableName = append(tableName, tableNames[1]...)
 		}
-		ctx = withTable(ctx, query)
+		ctx = SwitchKey(ctx, query)
 		column, hasColumn := ctx.Localization(expr.Field)
 		if !hasColumn {
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", expr.Field))

@@ -36,7 +36,7 @@ func Fork(ctx Context) Context {
 	}
 }
 
-func withTable(ctx Context, key any) Context {
+func SwitchKey(ctx Context, key any) Context {
 	return &renderCtx{
 		Context: ctx,
 		dialect: nil,

@@ -78,6 +78,7 @@ type Dialect interface {
 	Exist(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Count(ctx Context, spec *Specification, cond Condition) (method Method, query []byte, arguments []any, err error)
 	Query(ctx Context, spec *Specification, cond Condition, orders Orders, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error)
+	View(ctx Context, spec *Specification, cond Condition, orders Orders, groupBy GroupBy, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error)
 }
 
 var (
