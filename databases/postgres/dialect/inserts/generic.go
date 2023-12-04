@@ -89,7 +89,7 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	_, _ = buf.Write(specifications.VALUES)
 	_, _ = buf.Write(specifications.SPACE)
 
-	query = buf.Bytes()
+	query = []byte(buf.String())
 	return
 }
 
@@ -281,7 +281,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		}
 	}
 
-	query = buf.Bytes()
+	query = []byte(buf.String())
 
 	return
 }

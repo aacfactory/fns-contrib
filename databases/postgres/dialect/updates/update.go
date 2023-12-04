@@ -103,7 +103,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 		fields = append(fields, ver.Field)
 	}
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	generic = &UpdateGeneric{
 		spec:    spec,

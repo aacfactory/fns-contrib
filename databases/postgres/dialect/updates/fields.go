@@ -114,7 +114,7 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 		arguments = append(arguments, condValues...)
 	}
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 	_, err = w.Write(query)
 	if err != nil {
 		err = errors.Warning("sql: render update field failed").WithCause(err)

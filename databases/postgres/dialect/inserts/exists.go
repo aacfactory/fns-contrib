@@ -50,7 +50,7 @@ func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.
 	if err != nil {
 		return
 	}
-	srcQuery := srcBuf.Bytes()
+	srcQuery := []byte(srcBuf.String())
 
 	query := bytes.Replace(generic.content, srcPlaceHold, srcQuery, 1)
 	_, err = w.Write(query)

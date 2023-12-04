@@ -6,6 +6,7 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/inserts"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/selects"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/updates"
+	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/views"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"golang.org/x/sync/singleflight"
 	"sync"
@@ -23,6 +24,7 @@ type Generic struct {
 	Count              *selects.CountGeneric
 	Exist              *selects.ExistGeneric
 	Query              *selects.QueryGeneric
+	View               *views.ViewGeneric
 }
 
 type Generics struct {
@@ -79,6 +81,10 @@ func (generics *Generics) Get(ctx specifications.Context, spec *specifications.S
 			return
 		}
 		gen.Query, err = selects.NewQueryGeneric(specifications.Fork(ctx), spec)
+		if err != nil {
+			return
+		}
+		gen.View, err = views.NewViewGeneric(specifications.Fork(ctx), spec)
 		if err != nil {
 			return
 		}

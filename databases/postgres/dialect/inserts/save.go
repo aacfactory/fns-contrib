@@ -117,7 +117,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 		}
 	}
 
-	query = buf.Bytes()
+	query = []byte(buf.String())
 
 	generic = &InsertOrUpdateGeneric{
 		spec:      spec,

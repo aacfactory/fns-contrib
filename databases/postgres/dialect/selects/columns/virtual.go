@@ -120,6 +120,6 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		return
 	}
 
-	fragment = buf.Bytes()
+	fragment = []byte(buf.String())
 	return
 }

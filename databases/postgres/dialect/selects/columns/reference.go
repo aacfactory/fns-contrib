@@ -114,6 +114,6 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.FormatIdent([]byte(hostField)))
 
-	fragment = buf.Bytes()
+	fragment = []byte(buf.String())
 	return
 }

@@ -75,7 +75,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		_, _ = buf.Write(tableName)
 	}
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	generic = &DeleteByConditionsGeneric{
 		spec:    spec,

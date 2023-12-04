@@ -34,7 +34,7 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(tableName)
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	generic = &CountGeneric{
 		spec:    spec,

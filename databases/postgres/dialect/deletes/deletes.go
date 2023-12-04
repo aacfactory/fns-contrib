@@ -115,7 +115,7 @@ func NewDeleteGeneric(ctx specifications.Context, spec *specifications.Specifica
 	}
 	// where <<<
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	generic = &DeleteGeneric{
 		spec:    spec,

@@ -157,6 +157,6 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(ctx.FormatIdent([]byte(hostField)))
 
-	fragment = buf.Bytes()
+	fragment = []byte(buf.String())
 	return
 }

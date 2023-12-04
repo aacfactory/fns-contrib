@@ -20,14 +20,13 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		return
 	}
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
 	// conflict
 	var conflictFragment []byte
 	conflicts := spec.Conflicts
 	var conflictFieldIndexes []string
 	conflictColumns := make([][]byte, 0, 1)
 	if len(conflicts) > 0 {
+		buf := bytebufferpool.Get()
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.ON)
 		_, _ = buf.Write(specifications.SPACE)
@@ -39,6 +38,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		for _, conflict := range conflicts {
 			cc, hasCC := spec.ColumnByField(conflict)
 			if !hasCC {
+				bytebufferpool.Put(buf)
 				err = errors.Warning("sql: new insert generic failed").
 					WithCause(errors.Warning(fmt.Sprintf("column was not found by %s field", conflict))).WithMeta("table", spec.Key)
 				return
@@ -57,14 +57,15 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.DO)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.NOTHING)
-		conflictFragment = buf.Bytes()
-		buf.Reset()
+		conflictFragment = []byte(buf.String())
+		bytebufferpool.Put(buf)
 	}
 
 	// returning
 	var returningFragment []byte
 	if len(returning) > 0 {
 		method = specifications.QueryMethod
+		buf := bytebufferpool.Get()
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.RETURNING)
 		_, _ = buf.Write(specifications.SPACE)
@@ -84,8 +85,8 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			}
 			returning = append(returning, conflictFieldIndexes...)
 		}
-
-		returningFragment = buf.Bytes()
+		returningFragment = []byte(buf.String())
+		bytebufferpool.Put(buf)
 	}
 
 	generic = &InsertGeneric{

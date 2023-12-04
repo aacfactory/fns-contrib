@@ -53,7 +53,7 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(tableName)
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	generic = &ViewGeneric{
 		spec:    spec,
@@ -121,7 +121,7 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
 	}
 
-	query := buf.Bytes()
+	query := []byte(buf.String())
 
 	_, err = w.Write(query)
 
