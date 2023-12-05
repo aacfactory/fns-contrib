@@ -80,7 +80,7 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 	}
 	stmt := gcg.Statements()
 
-	stmt.Tab().Token("postgres.Begin(ctx")
+	stmt.Tab().Token("if err = postgres.Begin(ctx")
 	if readonly {
 		stmt.Token(", postgres.Readonly()")
 	}
@@ -114,10 +114,11 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 		}
 		stmt.Token(")")
 	}
-	stmt.Token(")",
+	stmt.Token("); err != nil {",
 		gcg.NewPackage("github.com/aacfactory/fns-contrib/databases/postgres"),
 	).Line()
-
+	stmt.Tab().Tab().Token("return")
+	stmt.Tab().Token("}")
 	code = stmt
 	return
 }

@@ -80,7 +80,7 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 	}
 	stmt := gcg.Statements()
 
-	stmt.Tab().Token("sql.Begin(ctx")
+	stmt.Tab().Token("if err = sql.Begin(ctx")
 	if readonly {
 		stmt.Token(", sql.Readonly()")
 	}
@@ -114,8 +114,9 @@ func (writer *TransactionWriter) HandleBefore(ctx context.Context, params []stri
 		}
 		stmt.Token(")")
 	}
-	stmt.Token(")", gcg.NewPackage("github.com/aacfactory/fns-contrib/databases/sql")).Line()
-
+	stmt.Token("); err != nil {", gcg.NewPackage("github.com/aacfactory/fns-contrib/databases/sql")).Line()
+	stmt.Tab().Tab().Token("return")
+	stmt.Tab().Token("}")
 	code = stmt
 	return
 }
