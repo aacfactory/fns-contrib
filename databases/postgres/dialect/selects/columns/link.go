@@ -7,8 +7,6 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-// Link
-// same as Reference
 func Link(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
@@ -19,12 +17,19 @@ func Link(ctx specifications.Context, spec *specifications.Specification, column
 		hostSchemaName = append(hostSchemaName, '.')
 		hostTableName = append(hostSchemaName, hostTableName...)
 	}
-	hostColumnName := ctx.FormatIdent([]byte(column.Name))
 
 	hostField, awayField, mapping, ok := column.Link()
 	if !ok {
 		err = errors.Warning("sql: render link field failed").
 			WithCause(fmt.Errorf("%s is not link", column.Field)).
+			WithMeta("table", spec.Key).
+			WithMeta("field", column.Field)
+		return
+	}
+	hostColumn, hasHostColumn := spec.ColumnByField(hostField)
+	if !hasHostColumn {
+		err = errors.Warning("sql: render link field failed").
+			WithCause(fmt.Errorf("%s is not found in %s", hostField, spec.Key)).
 			WithMeta("table", spec.Key).
 			WithMeta("field", column.Field)
 		return
@@ -101,7 +106,7 @@ func Link(ctx specifications.Context, spec *specifications.Specification, column
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(hostTableName)
 	_, _ = buf.Write(specifications.DOT)
-	_, _ = buf.Write(hostColumnName)
+	_, _ = buf.Write(ctx.FormatIdent([]byte(hostColumn.Name)))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.OFFSET)
 	_, _ = buf.Write(specifications.SPACE)

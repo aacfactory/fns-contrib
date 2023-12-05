@@ -23,7 +23,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 	// conflict
 	var conflictFragment []byte
 	conflicts := spec.Conflicts
-	var conflictFieldIndexes []string
+	var conflictFields []string
 	conflictColumns := make([][]byte, 0, 1)
 	if len(conflicts) > 0 {
 		buf := bytebufferpool.Get()
@@ -33,7 +33,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.CONFLICT)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.LB)
-		conflictFieldIndexes = make([]string, 0, len(conflicts))
+		conflictFields = make([]string, 0, len(conflicts))
 		n := 0
 		for _, conflict := range conflicts {
 			cc, hasCC := spec.ColumnByField(conflict)
@@ -48,7 +48,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			}
 			conflictColumn := ctx.FormatIdent([]byte(cc.Name))
 			conflictColumns = append(conflictColumns, conflictColumn)
-			conflictFieldIndexes = append(conflictFieldIndexes, cc.Field)
+			conflictFields = append(conflictFields, cc.Field)
 			_, _ = buf.Write(conflictColumn)
 			n++
 		}
@@ -83,7 +83,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 				_, _ = buf.Write(specifications.COMMA)
 				_, _ = buf.Write(conflictColumn)
 			}
-			returning = append(returning, conflictFieldIndexes...)
+			returning = append(returning, conflictFields...)
 		}
 		returningFragment = []byte(buf.String())
 		bytebufferpool.Put(buf)
