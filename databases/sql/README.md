@@ -83,21 +83,54 @@ app.Deply(sql.Service())
 ```
 
 ### Proxy usage
-See [proxy.go](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/proxy.go)
 ```go
 // begin transaction 
 sql.Begin(ctx)
 // commit transaction
 sql.Commit(ctx)
+// rollback transaction
+sql.Rollback(ctx)
 // query
 sql.Query(ctx, querySQL, ...)
 // execute
 sql.Execute(ctx, executeSQL, ...)
 ```
+
+### Code generator in fn
+Use `@sql:transaction` annotation. params are `readonly` and `isolation`.
+* readonly: set the transaction to be readonly.
+* isolation: use spec isolation. default is use isolation of config.
+  * ReadCommitted
+  * ReadUncommitted
+  * WriteCommitted
+  * RepeatableRead
+  * Snapshot
+  * Serializable
+  * Linearizable
+```go
+// @fn some
+// ... some func use transaction
+// @sql:transaction
+func some(ctx context.Context, param Param) (result Result, err error) {
+	// ...
+	return
+}
+```
+Use `@sql:use` annotation to switch datasource service. param is service name.
+```go
+// @fn some
+// ... some func use transaction
+// @sql:use postgres1
+func some(ctx context.Context, param Param) (result Result, err error) {
+	// ...
+	return
+}
+```
+
 ### ORM
-* [postgres](https://github.com/aacfactory/fns-contrib/tree/main/databases/postgres)
-* [mysql](https://github.com/aacfactory/fns-contrib/tree/main/databases/mysql)
-* [common](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dac)
+* [POSTGRES](https://github.com/aacfactory/fns-contrib/tree/main/databases/postgres)
+* [MYSQL](https://github.com/aacfactory/fns-contrib/tree/main/databases/mysql)
+* [DAC](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dac)
 
 ### Multi sources
 
