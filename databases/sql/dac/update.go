@@ -8,7 +8,7 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
+func Update[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	entries := []T{entry}
 	_, query, arguments, buildErr := specifications.BuildUpdate[T](ctx, entries)
 	if buildErr != nil {
@@ -20,7 +20,12 @@ func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err err
 		err = errors.Warning("sql: update failed").WithCause(execErr)
 		return
 	}
-	if affected = result.RowsAffected; affected == 1 {
+	if ok = result.RowsAffected == 1; ok {
+		verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+		if verErr != nil {
+			err = errors.Warning("sql: update failed").WithCause(verErr)
+			return
+		}
 		v = entries[0]
 	}
 	return

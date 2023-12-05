@@ -316,15 +316,17 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 				err = errors.Warning(fmt.Sprintf("sql: kind %s field value type can not be updated", field.Name)).WithMeta("table", spec.Key)
 				return
 			}
-			rv := reflect.ValueOf(&t)
-			rv.FieldByName(column.Field).Set(reflect.ValueOf(field.Value))
-			arguments, err = spec.Arguments(t, []string{column.Field})
-			if err != nil {
-				err = errors.Warning(fmt.Sprintf("sql: scan reference %s field value faield", field.Name)).WithCause(err).WithMeta("table", spec.Key)
-				return
+			rv := reflect.Indirect(reflect.ValueOf(field.Value))
+			if rv.Type().Kind() == reflect.Struct {
+				_, awayField, mapping, _ := column.Reference()
+				refArg, refArgErr := mapping.ArgumentByField(field.Value, awayField)
+				if refArgErr != nil {
+					err = errors.Warning(fmt.Sprintf("sql: scan reference %s field value faield", field.Name)).WithCause(refArgErr).WithMeta("table", spec.Key)
+					return
+				}
+				field.Value = refArg
+				fields[i] = field
 			}
-			field.Value = arguments[0]
-			fields[i] = field
 			break
 		}
 	}

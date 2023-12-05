@@ -8,8 +8,9 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
-	_, query, arguments, buildErr := specifications.BuildDelete[T](ctx, entry)
+func Delete[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
+	entries := []T{entry}
+	_, query, arguments, buildErr := specifications.BuildDelete[T](ctx, entries)
 	if buildErr != nil {
 		err = errors.Warning("sql: delete failed").WithCause(buildErr)
 		return
@@ -21,7 +22,12 @@ func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err err
 		return
 	}
 
-	if affected = result.RowsAffected; affected == 1 {
+	if ok = result.RowsAffected == 1; ok {
+		verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+		if verErr != nil {
+			err = errors.Warning("sql: delete failed").WithCause(verErr)
+			return
+		}
 		v = entry
 	}
 	return

@@ -9,9 +9,9 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
+func Update[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	v, affected, err = dac.Update[T](ctx, entry)
+	v, ok, err = dac.Update[T](ctx, entry)
 	return
 }
 

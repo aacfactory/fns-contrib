@@ -8,9 +8,9 @@ import (
 	"github.com/aacfactory/fns/context"
 )
 
-func Delete[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
+func Delete[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	v, affected, err = dac.Delete[T](ctx, entry)
+	v, ok, err = dac.Delete[T](ctx, entry)
 	return
 }
 
