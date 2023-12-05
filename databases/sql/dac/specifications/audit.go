@@ -4,6 +4,7 @@ import (
 	stdsql "database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services/authorizations"
 	"reflect"
@@ -47,8 +48,21 @@ func setupAudit[T any](by *Column, at *Column, auth authorizations.Authorization
 }
 
 func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entries []T) (err error) {
+	// id
+	pk, hasPk := spec.Pk()
+	// creation
 	by, at, has := spec.AuditCreation()
 	if !has {
+		if hasPk && !pk.Incr() {
+			for i, entry := range entries {
+				rv := reflect.ValueOf(&entry)
+				pkf := rv.Elem().FieldByName(pk.Field)
+				if pkf.IsZero() {
+					pkf.SetString(uid.UID())
+					entries[i] = entry
+				}
+			}
+		}
 		return
 	}
 	auth, hasAuth, loadErr := authorizations.Load(ctx)
@@ -64,7 +78,44 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 		err = errors.Warning(fmt.Sprintf("sql: %s need audit creation", spec.Key)).WithCause(authorizations.ErrUnauthorized)
 		return
 	}
-	setupAudit[T](by, at, auth, entries)
+	for i, entry := range entries {
+		rv := reflect.ValueOf(&entry)
+		if by != nil {
+			rby := rv.Elem().FieldByName(by.Field)
+			if rby.IsZero() {
+				if by.Type.Name == StringType {
+					rby.SetString(auth.Id.String())
+				} else if by.Type.Name == IntType {
+					rby.SetInt(auth.Id.Int())
+				}
+			}
+		}
+		if at != nil {
+			rat := rv.Elem().FieldByName(at.Field)
+			if at.Type.Value.ConvertibleTo(datetimeType) {
+				rat.Set(reflect.ValueOf(time.Now()))
+			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
+				rat.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  time.Now(),
+					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(intType) {
+				rat.SetInt(time.Now().UnixMilli())
+			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
+				rat.Set(reflect.ValueOf(stdsql.NullInt64{
+					Int64: time.Now().UnixMilli(),
+					Valid: true,
+				}))
+			}
+		}
+		if hasPk && !pk.Incr() {
+			pkf := rv.Elem().FieldByName(pk.Field)
+			if pkf.IsZero() {
+				pkf.SetString(uid.UID())
+			}
+		}
+		entries[i] = entry
+	}
 	return
 }
 
