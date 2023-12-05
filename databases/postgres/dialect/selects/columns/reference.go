@@ -27,7 +27,7 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	}
 	hostColumnName := ctx.FormatIdent([]byte(column.Name))
 
-	hostField, awayField, mapping, ok := column.Reference()
+	awayField, mapping, ok := column.Reference()
 	if !ok {
 		err = errors.Warning("sql: render reference field failed").
 			WithCause(fmt.Errorf("%s is not reference", column.Field)).
@@ -35,6 +35,7 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 			WithMeta("field", column.Field)
 		return
 	}
+	hostField := column.Field
 
 	awayColumn, hasAwayColumn := mapping.ColumnByField(awayField)
 	if !hasAwayColumn {

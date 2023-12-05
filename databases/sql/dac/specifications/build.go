@@ -323,7 +323,7 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 			}
 			rv := reflect.Indirect(reflect.ValueOf(field.Value))
 			if rv.Type().Kind() == reflect.Struct {
-				_, awayField, mapping, _ := column.Reference()
+				awayField, mapping, _ := column.Reference()
 				refArg, refArgErr := mapping.ArgumentByField(field.Value, awayField)
 				if refArgErr != nil {
 					err = errors.Warning(fmt.Sprintf("sql: scan reference %s field value faield", field.Name)).WithCause(refArgErr).WithMeta("table", spec.Key)

@@ -55,7 +55,7 @@ const (
 	Aol                         // column,aol
 	Json                        // column,json
 	Virtual                     // ident,vc,basic|object|array|aggregate,query|agg_func
-	Reference                   // column,ref,field+target_field
+	Reference                   // column,ref,target_field
 	Link                        // ident,link,field+target_field
 	Links                       // column,links,field+target_field,orders:field@desc+field,length:10
 )
@@ -241,11 +241,10 @@ func (column *Column) Virtual() (kind VirtualQueryKind, query string, ok bool) {
 	return
 }
 
-func (column *Column) Reference() (hostField string, awayField string, mapping *Specification, ok bool) {
+func (column *Column) Reference() (awayField string, mapping *Specification, ok bool) {
 	ok = column.Kind == Reference
 	if ok {
-		hostField = column.Type.Options[0]
-		awayField = column.Type.Options[1]
+		awayField = column.Type.Options[0]
 		mapping = column.Type.Mapping
 	}
 	return
@@ -592,20 +591,13 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			break
 		case referenceColumn:
-			// name,ref,self+target
+			// name,ref,target
 			if len(items) < 2 {
 				err = errors.Warning("sql: scan reference column failed, mapping is required").WithMeta("field", rt.Name)
 				return
 			}
-			mr := strings.Split(items[1], "+")
-			if len(mr) != 2 {
-				err = errors.Warning("sql: scan reference column failed, mapping is invalid").WithMeta("field", rt.Name)
-				return
-			}
-
 			kind = Reference
-			typ.Options = append(typ.Options, strings.TrimSpace(mr[0]))
-			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
+			typ.Options = append(typ.Options, strings.TrimSpace(items[1]))
 			typ.Name = MappingType
 			switch rt.Type.Kind() {
 			case reflect.Struct:

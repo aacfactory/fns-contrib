@@ -182,3 +182,25 @@ func TrySetupAuditVersion[T any](ctx context.Context, entries []T) (err error) {
 	}
 	return
 }
+
+func TrySetupLastInsertId[T any](ctx context.Context, entry T, id int64) (v T, err error) {
+	spec, specErr := GetSpecification(ctx, entry)
+	if specErr != nil {
+		err = specErr
+		return
+	}
+	column, has := spec.Pk()
+	if !has {
+		err = errors.Warning(fmt.Sprintf("sql: %s has no pk", spec.Key))
+		return
+	}
+	if !column.Incr() {
+		err = errors.Warning(fmt.Sprintf("sql: %s has no incr pk", spec.Key))
+		return
+	}
+	rv := reflect.ValueOf(&entry)
+	rvt := rv.Elem().FieldByName(column.Field)
+	rvt.SetInt(id)
+	v = rv.Elem().Interface().(T)
+	return
+}

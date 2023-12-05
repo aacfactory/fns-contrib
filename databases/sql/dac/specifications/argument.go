@@ -34,7 +34,7 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 				}
 				fv = fv.Elem()
 			}
-			_, refField, mapping, ok := target.Reference()
+			refField, mapping, ok := target.Reference()
 			if !ok {
 				err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 				return
@@ -88,7 +88,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 		argument = fv.Interface()
 		break
 	case Reference:
-		_, refField, mapping, ok := target.Reference()
+		refField, mapping, ok := target.Reference()
 		if !ok {
 			err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return

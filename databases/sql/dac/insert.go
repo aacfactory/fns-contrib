@@ -49,6 +49,14 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 				err = errors.Warning("sql: insert failed").WithCause(verErr)
 				return
 			}
+			if result.LastInsertId > 0 {
+				e, idErr := specifications.TrySetupLastInsertId[T](ctx, entries[0], result.LastInsertId)
+				if idErr != nil {
+					err = errors.Warning("sql: insert failed").WithCause(idErr)
+					return
+				}
+				entries[0] = e
+			}
 			v = entries[0]
 		}
 	}
@@ -143,6 +151,14 @@ func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, ok bool, err er
 				err = errors.Warning("sql: insert or update failed").WithCause(verErr)
 				return
 			}
+			if result.LastInsertId > 0 {
+				e, idErr := specifications.TrySetupLastInsertId[T](ctx, entries[0], result.LastInsertId)
+				if idErr != nil {
+					err = errors.Warning("sql: insert or update failed").WithCause(idErr)
+					return
+				}
+				entries[0] = e
+			}
 			v = entries[0]
 		}
 	}
@@ -190,6 +206,14 @@ func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions
 				err = errors.Warning("sql: insert when exist failed").WithCause(verErr)
 				return
 			}
+			if result.LastInsertId > 0 {
+				e, idErr := specifications.TrySetupLastInsertId[T](ctx, entries[0], result.LastInsertId)
+				if idErr != nil {
+					err = errors.Warning("sql: insert when exist failed").WithCause(idErr)
+					return
+				}
+				entries[0] = e
+			}
 			v = entries[0]
 		}
 	}
@@ -236,6 +260,14 @@ func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.Qu
 			if verErr != nil {
 				err = errors.Warning("sql: insert when not exist failed").WithCause(verErr)
 				return
+			}
+			if result.LastInsertId > 0 {
+				e, idErr := specifications.TrySetupLastInsertId[T](ctx, entries[0], result.LastInsertId)
+				if idErr != nil {
+					err = errors.Warning("sql: insert when not exist failed").WithCause(idErr)
+					return
+				}
+				entries[0] = e
 			}
 			v = entries[0]
 		}

@@ -23,6 +23,7 @@ sql:
   kind: "standalone"
   isolation: 2
   transactionMaxAge: 10
+  debugLog: true
   options:
     driver: "postgres"
     dsn: "username:password@tcp(ip:port)/databases"
@@ -98,7 +99,7 @@ sql.Execute(ctx, executeSQL, ...)
 * [mysql](https://github.com/aacfactory/fns-contrib/tree/main/databases/mysql)
 * [common](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql/dac)
 
-### Multi database source
+### Multi sources
 
 use multi database service to implements
 
@@ -117,6 +118,6 @@ app.Deploy(sql.Service(sql.WithName("mysql1")))
 ```
 Proxy
 ```go
-sql.Query(sql.EndpointName(ctx, "postgres1"), querySQL, ...)
-sql.Query(sql.EndpointName(ctx, "mysql1"), querySQL, ...)
+sql.Query(sql.Use(ctx, "postgres1"), querySQL, ...)
+sql.Query(sql.Use(ctx, "mysql1"), querySQL, ...)
 ```
