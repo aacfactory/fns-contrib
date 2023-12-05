@@ -204,10 +204,11 @@ func (ct *ColumnType) String() string {
 // Column
 // 'column:"{name},{kind},{options}"'
 type Column struct {
-	Field string
-	Name  string
-	Kind  ColumnKind
-	Type  ColumnType
+	Field     string
+	Name      string
+	JsonIdent string
+	Kind      ColumnKind
+	Type      ColumnType
 }
 
 func (column *Column) Incr() bool {
@@ -717,11 +718,20 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 
 	typ.fillName()
 
+	// json
+	jsonTag, hasJsonTag := rt.Tag.Lookup(jsonColumn)
+	if !hasJsonTag {
+		jsonTag = rt.Name
+	}
+	if idx := strings.IndexByte(jsonTag, ','); idx > 0 {
+		jsonTag = jsonTag[0:idx]
+	}
 	column = &Column{
-		Field: rt.Name,
-		Name:  name,
-		Kind:  kind,
-		Type:  typ,
+		Field:     rt.Name,
+		Name:      name,
+		JsonIdent: jsonTag,
+		Kind:      kind,
+		Type:      typ,
 	}
 
 	if !column.Valid() {

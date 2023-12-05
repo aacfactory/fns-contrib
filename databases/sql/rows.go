@@ -87,26 +87,18 @@ func (rows Rows) MarshalJSON() (p []byte, err error) {
 	rows.values = make([]Row, 0, 1)
 	for rows.rows.Next() {
 		scanners := scannersPool.Get().([]any)
+		row := make(Row, 0, rows.columnLen)
 		for i := 0; i < rows.columnLen; i++ {
-			scanners = append(scanners, &Column{})
+			column := Column{}
+			row = append(row, column)
+			scanners = append(scanners, &column)
 		}
 		scanErr := rows.rows.Scan(scanners...)
 		if scanErr != nil {
+			row = row[:0]
 			scannersPool.Put(scanners[:0])
 			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
 			return
-		}
-		row := make(Row, 0, rows.columnLen)
-		for i := 0; i < rows.columnLen; i++ {
-			//ct := rows.columnTypes[i]
-			column := scanners[i].(*Column)
-			//column, columnErr := ct.Value(dsts[i])
-			//if columnErr != nil {
-			//	scanValueSlicePool.Put(dsts[:0])
-			//	err = errors.Warning("sql: encode rows failed").WithCause(columnErr)
-			//	return
-			//}
-			row = append(row, *column)
 		}
 		scannersPool.Put(scanners[:0])
 		rows.values = append(rows.values, row)

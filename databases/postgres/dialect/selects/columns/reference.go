@@ -77,12 +77,22 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 		if i > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		mappingColumnFragment, fragmentErr := Fragment(ctx, mapping, mappingColumn)
-		if fragmentErr != nil {
-			err = fragmentErr
-			return
+		switch mappingColumn.Kind {
+		case specifications.Reference, specifications.Link, specifications.Links, specifications.Virtual:
+			mappingColumnFragment, fragmentErr := Fragment(ctx, mapping, mappingColumn)
+			if fragmentErr != nil {
+				err = fragmentErr
+				return
+			}
+			_, _ = buf.Write(mappingColumnFragment)
+			break
+		default:
+			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.Name)))
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(specifications.AS)
+			_, _ = buf.Write(specifications.SPACE)
+			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.JsonIdent)))
 		}
-		_, _ = buf.Write(mappingColumnFragment)
 	}
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
