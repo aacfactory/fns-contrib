@@ -14,9 +14,9 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	return
 }
 
-func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err error) {
+func InsertMulti[T Table](ctx context.Context, entries []T) (v []T, affected int64, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	affected, err = dac.InsertMulti[T](ctx, entries)
+	v, affected, err = dac.InsertMulti[T](ctx, entries)
 	return
 }
 
