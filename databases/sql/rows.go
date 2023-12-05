@@ -47,7 +47,7 @@ func NewRows(rows databases.Rows) (v Rows, err error) {
 
 var (
 	scannersPool = sync.Pool{New: func() any {
-		return make([]any, 0, 1)
+		return make([]any, 0, 16)
 	}}
 )
 

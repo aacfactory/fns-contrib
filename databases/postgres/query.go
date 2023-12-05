@@ -39,7 +39,7 @@ func GroupBy(by groups.GroupBy) QueryOption {
 
 var (
 	queryOptionsPool = sync.Pool{New: func() any {
-		return make([]dac.QueryOption, 0, 1)
+		return make([]dac.QueryOption, 0, 3)
 	}}
 )
 
