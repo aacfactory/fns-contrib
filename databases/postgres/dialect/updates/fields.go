@@ -66,11 +66,11 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 
 	n := 0
 	if len(generic.version) > 0 {
-		_, _ = buf.Write(generic.table)
+		_, _ = buf.Write(generic.version)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(generic.table)
+		_, _ = buf.Write(generic.version)
 		_, _ = buf.Write(specifications.PLUS)
 		_, _ = buf.Write([]byte("1"))
 		n++

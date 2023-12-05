@@ -20,7 +20,7 @@ type Database interface {
 	Name() string
 	Construct(options Options) (err error)
 	Begin(ctx context.Context, options TransactionOptions) (tx Transaction, err error)
-	Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error)
-	Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error)
+	Query(ctx context.Context, query []byte, args []any) (rows Rows, err error)
+	Execute(ctx context.Context, query []byte, args []any) (result Result, err error)
 	Close(ctx context.Context) (err error)
 }

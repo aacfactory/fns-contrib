@@ -153,7 +153,7 @@ func (db *masterSlave) Begin(ctx context.Context, options TransactionOptions) (t
 	return
 }
 
-func (db *masterSlave) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
+func (db *masterSlave) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
 	pos := atomic.AddUint32(&db.pos, 1) % db.slaversLen
 	var r *sql.Rows
 	if db.prepare {
@@ -184,7 +184,7 @@ func (db *masterSlave) Query(ctx context.Context, query []byte, args []interface
 	return
 }
 
-func (db *masterSlave) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
+func (db *masterSlave) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
 	var r sql.Result
 	if db.prepare {
 		stmt, prepareErr := db.masterStatements.Get(query)

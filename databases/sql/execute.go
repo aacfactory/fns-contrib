@@ -107,12 +107,12 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 		err = errors.Warning("sql: execute failed").WithCause(fmt.Errorf("query is required"))
 		return
 	}
-	query := bytex.FromString(param.Query)
 	info, has, loadErr := loadTransactionInfo(r)
 	if loadErr != nil {
 		err = errors.Warning("sql: execute failed").WithCause(loadErr)
 		return
 	}
+	query := bytex.FromString(param.Query)
 	if has {
 		tx, hasTx := fn.group.Get(bytex.FromString(info.Id))
 		if hasTx && !tx.Closed() {
@@ -125,7 +125,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 			if fn.debug && fn.log.DebugEnabled() {
 				latency := time.Now().Sub(handleBegin)
 				fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).With("transaction", info.Id).
-					Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+					Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
 			}
 			if executeErr != nil {
 				err = errors.Warning("sql: execute failed").WithCause(executeErr)
@@ -144,7 +144,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 	if fn.debug && fn.log.DebugEnabled() {
 		latency := time.Now().Sub(handleBegin)
 		fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).
-			Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", param.Arguments)))
+			Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
 	}
 	if executeErr != nil {
 		err = errors.Warning("sql: execute failed").WithCause(executeErr)

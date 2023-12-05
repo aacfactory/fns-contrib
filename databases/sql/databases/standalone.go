@@ -104,7 +104,7 @@ func (db *standalone) Begin(ctx context.Context, options TransactionOptions) (tx
 	return
 }
 
-func (db *standalone) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
+func (db *standalone) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
 	var r *sql.Rows
 	if db.prepare {
 		stmt, prepareErr := db.statements.Get(query)
@@ -133,7 +133,7 @@ func (db *standalone) Query(ctx context.Context, query []byte, args []interface{
 	return
 }
 
-func (db *standalone) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
+func (db *standalone) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
 	var r sql.Result
 	if db.prepare {
 		stmt, prepareErr := db.statements.Get(query)

@@ -29,8 +29,7 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 			fv := rv.FieldByName(target.Field)
 			if fv.Type().Kind() == reflect.Ptr {
 				if fv.IsNil() {
-					fv = reflect.New(reflect.TypeOf(target.ZeroValue()))
-					//arguments = append(arguments, nil)
+					arguments = append(arguments, nil)
 					break
 				}
 				fv = fv.Elem()
@@ -97,7 +96,8 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 		fv := rv.FieldByName(target.Field)
 		if fv.Type().Kind() == reflect.Ptr {
 			if fv.IsNil() {
-				fv.Set(reflect.New(fv.Type()).Elem())
+				return
+				//fv.Set(reflect.New(fv.Type()).Elem())
 			}
 			fv = fv.Elem()
 		}

@@ -9,7 +9,6 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services"
-	"golang.org/x/sync/singleflight"
 	"strings"
 	"time"
 )
@@ -175,11 +174,10 @@ func (svc *service) Construct(options services.Options) (err error) {
 		group:      svc.group,
 	})
 	svc.AddFunction(&queryFn{
-		debug:   svc.debug,
-		log:     svc.Log().With("fn", "query"),
-		db:      svc.db,
-		group:   svc.group,
-		barrier: singleflight.Group{},
+		debug: svc.debug,
+		log:   svc.Log().With("fn", "query"),
+		db:    svc.db,
+		group: svc.group,
 	})
 	svc.AddFunction(&executeFn{
 		debug: svc.debug,

@@ -127,7 +127,7 @@ func (db *cluster) Begin(ctx context.Context, options TransactionOptions) (tx Tr
 	return
 }
 
-func (db *cluster) Query(ctx context.Context, query []byte, args []interface{}) (rows Rows, err error) {
+func (db *cluster) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
 	var r *sql.Rows
 	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
 	if db.prepare {
@@ -156,7 +156,7 @@ func (db *cluster) Query(ctx context.Context, query []byte, args []interface{}) 
 	return
 }
 
-func (db *cluster) Execute(ctx context.Context, query []byte, args []interface{}) (result Result, err error) {
+func (db *cluster) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
 	var r sql.Result
 	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
 	if db.prepare {
