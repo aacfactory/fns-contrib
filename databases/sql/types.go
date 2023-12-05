@@ -44,6 +44,15 @@ type Scanner interface {
 	json.Unmarshaler
 }
 
+func NewNullString(s string) NullString {
+	return NullString{
+		sql.NullString{
+			String: s,
+			Valid:  s != "",
+		},
+	}
+}
+
 type NullString struct {
 	sql.NullString
 }
@@ -66,6 +75,15 @@ func (n *NullString) UnmarshalJSON(p []byte) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func NewNullBool(b bool) NullBool {
+	return NullBool{
+		sql.NullBool{
+			Bool:  b,
+			Valid: true,
+		},
+	}
 }
 
 type NullBool struct {
@@ -92,6 +110,15 @@ func (n *NullBool) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+func NewNullInt16(n int16) NullInt16 {
+	return NullInt16{
+		sql.NullInt16{
+			Int16: n,
+			Valid: true,
+		},
+	}
+}
+
 type NullInt16 struct {
 	sql.NullInt16
 }
@@ -114,6 +141,15 @@ func (n *NullInt16) UnmarshalJSON(p []byte) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func NewNullInt32(n int32) NullInt32 {
+	return NullInt32{
+		sql.NullInt32{
+			Int32: n,
+			Valid: true,
+		},
+	}
 }
 
 type NullInt32 struct {
@@ -140,6 +176,15 @@ func (n *NullInt32) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+func NewNullInt64(n int64) NullInt64 {
+	return NullInt64{
+		sql.NullInt64{
+			Int64: n,
+			Valid: true,
+		},
+	}
+}
+
 type NullInt64 struct {
 	sql.NullInt64
 }
@@ -162,6 +207,15 @@ func (n *NullInt64) UnmarshalJSON(p []byte) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func NewNullFloat64(n float64) NullFloat64 {
+	return NullFloat64{
+		sql.NullFloat64{
+			Float64: n,
+			Valid:   true,
+		},
+	}
 }
 
 type NullFloat64 struct {
@@ -188,6 +242,15 @@ func (n *NullFloat64) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+func NewNullByte(b byte) NullByte {
+	return NullByte{
+		sql.NullByte{
+			Byte:  b,
+			Valid: true,
+		},
+	}
+}
+
 type NullByte struct {
 	sql.NullByte
 }
@@ -212,6 +275,15 @@ func (n *NullByte) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
+func NewNullTime(t time.Time) NullTime {
+	return NullTime{
+		sql.NullTime{
+			Time:  t,
+			Valid: !t.IsZero(),
+		},
+	}
+}
+
 type NullTime struct {
 	sql.NullTime
 }
@@ -234,6 +306,28 @@ func (n *NullTime) UnmarshalJSON(p []byte) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func NewNullJson[E any](e E) NullJson[E] {
+	valid := false
+	rv := reflect.ValueOf(e)
+	switch rv.Type().Kind() {
+	case reflect.Struct:
+		valid = !rv.IsZero()
+		break
+	case reflect.Ptr:
+		valid = !rv.IsNil()
+		break
+	case reflect.Slice, reflect.Map:
+		valid = rv.Len() > 0
+		break
+	default:
+		break
+	}
+	return NullJson[E]{
+		Valid: valid,
+		E:     e,
+	}
 }
 
 type NullJson[E any] struct {
@@ -292,6 +386,13 @@ func (n NullJson[E]) Value() (driver.Value, error) {
 		return nil, errors.Warning("sql: null json make driver value failed").WithCause(encodeErr)
 	}
 	return p, nil
+}
+
+func NewNullBytes(p []byte) NullBytes {
+	return NullBytes{
+		Valid: len(p) > 0,
+		Bytes: p,
+	}
 }
 
 type NullBytes struct {

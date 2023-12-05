@@ -71,6 +71,12 @@ func NewArgument(v any) (argument Argument, err error) {
 			return
 		}
 	}
+	b, isByte := v.(byte)
+	if isByte {
+		argument.Type = "byte"
+		argument.Value, _ = json.Marshal(b)
+		return
+	}
 	switch vv := v.(type) {
 	case string:
 		argument.Type = "string"
@@ -232,12 +238,16 @@ func NewArgument(v any) (argument Argument, err error) {
 		argument.Type = "json"
 		argument.Value = vv
 		break
-	case []byte, sql.RawBytes:
+	case []byte:
 		argument.Type = "bytes"
 		argument.Value, _ = json.Marshal(vv)
 		break
+	case sql.RawBytes:
+		argument.Type = "raw"
+		argument.Value, _ = json.Marshal(vv)
+		break
 	case NullBytes:
-		argument.Type = "byte"
+		argument.Type = "bytes"
 		if vv.Valid {
 			argument.Value, _ = json.Marshal(vv.Bytes)
 		} else {
@@ -491,9 +501,19 @@ func (argument Argument) Interface() (v any, err error) {
 		if argument.Name != "" {
 			v = sql.Named(argument.Name, v)
 		}
-	case "bytes":
-		// raw
+		break
+	case "ras":
 		p := sql.RawBytes{}
+		if len(argument.Value) > 0 {
+			_ = json.Unmarshal(argument.Value, &p)
+		}
+		v = p
+		if argument.Name != "" {
+			v = sql.Named(argument.Name, v)
+		}
+		break
+	case "bytes":
+		p := make([]byte, 0, 1)
 		if len(argument.Value) > 0 {
 			_ = json.Unmarshal(argument.Value, &p)
 		}
