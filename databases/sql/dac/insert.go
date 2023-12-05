@@ -55,7 +55,7 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	return
 }
 
-func InsertMulti[T Table](ctx context.Context, entries []T) (v []T, affected int64, err error) {
+func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err error) {
 	if len(entries) == 0 {
 		return
 	}
@@ -82,7 +82,6 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (v []T, affected int
 				err = errors.Warning("sql: insert multi failed").WithCause(verErr)
 				return
 			}
-			v = entries
 		}
 	} else {
 		result, execErr := sql.Execute(ctx, query, arguments...)
@@ -97,7 +96,6 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (v []T, affected int
 				err = errors.Warning("sql: insert multi failed").WithCause(verErr)
 				return
 			}
-			v = entries
 		}
 	}
 	return
