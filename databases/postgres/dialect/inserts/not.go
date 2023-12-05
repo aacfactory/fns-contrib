@@ -40,6 +40,7 @@ type InsertWhenNotExistsGeneric struct {
 func (generic *InsertWhenNotExistsGeneric) Render(ctx specifications.Context, w io.Writer, src specifications.QueryExpr) (method specifications.Method, fields []string, arguments []any, returning []string, err error) {
 	method = generic.method
 	fields = generic.fields
+
 	ctx.SkipNextQueryPlaceholderCursor(len(generic.fields))
 
 	srcBuf := bytebufferpool.Get()

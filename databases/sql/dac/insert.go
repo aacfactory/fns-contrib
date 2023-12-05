@@ -151,7 +151,7 @@ func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, ok bool, err er
 
 func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
 	entries := []T{entry}
-	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
+	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenNotExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
 	if buildErr != nil {
 		err = errors.Warning("sql: insert when exist failed").WithCause(buildErr)
 		return
@@ -198,7 +198,7 @@ func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions
 
 func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
 	entries := []T{entry}
-	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenNotExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
+	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
 	if buildErr != nil {
 		err = errors.Warning("sql: insert when not exist failed").WithCause(buildErr)
 		return

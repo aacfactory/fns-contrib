@@ -97,7 +97,7 @@ var (
 	srcPlaceHold = []byte("$$SOURCE_QUERY$$")
 )
 
-func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, indexes []string, returning []string, err error) {
+func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query []byte, fields []string, returning []string, err error) {
 	method = specifications.ExecuteMethod
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
@@ -131,7 +131,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	} else {
 		pkName = ctx.FormatIdent([]byte(pk.Name))
 		_, _ = buf.Write(pkName)
-		indexes = append(indexes, pk.Field)
+		fields = append(fields, pk.Field)
 		n++
 	}
 
@@ -146,6 +146,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		n++
 	}
 	// columns
+	columnsLen := 0
 	for _, column := range spec.Columns {
 		skip := column.Kind == specifications.Pk || column.Kind == specifications.Aol ||
 			column.Kind == specifications.Amb || column.Kind == specifications.Amt ||
@@ -164,7 +165,8 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			_, _ = buf.Write(specifications.COMMA)
 		}
 		_, _ = buf.Write(columnName)
-		indexes = append(indexes, column.Field)
+		fields = append(fields, column.Field)
+		columnsLen++
 		n++
 	}
 
@@ -189,7 +191,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		n++
 	}
 
-	for i := 0; i < len(indexes); i++ {
+	for i := 0; i < columnsLen; i++ {
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
