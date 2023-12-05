@@ -158,8 +158,6 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.FROM)
-	_, _ = buf.Write(specifications.SPACE)
 
 	_, _ = buf.Write(srcName)
 
