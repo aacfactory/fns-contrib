@@ -29,6 +29,14 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 	// conflict
 	conflicts := spec.Conflicts
 	if len(conflicts) > 0 {
+		// name
+		tableName := ctx.FormatIdent([]byte(spec.Name))
+		if spec.Schema != "" {
+			schema := ctx.FormatIdent([]byte(spec.Schema))
+			schema = append(schema, '.')
+			tableName = append(schema, tableName...)
+		}
+
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.ON)
 		_, _ = buf.Write(specifications.SPACE)
@@ -59,7 +67,6 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 		_, _ = buf.Write(specifications.SET)
 		_, _ = buf.Write(specifications.SPACE)
 
-		ctx.SkipNextQueryPlaceholderCursor(len(fields))
 		n = 0
 		for _, column := range spec.Columns {
 			skip := column.Kind == specifications.Pk ||
@@ -79,6 +86,8 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 				_, _ = buf.Write(specifications.SPACE)
 				_, _ = buf.Write(specifications.EQ)
 				_, _ = buf.Write(specifications.SPACE)
+				_, _ = buf.Write(tableName)
+				_, _ = buf.Write(specifications.DOT)
 				_, _ = buf.Write(verName)
 				_, _ = buf.Write(specifications.PLUS)
 				_, _ = buf.Write([]byte("1"))

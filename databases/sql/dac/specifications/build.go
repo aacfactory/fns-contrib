@@ -77,6 +77,11 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entries []T) (method Method
 		err = auditErr
 		return
 	}
+	auditErr = TrySetupAuditModification[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
+	}
 	arguments, err = spec.Arguments(entries[0], fields)
 	return
 }

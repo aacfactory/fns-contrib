@@ -143,7 +143,7 @@ func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, ok bool, err er
 				err = errors.Warning("sql: insert or update failed").WithCause(verErr)
 				return
 			}
-			v = entry
+			v = entries[0]
 		}
 	}
 	return
