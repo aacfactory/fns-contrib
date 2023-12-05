@@ -84,8 +84,12 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 					err = errors.Warning("sql: predicate render failed").WithCause(subErr)
 					return
 				}
-				exprs = append(exprs, sbb.Bytes())
+				subQuery := sbb.Bytes()
 				bytebufferpool.Put(sbb)
+				if len(expr) == 1 {
+					subQuery = subQuery[bytes.IndexByte(subQuery, '(')+1 : bytes.LastIndexByte(subQuery, ')')]
+				}
+				exprs = append(exprs, subQuery)
 				argument = append(argument, sub...)
 				break
 			default:

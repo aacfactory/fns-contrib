@@ -30,8 +30,7 @@ func Fork(ctx Context) Context {
 	rc := ctx.(*renderCtx)
 	return &renderCtx{
 		Context: ctx,
-		dialect: rc.dialect,
-		ph:      rc.dialect.QueryPlaceholder(),
+		ph:      rc.getDialect().QueryPlaceholder(),
 		key:     rc.key,
 	}
 }
@@ -39,8 +38,6 @@ func Fork(ctx Context) Context {
 func SwitchKey(ctx Context, key any) Context {
 	return &renderCtx{
 		Context: ctx,
-		dialect: nil,
-		ph:      nil,
 		key:     key,
 	}
 }
@@ -52,8 +49,19 @@ type renderCtx struct {
 	key     any
 }
 
+func (ctx *renderCtx) getDialect() Dialect {
+	if ctx.dialect != nil {
+		return ctx.dialect
+	}
+	parent, ok := ctx.Context.(*renderCtx)
+	if ok {
+		return parent.getDialect()
+	}
+	return nil
+}
+
 func (ctx *renderCtx) FormatIdent(ident []byte) []byte {
-	return ctx.dialect.FormatIdent(ident)
+	return ctx.getDialect().FormatIdent(ident)
 }
 
 func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
@@ -89,7 +97,7 @@ func (ctx *renderCtx) Localization(key any) (content [][]byte, has bool) {
 	}
 	if has {
 		for i, c := range content {
-			content[i] = ctx.dialect.FormatIdent(c)
+			content[i] = ctx.getDialect().FormatIdent(c)
 		}
 	}
 	return

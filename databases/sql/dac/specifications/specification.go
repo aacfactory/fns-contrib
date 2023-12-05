@@ -240,7 +240,7 @@ func ScanTable(ctx context.Context, table any) (spec *Specification, err error) 
 	schema := info.schema
 	conflicts := info.conflicts
 
-	columns, columnsErr := scanTableFields(ctx, rt)
+	columns, columnsErr := scanTableFields(ctx, fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), rt)
 	if columnsErr != nil {
 		err = errors.Warning("sql: scan table failed").
 			WithCause(columnsErr).
@@ -268,7 +268,7 @@ func ScanTable(ctx context.Context, table any) (spec *Specification, err error) 
 	return
 }
 
-func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, err error) {
+func scanTableFields(ctx context.Context, key string, rt reflect.Type) (columns []*Column, err error) {
 	fields := rt.NumField()
 	if fields == 0 {
 		err = errors.Warning("has not field")
@@ -284,7 +284,7 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 				err = errors.Warning("type of anonymous field can not be ptr").WithMeta("field", field.Name)
 				return
 			}
-			anonymous, anonymousErr := scanTableFields(ctx, field.Type)
+			anonymous, anonymousErr := scanTableFields(ctx, key, field.Type)
 			if anonymousErr != nil {
 				if err != nil {
 					err = errors.Warning("sql: scan table field failed").
@@ -305,7 +305,7 @@ func scanTableFields(ctx context.Context, rt reflect.Type) (columns []*Column, e
 		}
 		if column != nil {
 			columns = append(columns, column)
-			dict.Set(fmt.Sprintf("%s.%s:%s", rt.PkgPath(), rt.Name(), column.Field), []byte(column.Name))
+			dict.Set(fmt.Sprintf("%s:%s", key, column.Field), []byte(column.Name))
 		}
 	}
 

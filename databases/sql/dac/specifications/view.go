@@ -102,7 +102,7 @@ func ScanView(ctx context.Context, view any) (spec *Specification, err error) {
 			return
 		}
 		schema := info.schema
-		columns, columnsErr := scanTableFields(ctx, rt)
+		columns, columnsErr := scanTableFields(ctx, fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), rt)
 		if columnsErr != nil {
 			err = errors.Warning("sql: scan view failed").
 				WithCause(columnsErr).
@@ -131,7 +131,7 @@ func ScanView(ctx context.Context, view any) (spec *Specification, err error) {
 				WithMeta("struct", reflect.TypeOf(view).String())
 			return
 		}
-		columns, columnsErr := scanTableFields(ctx, rt)
+		columns, columnsErr := scanTableFields(ctx, fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), rt)
 		if columnsErr != nil {
 			err = errors.Warning("sql: scan view failed").
 				WithCause(columnsErr).
