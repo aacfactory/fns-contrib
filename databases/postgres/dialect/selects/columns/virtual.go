@@ -64,6 +64,7 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.RB)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(name)
 		break
 	case specifications.ArrayVirtualQuery:
@@ -94,10 +95,11 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(src)
 		_, _ = buf.Write(specifications.RB)
-		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.RB)
 		_, _ = buf.Write(specifications.RB)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
+		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(name)
 		break
 	case specifications.AggregateVirtualQuery:
