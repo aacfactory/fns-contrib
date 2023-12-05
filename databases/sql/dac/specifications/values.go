@@ -226,7 +226,7 @@ func ScanColumn(column *Column, columnPtrValue any, field reflect.Value) (err er
 	case DatetimeType:
 		t, ok := columnValue.(time.Time)
 		if ok {
-			if field.Type().ConvertibleTo(timeType) {
+			if field.Type().ConvertibleTo(datetimeType) {
 				field.Set(reflect.ValueOf(t).Convert(field.Type()))
 			} else if field.Type().ConvertibleTo(nullTimeType) {
 				field.Set(reflect.ValueOf(stdsql.NullTime{
