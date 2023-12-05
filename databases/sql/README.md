@@ -4,7 +4,7 @@ One sql service for fns.
 
 ## Features
 * Global transaction
-* Proxy
+* Support prepared statement
 * Support master slaver kind
 * Support cluster kind
 ## Install
@@ -21,6 +21,7 @@ Standalone:
 ```yaml
 sql:
   kind: "standalone"
+  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   debugLog: true
@@ -38,6 +39,7 @@ MasterSlave:
 ```yaml
 sql:
   kind: "masterSlave"
+  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   options:
@@ -57,6 +59,7 @@ Cluster:
 ```yaml
 sql:
   kind: "cluster"
+  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   options:
@@ -72,6 +75,17 @@ sql:
       evictTimeoutSeconds: 10
 ```
 Note: when use some driver like `pgx`, then disable statements, cause driver has handled statements.
+
+Isolation:
+* Default: 0
+* ReadUncommitted: 1
+* ReadCommitted: 2
+* WriteCommitted: 3
+* RepeatableRead: 4
+* Snapshot: 5
+* Serializable: 6
+* Linearizable: 7
+
 ### Import driver
 ```go
 import _ "github.com/go-sql-driver/mysql"

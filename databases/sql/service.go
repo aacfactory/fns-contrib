@@ -27,15 +27,6 @@ func WithName(name string) Option {
 	}
 }
 
-func WithDialect(dialect string) Option {
-	return func(options *Options) {
-		if dialect == "" {
-			return
-		}
-		options.dialect = dialect
-	}
-}
-
 func WithDatabase(db databases.Database) Option {
 	return func(options *Options) {
 		options.db = db
@@ -43,9 +34,8 @@ func WithDatabase(db databases.Database) Option {
 }
 
 type Options struct {
-	name    string
-	dialect string
-	db      databases.Database
+	name string
+	db   databases.Database
 }
 
 type Option func(options *Options)
@@ -62,7 +52,7 @@ func New(options ...Option) (v services.Service) {
 		Abstract: services.NewAbstract(opt.name, true),
 		db:       nil,
 		group:    nil,
-		dialect:  opt.dialect,
+		dialect:  "",
 	}
 	return
 }
@@ -133,6 +123,7 @@ func (svc *service) Construct(options services.Options) (err error) {
 		isolation = databases.LevelReadCommitted
 	}
 	svc.isolation = isolation
+	svc.dialect = config.Dialect
 	if svc.dialect == "" {
 		drivers := stdsql.Drivers()
 		if len(drivers) != 1 {
