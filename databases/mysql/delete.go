@@ -1,0 +1,21 @@
+package mysql
+
+import (
+	"github.com/aacfactory/fns-contrib/databases/mysql/dialect"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns/context"
+)
+
+func Delete[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
+	sql.ForceDialect(ctx, dialect.Name)
+	v, ok, err = dac.Delete[T](ctx, entry)
+	return
+}
+
+func DeleteByCondition[T Table](ctx context.Context, cond conditions.Condition) (affected int64, err error) {
+	sql.ForceDialect(ctx, dialect.Name)
+	affected, err = dac.DeleteByCondition[T](ctx, cond)
+	return
+}
