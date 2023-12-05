@@ -720,12 +720,15 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 
 	// json
 	jsonTag, hasJsonTag := rt.Tag.Lookup(jsonColumn)
-	if !hasJsonTag {
+	if hasJsonTag {
+		if idx := strings.IndexByte(jsonTag, ','); idx > 0 {
+			jsonTag = jsonTag[0:idx]
+		}
+		jsonTag = strings.TrimSpace(jsonTag)
+	} else {
 		jsonTag = rt.Name
 	}
-	if idx := strings.IndexByte(jsonTag, ','); idx > 0 {
-		jsonTag = jsonTag[0:idx]
-	}
+
 	column = &Column{
 		Field:     rt.Name,
 		Name:      name,
