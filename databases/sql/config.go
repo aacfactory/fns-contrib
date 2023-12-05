@@ -7,7 +7,6 @@ import (
 
 type Config struct {
 	Kind              string              `json:"kind"`
-	Dialect           string              `json:"dialect"`
 	Isolation         databases.Isolation `json:"isolation"`
 	TransactionMaxAge int                 `json:"transactionMaxAge"`
 	DebugLog          bool                `json:"debugLog"`

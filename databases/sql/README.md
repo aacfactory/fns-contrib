@@ -21,7 +21,6 @@ Standalone:
 ```yaml
 sql:
   kind: "standalone"
-  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   debugLog: true
@@ -39,7 +38,6 @@ MasterSlave:
 ```yaml
 sql:
   kind: "masterSlave"
-  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   options:
@@ -59,7 +57,6 @@ Cluster:
 ```yaml
 sql:
   kind: "cluster"
-  dialect: "postgres"
   isolation: 2
   transactionMaxAge: 10
   options:
@@ -93,7 +90,7 @@ import _ "github.com/go-sql-driver/mysql"
 
 ### Deploy
 ```go
-app.Deply(sql.Service())
+app.Deply(sql.New())
 ```
 
 ### Proxy usage
@@ -111,6 +108,10 @@ sql.Execute(ctx, executeSQL, ...)
 ```
 
 ### Code generator in fn
+Add annotation code writer
+```go
+generates.New(generates.WithAnnotations(sql.FAG()...))
+```
 Use `@sql:transaction` annotation. params are `readonly` and `isolation`.
 * readonly: set the transaction to be readonly.
 * isolation: use spec isolation. default is use isolation of config.
