@@ -228,7 +228,7 @@ func (column *Column) Virtual() (kind VirtualQueryKind, query string, ok bool) {
 		case "array":
 			kind = ArrayVirtualQuery
 			break
-		case "agg":
+		case "agg", "aggregate":
 			kind = AggregateVirtualQuery
 			break
 		default:
@@ -581,7 +581,7 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			kind = Virtual
 			vck := strings.ToLower(strings.TrimSpace(items[1]))
-			valid := vck == "basic" || vck == "object" || vck == "array" || vck == "agg"
+			valid := vck == "basic" || vck == "object" || vck == "array" || vck == "agg" || vck == "aggregate"
 			if !valid {
 				err = errors.Warning("sql: scan virtual column failed, kind is invalid").WithMeta("field", rt.Name)
 				return

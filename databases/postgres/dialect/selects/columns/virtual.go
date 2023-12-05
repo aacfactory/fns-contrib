@@ -108,9 +108,7 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(name)
-		_ = buf.WriteByte('_')
-		_, _ = buf.Write([]byte(query))
+		_, _ = buf.Write(ctx.FormatIdent(append(append([]byte(column.Name), '_'), query...)))
 		break
 	default:
 		err = errors.Warning("sql: render virtual field failed").

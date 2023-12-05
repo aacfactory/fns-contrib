@@ -281,5 +281,22 @@ func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.S
 }
 
 func (dialect *Dialect) View(ctx specifications.Context, spec *specifications.Specification, cond specifications.Condition, orders specifications.Orders, groupBy specifications.GroupBy, offset int, length int) (method specifications.Method, query []byte, arguments []any, columns []string, err error) {
+	generic, has, getErr := dialect.generics.Get(ctx, spec)
+	if getErr != nil {
+		err = errors.Warning("sql: dialect generate view failed").WithMeta("table", spec.Key).WithCause(getErr).WithMeta("dialect", Name)
+		return
+	}
+	if !has {
+		err = errors.Warning("sql: dialect generate view failed").WithMeta("table", spec.Key).WithCause(fmt.Errorf("spec was not found")).WithMeta("dialect", Name)
+		return
+	}
+	buf := bytebufferpool.Get()
+	defer bytebufferpool.Put(buf)
+	method, arguments, columns, err = generic.View.Render(ctx, buf, cond, orders, groupBy, offset, length)
+	if err != nil {
+		err = errors.Warning("sql: dialect generate view failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
+		return
+	}
+	query = buf.Bytes()
 	return
 }

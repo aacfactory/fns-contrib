@@ -68,7 +68,7 @@ func GetViewInfo(e any) (info ViewInfo, err error) {
 		return
 	}
 	baseResults := result.MethodByName("Base").Call(nil)
-	if len(nameResults) != 1 && nameResults[0].Type().Kind() != reflect.Struct {
+	if len(baseResults) != 1 && nameResults[0].Type().Kind() != reflect.Interface {
 		err = errors.Warning(fmt.Sprintf("sql: %s.%s has invalid ViewInfo func", rt.PkgPath(), rt.Name()))
 		return
 	}
