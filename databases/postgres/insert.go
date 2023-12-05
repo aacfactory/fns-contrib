@@ -20,20 +20,20 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err
 	return
 }
 
-func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, err error) {
+func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	v, err = dac.InsertOrUpdate[T](ctx, entry)
+	v, ok, err = dac.InsertOrUpdate[T](ctx, entry)
 	return
 }
 
-func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, err error) {
+func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	v, err = dac.InsertWhenNotExist[T](ctx, entry, source)
+	v, ok, err = dac.InsertWhenNotExist[T](ctx, entry, source)
 	return
 }
 
-func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, err error) {
+func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
 	sql.ForceDialect(ctx, dialect.Name)
-	v, err = dac.InsertWhenExist[T](ctx, entry, source)
+	v, ok, err = dac.InsertWhenExist[T](ctx, entry, source)
 	return
 }

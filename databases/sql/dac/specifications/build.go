@@ -12,14 +12,13 @@ import (
 	"time"
 )
 
-func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query []byte, arguments []any, returning []string, err error) {
+func BuildInsert[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -28,58 +27,16 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	// audit
-	by, at, hasAc := spec.AuditCreation()
-	if hasAc {
-		for i, entry := range entries {
-			auth, hasAuth, loadErr := authorizations.Load(ctx)
-			if loadErr != nil {
-				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-				return
-			}
-			if !hasAuth {
-				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-				return
-			}
-			if !auth.Exist() {
-				err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-				return
-			}
-			rv := reflect.ValueOf(&entry)
-			if by != nil {
-				rby := rv.Elem().FieldByName(by.Field)
-				if rby.IsZero() {
-					if by.Type.Name == StringType {
-						rby.SetString(auth.Id.String())
-					} else if by.Type.Name == IntType {
-						rby.SetInt(auth.Id.Int())
-					}
-				}
-			}
-			if at != nil {
-				rat := rv.Elem().FieldByName(at.Field)
-				if at.Type.Value.ConvertibleTo(datetimeType) {
-					rat.Set(reflect.ValueOf(time.Now()))
-				} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-					rat.Set(reflect.ValueOf(stdsql.NullTime{
-						Time:  time.Now(),
-						Valid: true,
-					}))
-				} else if at.Type.Value.ConvertibleTo(intType) {
-					rat.SetInt(time.Now().UnixMilli())
-				} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-					rat.Set(reflect.ValueOf(stdsql.NullInt64{
-						Int64: time.Now().UnixMilli(),
-						Valid: true,
-					}))
-				}
-			}
-			entries[i] = entry
-		}
-	}
+
 	var fields []string
-	method, query, fields, returning, err = dialect.Insert(Todo(ctx, t, dialect), spec, len(entries))
+	method, query, fields, returning, err = dialect.Insert(Todo(ctx, entries[0], dialect), spec, len(entries))
 	if err != nil {
+		return
+	}
+	// audit
+	auditErr := TrySetupAuditCreation[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
 		return
 	}
 	for _, entry := range entries {
@@ -93,14 +50,13 @@ func BuildInsert[T any](ctx context.Context, entries ...T) (method Method, query
 	return
 }
 
-func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, returning []string, err error) {
+func BuildInsertOrUpdate[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -109,69 +65,29 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entry T) (method Method, qu
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	// audit
-	by, at, hasAc := spec.AuditCreation()
-	if hasAc {
-		auth, hasAuth, loadErr := authorizations.Load(ctx)
-		if loadErr != nil {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-			return
-		}
-		if !hasAuth {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-			return
-		}
-		if !auth.Exist() {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-			return
-		}
-		rv := reflect.ValueOf(&entry)
-		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
-			if rby.IsZero() {
-				if by.Type.Name == StringType {
-					rby.SetString(auth.Id.String())
-				} else if by.Type.Name == IntType {
-					rby.SetInt(auth.Id.Int())
-				}
-			}
-		}
-		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
-			if at.Type.Value.ConvertibleTo(datetimeType) {
-				rat.Set(reflect.ValueOf(time.Now()))
-			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-				rat.Set(reflect.ValueOf(stdsql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}))
-			} else if at.Type.Value.ConvertibleTo(intType) {
-				rat.SetInt(time.Now().UnixMilli())
-			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.Set(reflect.ValueOf(stdsql.NullInt64{
-					Int64: time.Now().UnixMilli(),
-					Valid: true,
-				}))
-			}
-		}
-	}
+
 	var fields []string
-	method, query, fields, returning, err = dialect.InsertOrUpdate(Todo(ctx, t, dialect), spec)
+	method, query, fields, returning, err = dialect.InsertOrUpdate(Todo(ctx, entries[0], dialect), spec)
 	if err != nil {
 		return
 	}
-	arguments, err = spec.Arguments(entry, fields)
+	// audit
+	auditErr := TrySetupAuditCreation[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
+	}
+	arguments, err = spec.Arguments(entries[0], fields)
 	return
 }
 
-func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
+func BuildInsertWhenExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -180,59 +96,20 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	// audit
-	by, at, hasAc := spec.AuditCreation()
-	if hasAc {
-		auth, hasAuth, loadErr := authorizations.Load(ctx)
-		if loadErr != nil {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-			return
-		}
-		if !hasAuth {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-			return
-		}
-		if !auth.Exist() {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-			return
-		}
-		rv := reflect.ValueOf(&entry)
-		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
-			if rby.IsZero() {
-				if by.Type.Name == StringType {
-					rby.SetString(auth.Id.String())
-				} else if by.Type.Name == IntType {
-					rby.SetInt(auth.Id.Int())
-				}
-			}
-		}
-		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
-			if at.Type.Value.ConvertibleTo(datetimeType) {
-				rat.Set(reflect.ValueOf(time.Now()))
-			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-				rat.Set(reflect.ValueOf(stdsql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}))
-			} else if at.Type.Value.ConvertibleTo(intType) {
-				rat.SetInt(time.Now().UnixMilli())
-			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.Set(reflect.ValueOf(stdsql.NullInt64{
-					Int64: time.Now().UnixMilli(),
-					Valid: true,
-				}))
-			}
-		}
-	}
+
 	var fields []string
 	var srcArguments []any
-	method, query, fields, srcArguments, returning, err = dialect.InsertWhenExist(Todo(ctx, t, dialect), spec, src)
+	method, query, fields, srcArguments, returning, err = dialect.InsertWhenExist(Todo(ctx, entries[0], dialect), spec, src)
 	if err != nil {
 		return
 	}
-	arguments, err = spec.Arguments(entry, fields)
+	// audit
+	auditErr := TrySetupAuditCreation[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
+	}
+	arguments, err = spec.Arguments(entries[0], fields)
 	if err != nil {
 		return
 	}
@@ -240,14 +117,13 @@ func BuildInsertWhenExist[T any](ctx context.Context, entry T, src QueryExpr) (m
 	return
 }
 
-func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
+func BuildInsertWhenNotExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -256,59 +132,20 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr)
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	// audit
-	by, at, hasAc := spec.AuditCreation()
-	if hasAc {
-		auth, hasAuth, loadErr := authorizations.Load(ctx)
-		if loadErr != nil {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-			return
-		}
-		if !hasAuth {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-			return
-		}
-		if !auth.Exist() {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-			return
-		}
-		rv := reflect.ValueOf(&entry)
-		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
-			if rby.IsZero() {
-				if by.Type.Name == StringType {
-					rby.SetString(auth.Id.String())
-				} else if by.Type.Name == IntType {
-					rby.SetInt(auth.Id.Int())
-				}
-			}
-		}
-		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
-			if at.Type.Value.ConvertibleTo(datetimeType) {
-				rat.Set(reflect.ValueOf(time.Now()))
-			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-				rat.Set(reflect.ValueOf(stdsql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}))
-			} else if at.Type.Value.ConvertibleTo(intType) {
-				rat.SetInt(time.Now().UnixMilli())
-			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.Set(reflect.ValueOf(stdsql.NullInt64{
-					Int64: time.Now().UnixMilli(),
-					Valid: true,
-				}))
-			}
-		}
-	}
+
 	var fields []string
 	var srcArguments []any
-	method, query, fields, srcArguments, returning, err = dialect.InsertWhenNotExist(Todo(ctx, t, dialect), spec, src)
+	method, query, fields, srcArguments, returning, err = dialect.InsertWhenNotExist(Todo(ctx, entries[0], dialect), spec, src)
 	if err != nil {
 		return
 	}
-	arguments, err = spec.Arguments(entry, fields)
+	// audit
+	auditErr := TrySetupAuditCreation[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
+	}
+	arguments, err = spec.Arguments(entries[0], fields)
 	if err != nil {
 		return
 	}
@@ -316,14 +153,13 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entry T, src QueryExpr)
 	return
 }
 
-func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
+func BuildUpdate[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -332,58 +168,19 @@ func BuildUpdate[T any](ctx context.Context, entry T) (method Method, query []by
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
-	// audit
-	by, at, hasAm := spec.AuditModification()
-	if hasAm {
-		auth, hasAuth, loadErr := authorizations.Load(ctx)
-		if loadErr != nil {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-			return
-		}
-		if !hasAuth {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-			return
-		}
-		if !auth.Exist() {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-			return
-		}
-		rv := reflect.ValueOf(&entry)
-		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
-			if rby.IsZero() {
-				if by.Type.Name == StringType {
-					rby.SetString(auth.Id.String())
-				} else if by.Type.Name == IntType {
-					rby.SetInt(auth.Id.Int())
-				}
-			}
-		}
-		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
-			if at.Type.Value.ConvertibleTo(datetimeType) {
-				rat.Set(reflect.ValueOf(time.Now()))
-			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-				rat.Set(reflect.ValueOf(stdsql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}))
-			} else if at.Type.Value.ConvertibleTo(intType) {
-				rat.SetInt(time.Now().UnixMilli())
-			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.Set(reflect.ValueOf(stdsql.NullInt64{
-					Int64: time.Now().UnixMilli(),
-					Valid: true,
-				}))
-			}
-		}
-	}
+
 	var fields []string
-	method, query, fields, err = dialect.Update(Todo(ctx, t, dialect), spec)
+	method, query, fields, err = dialect.Update(Todo(ctx, entries[0], dialect), spec)
 	if err != nil {
 		return
 	}
-	arguments, err = spec.Arguments(entry, fields)
+	// audit
+	auditErr := TrySetupAuditModification[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
+	}
+	arguments, err = spec.Arguments(entries[0], fields)
 	return
 }
 
@@ -538,14 +335,13 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 	return
 }
 
-func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []byte, arguments []any, err error) {
+func BuildDelete[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
 		return
 	}
-	t := Instance[T]()
-	spec, specErr := GetSpecification(ctx, t)
+	spec, specErr := GetSpecification(ctx, entries[0])
 	if specErr != nil {
 		err = specErr
 		return
@@ -554,57 +350,19 @@ func BuildDelete[T any](ctx context.Context, entry T) (method Method, query []by
 		err = errors.Warning(fmt.Sprintf("sql: %s is view", spec.Key))
 		return
 	}
+
 	var fields []string
-	method, query, fields, err = dialect.Delete(Todo(ctx, t, dialect), spec)
+	method, query, fields, err = dialect.Delete(Todo(ctx, entries[0], dialect), spec)
 	if err != nil {
 		return
 	}
-	by, at, hasAd := spec.AuditDeletion()
-	if hasAd {
-		auth, hasAuth, loadErr := authorizations.Load(ctx)
-		if loadErr != nil {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(loadErr)
-			return
-		}
-		if !hasAuth {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(fmt.Errorf("authorization was not found"))
-			return
-		}
-		if !auth.Exist() {
-			err = errors.Warning(fmt.Sprintf("sql: %s need audit deletion", spec.Key)).WithCause(authorizations.ErrUnauthorized)
-			return
-		}
-		rv := reflect.ValueOf(&entry)
-		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
-			if rby.IsZero() {
-				if by.Type.Name == StringType {
-					rby.SetString(auth.Id.String())
-				} else if by.Type.Name == IntType {
-					rby.SetInt(auth.Id.Int())
-				}
-			}
-		}
-		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
-			if at.Type.Value.ConvertibleTo(datetimeType) {
-				rat.Set(reflect.ValueOf(time.Now()))
-			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
-				rat.Set(reflect.ValueOf(stdsql.NullTime{
-					Time:  time.Now(),
-					Valid: true,
-				}))
-			} else if at.Type.Value.ConvertibleTo(intType) {
-				rat.SetInt(time.Now().UnixMilli())
-			} else if at.Type.Value.ConvertibleTo(nullInt64Type) {
-				rat.Set(reflect.ValueOf(stdsql.NullInt64{
-					Int64: time.Now().UnixMilli(),
-					Valid: true,
-				}))
-			}
-		}
+	// audit
+	auditErr := TrySetupAuditDeletion[T](ctx, spec, entries)
+	if auditErr != nil {
+		err = auditErr
+		return
 	}
-	arguments, err = spec.Arguments(entry, fields)
+	arguments, err = spec.Arguments(entries[0], fields)
 	return
 }
 

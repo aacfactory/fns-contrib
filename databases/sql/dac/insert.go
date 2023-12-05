@@ -9,7 +9,8 @@ import (
 )
 
 func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
-	method, query, arguments, returning, buildErr := specifications.BuildInsert[T](ctx, entry)
+	entries := []T{entry}
+	method, query, arguments, returning, buildErr := specifications.BuildInsert[T](ctx, entries)
 	if buildErr != nil {
 		err = errors.Warning("sql: insert failed").WithCause(buildErr)
 		return
@@ -20,7 +21,6 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 			err = errors.Warning("sql: insert failed").WithCause(queryErr)
 			return
 		}
-		entries := []T{entry}
 		affected, wErr := specifications.WriteInsertReturning[T](ctx, rows, returning, entries)
 		_ = rows.Close()
 		if wErr != nil {
@@ -29,6 +29,11 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 		}
 		ok = affected > 0
 		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert failed").WithCause(verErr)
+				return
+			}
 			v = entries[0]
 		}
 	} else {
@@ -39,10 +44,14 @@ func Insert[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
 		}
 		ok = result.RowsAffected > 0
 		if ok {
-			v = entry
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert failed").WithCause(verErr)
+				return
+			}
+			v = entries[0]
 		}
 	}
-
 	return
 }
 
@@ -50,7 +59,7 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err
 	if len(entries) == 0 {
 		return
 	}
-	method, query, arguments, returning, buildErr := specifications.BuildInsert[T](ctx, entries...)
+	method, query, arguments, returning, buildErr := specifications.BuildInsert[T](ctx, entries)
 	if buildErr != nil {
 		err = errors.Warning("sql: insert multi failed").WithCause(buildErr)
 		return
@@ -67,6 +76,13 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err
 			err = errors.Warning("sql: insert multi failed").WithCause(err)
 			return
 		}
+		if affected > 0 {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert multi failed").WithCause(verErr)
+				return
+			}
+		}
 	} else {
 		result, execErr := sql.Execute(ctx, query, arguments...)
 		if execErr != nil {
@@ -74,12 +90,20 @@ func InsertMulti[T Table](ctx context.Context, entries []T) (affected int64, err
 			return
 		}
 		affected = result.RowsAffected
+		if affected > 0 {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert multi failed").WithCause(verErr)
+				return
+			}
+		}
 	}
 	return
 }
 
-func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, err error) {
-	method, query, arguments, returning, buildErr := specifications.BuildInsertOrUpdate[T](ctx, entry)
+func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, ok bool, err error) {
+	entries := []T{entry}
+	method, query, arguments, returning, buildErr := specifications.BuildInsertOrUpdate[T](ctx, entries)
 	if buildErr != nil {
 		err = errors.Warning("sql: insert or update failed").WithCause(buildErr)
 		return
@@ -90,14 +114,20 @@ func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, err error) {
 			err = errors.Warning("sql: insert or update failed").WithCause(queryErr)
 			return
 		}
-		entries := []T{entry}
+
 		affected, wErr := specifications.WriteInsertReturning[T](ctx, rows, returning, entries)
 		_ = rows.Close()
 		if wErr != nil {
 			err = errors.Warning("sql: insert or update failed").WithCause(wErr)
 			return
 		}
-		if affected == 1 {
+		ok = affected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert or update failed").WithCause(verErr)
+				return
+			}
 			v = entries[0]
 		}
 	} else {
@@ -106,15 +136,22 @@ func InsertOrUpdate[T Table](ctx context.Context, entry T) (v T, err error) {
 			err = errors.Warning("sql: insert or update failed").WithCause(execErr)
 			return
 		}
-		if result.RowsAffected == 1 {
+		ok = result.RowsAffected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert or update failed").WithCause(verErr)
+				return
+			}
 			v = entry
 		}
 	}
 	return
 }
 
-func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, err error) {
-	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenExist[T](ctx, entry, specifications.QueryExpr{QueryExpr: source})
+func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
+	entries := []T{entry}
+	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
 	if buildErr != nil {
 		err = errors.Warning("sql: insert when exist failed").WithCause(buildErr)
 		return
@@ -125,14 +162,19 @@ func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions
 			err = errors.Warning("sql: insert when exist failed").WithCause(queryErr)
 			return
 		}
-		entries := []T{entry}
 		affected, wErr := specifications.WriteInsertReturning[T](ctx, rows, returning, entries)
 		_ = rows.Close()
 		if wErr != nil {
 			err = errors.Warning("sql: insert when exist failed").WithCause(wErr)
 			return
 		}
-		if affected == 1 {
+		ok = affected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert when exist failed").WithCause(verErr)
+				return
+			}
 			v = entries[0]
 		}
 	} else {
@@ -141,15 +183,22 @@ func InsertWhenNotExist[T Table](ctx context.Context, entry T, source conditions
 			err = errors.Warning("sql: insert when exist failed").WithCause(execErr)
 			return
 		}
-		if result.RowsAffected == 1 {
-			v = entry
+		ok = result.RowsAffected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert when exist failed").WithCause(verErr)
+				return
+			}
+			v = entries[0]
 		}
 	}
 	return
 }
 
-func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, err error) {
-	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenNotExist[T](ctx, entry, specifications.QueryExpr{QueryExpr: source})
+func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.QueryExpr) (v T, ok bool, err error) {
+	entries := []T{entry}
+	method, query, arguments, returning, buildErr := specifications.BuildInsertWhenNotExist[T](ctx, entries, specifications.QueryExpr{QueryExpr: source})
 	if buildErr != nil {
 		err = errors.Warning("sql: insert when not exist failed").WithCause(buildErr)
 		return
@@ -160,14 +209,19 @@ func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.Qu
 			err = errors.Warning("sql: insert when not exist failed").WithCause(queryErr)
 			return
 		}
-		entries := []T{entry}
 		affected, wErr := specifications.WriteInsertReturning[T](ctx, rows, returning, entries)
 		_ = rows.Close()
 		if wErr != nil {
 			err = errors.Warning("sql: insert when not exist failed").WithCause(wErr)
 			return
 		}
-		if affected == 1 {
+		ok = affected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert when not exist failed").WithCause(verErr)
+				return
+			}
 			v = entries[0]
 		}
 	} else {
@@ -176,8 +230,14 @@ func InsertWhenExist[T Table](ctx context.Context, entry T, source conditions.Qu
 			err = errors.Warning("sql: insert when not exist failed").WithCause(execErr)
 			return
 		}
-		if result.RowsAffected == 1 {
-			v = entry
+		ok = result.RowsAffected == 1
+		if ok {
+			verErr := specifications.TrySetupAuditVersion[T](ctx, entries)
+			if verErr != nil {
+				err = errors.Warning("sql: insert when not exist failed").WithCause(verErr)
+				return
+			}
+			v = entries[0]
 		}
 	}
 	return

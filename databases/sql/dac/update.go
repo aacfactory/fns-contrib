@@ -9,7 +9,8 @@ import (
 )
 
 func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err error) {
-	_, query, arguments, buildErr := specifications.BuildUpdate[T](ctx, entry)
+	entries := []T{entry}
+	_, query, arguments, buildErr := specifications.BuildUpdate[T](ctx, entries)
 	if buildErr != nil {
 		err = errors.Warning("sql: update failed").WithCause(buildErr)
 		return
@@ -20,7 +21,7 @@ func Update[T Table](ctx context.Context, entry T) (v T, affected int64, err err
 		return
 	}
 	if affected = result.RowsAffected; affected == 1 {
-		v = entry
+		v = entries[0]
 	}
 	return
 }
