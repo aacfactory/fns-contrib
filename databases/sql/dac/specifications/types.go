@@ -33,6 +33,11 @@ var (
 	scannerType       = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 )
 
+var (
+	jsonEmptyBytes      = []byte("{}")
+	jsonEmptyArrayBytes = []byte("[]")
+)
+
 func Instance[T any]() (v T) {
 	return
 }

@@ -14,54 +14,39 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 		err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
 		return
 	}
-	rowValues := make([][]any, 0, len(entries))
+	multiGenerics := make([]Generics, 0, len(entries))
 	for rows.Next() {
-		items := make([]any, 0, 1)
-		for _, rfn := range returning {
-			column, hasColumn := spec.ColumnByField(rfn)
-			if !hasColumn {
-				err = errors.Warning("sql: write returning value into entries failed").WithCause(specErr)
-				return
-			}
-			columnValue, columnValueErr := column.ScanValue()
-			if columnValueErr != nil {
-				err = errors.Warning("sql: write returning value into entries failed").WithCause(columnValueErr)
-				return
-			}
-			items = append(items, &columnValue)
-		}
-		scanErr := rows.Scan(items...)
+		generics := acquireGenerics(len(returning))
+		scanErr := rows.Scan(generics...)
 		if scanErr != nil {
+			releaseGenerics(generics)
 			err = errors.Warning("sql: write returning value into entries failed").WithCause(scanErr)
 			return
 		}
-
-		rowValues = append(rowValues, items)
+		multiGenerics = append(multiGenerics, generics)
 		affected++
 	}
 
 	if affected == int64(len(entries)) {
 		for i, entry := range entries {
-			row := rowValues[i]
-			rv := reflect.Indirect(reflect.ValueOf(&entry))
-			for j, cell := range row {
-				fieldName := returning[j]
-				fv := rv.FieldByName(fieldName)
-				column, _ := spec.ColumnByField(fieldName)
-				fieldErr := ScanColumn(column, cell, fv)
-				if fieldErr != nil {
-					err = errors.Warning("sql: write returning value into entries failed").WithCause(fieldErr)
-					return
-				}
+			row := multiGenerics[i]
+			wErr := row.WriteTo(spec, returning, &entry)
+			if wErr != nil {
+				releaseGenerics(multiGenerics...)
+				err = errors.Warning("sql: write returning value into entries failed").WithCause(wErr)
+				return
 			}
 			entries[i] = entry
 		}
+		releaseGenerics(multiGenerics...)
 		return
 	}
 
+	// todo 从上一个找到的位置开始，因为是顺序的
 	if len(spec.Conflicts) > 0 {
 		conflicts, conflictsErr := spec.ConflictColumns()
 		if conflictsErr != nil {
+			releaseGenerics(multiGenerics...)
 			err = errors.Warning("sql: write returning value into entries failed").WithCause(conflictsErr)
 			return
 		}
@@ -84,40 +69,39 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 		}
 		conflicts = tmpConflicts
 		if pos == len(returning) {
+			releaseGenerics(multiGenerics...)
 			err = errors.Warning("sql: write returning value into entries failed").WithCause(fmt.Errorf("there is no conflict column in returning"))
 			return
 		}
 		if pos == 0 {
+			releaseGenerics(multiGenerics...)
 			err = errors.Warning("sql: write returning value into entries failed").WithCause(fmt.Errorf("there is no valid column in returning"))
 			return
 		}
 
-		for _, row := range rowValues {
+		for _, row := range multiGenerics {
 			items := row[0:pos]
 			conflictValues := row[pos:]
 			for i, entry := range entries {
 				rv := reflect.Indirect(reflect.ValueOf(&entry))
 				matched := 0
 				for j, value := range conflictValues {
-					if reflect.Indirect(rv.FieldByName(conflicts[j].Field)).Equal(reflect.Indirect(reflect.ValueOf(value))) {
+					if reflect.Indirect(rv.FieldByName(conflicts[j].Field)).Equal(reflect.Indirect(reflect.ValueOf(value.(*Generic).Value))) {
 						matched++
 					}
 				}
 				if matched == len(conflictValues) {
-					for j, item := range items {
-						fieldName := returning[j]
-						fv := rv.FieldByName(fieldName)
-						column, _ := spec.ColumnByField(fieldName)
-						fieldErr := ScanColumn(column, item, fv)
-						if fieldErr != nil {
-							err = errors.Warning("sql: write returning value into entries failed").WithCause(fieldErr)
-							return
-						}
+					wErr := items.WriteTo(spec, returning, &entry)
+					if wErr != nil {
+						releaseGenerics(multiGenerics...)
+						err = errors.Warning("sql: write returning value into entries failed").WithCause(wErr)
+						return
 					}
 					entries[i] = entry
 				}
 			}
 		}
+		releaseGenerics(multiGenerics...)
 	}
 	return
 }

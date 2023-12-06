@@ -10,7 +10,6 @@ import (
 	"github.com/aacfactory/json"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -45,12 +44,6 @@ func NewRows(rows databases.Rows) (v Rows, err error) {
 	return
 }
 
-var (
-	scannersPool = sync.Pool{New: func() any {
-		return make([]any, 0, 16)
-	}}
-)
-
 type Rows struct {
 	idx         int
 	rows        databases.Rows
@@ -84,32 +77,25 @@ func (rows Rows) MarshalJSON() (p []byte, err error) {
 		err = errors.Warning("sql: encode rows failed").WithCause(fmt.Errorf("rows has been used"))
 		return
 	}
-	rows.values = make([]Row, 0, 1)
+	mc := newMultiColumns(rows.columnLen)
 	for rows.rows.Next() {
-		scanners := scannersPool.Get().([]any)
-		row := make(Row, 0, rows.columnLen)
-		for i := 0; i < rows.columnLen; i++ {
-			column := Column{}
-			row = append(row, column)
-			scanners = append(scanners, &column)
-		}
+		scanners := mc.Next()
 		scanErr := rows.rows.Scan(scanners...)
 		if scanErr != nil {
-			row = row[:0]
-			scannersPool.Put(scanners[:0])
+			mc.Release()
 			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
 			return
 		}
-		scannersPool.Put(scanners[:0])
-		rows.values = append(rows.values, row)
 	}
 	_ = rows.rows.Close()
+	rows.values = mc.Rows()
 	rows.size = len(rows.values)
 	tr := transferRows{
 		ColumnTypes: rows.columnTypes,
 		Values:      rows.values,
 	}
 	p, err = json.Marshal(tr)
+	mc.Release()
 	return
 }
 

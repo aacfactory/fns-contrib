@@ -50,7 +50,7 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		option(&opt)
 	}
 
-	_, query, arguments, columns, buildErr := specifications.BuildQuery[T](
+	_, query, arguments, fields, buildErr := specifications.BuildQuery[T](
 		ctx,
 		specifications.Condition{Condition: opt.cond},
 		specifications.Orders(opt.orders),
@@ -67,7 +67,7 @@ func Query[T Table](ctx context.Context, offset int, length int, options ...Quer
 		return
 	}
 
-	entries, err = specifications.ScanRows[T](ctx, rows, columns)
+	entries, err = specifications.ScanRows[T](ctx, rows, fields)
 	_ = rows.Close()
 	if err != nil {
 		err = errors.Warning("sql: query failed").WithCause(err)

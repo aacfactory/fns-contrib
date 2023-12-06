@@ -13,7 +13,7 @@ func Views[V View](ctx context.Context, offset int, length int, options ...Query
 		option(&opt)
 	}
 
-	_, query, arguments, columns, buildErr := specifications.BuildView[V](
+	_, query, arguments, fields, buildErr := specifications.BuildView[V](
 		ctx,
 		specifications.Condition{Condition: opt.cond},
 		specifications.Orders(opt.orders),
@@ -31,7 +31,7 @@ func Views[V View](ctx context.Context, offset int, length int, options ...Query
 		return
 	}
 
-	entries, err = specifications.ScanRows[V](ctx, rows, columns)
+	entries, err = specifications.ScanRows[V](ctx, rows, fields)
 	_ = rows.Close()
 	if err != nil {
 		err = errors.Warning("sql: view failed").WithCause(err)

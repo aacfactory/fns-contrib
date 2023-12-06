@@ -8,6 +8,7 @@ import (
 	"github.com/aacfactory/json"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -255,4 +256,77 @@ func (c *Column) Byte() (v byte, err error) {
 		err = json.Unmarshal(c.Value, &v)
 	}
 	return
+}
+
+func (c *Column) Reset() {
+	c.Valid = false
+	c.Value = nil
+}
+
+var (
+	columnsPool = sync.Pool{}
+)
+
+type Columns []any
+
+func newMultiColumns(size int) *multiColumns {
+	return &multiColumns{
+		size:   size,
+		values: nil,
+	}
+}
+
+type multiColumns struct {
+	size   int
+	values []Columns
+}
+
+func (mc *multiColumns) Next() (columns Columns) {
+	cached := columnsPool.Get()
+	if cached == nil {
+		columns = make([]any, mc.size)
+		for i := 0; i < mc.size; i++ {
+			columns[i] = &Column{}
+		}
+		mc.values = append(mc.values, columns)
+		return
+	}
+	columns = cached.(Columns)
+	cLen := len(columns)
+	if delta := mc.size - cLen; delta < 0 {
+		columns = columns[0:mc.size]
+	} else if delta > 0 {
+		for i := 0; i < delta; i++ {
+			columns = append(columns, &Column{})
+		}
+	}
+	mc.values = append(mc.values, columns)
+	return
+}
+
+func (mc *multiColumns) Rows() (rows []Row) {
+	vLen := len(mc.values)
+	if vLen == 0 {
+		return
+	}
+	rows = make([]Row, vLen)
+	for i := 0; i < vLen; i++ {
+		row := make(Row, mc.size)
+		columns := mc.values[i]
+		for j, column := range columns {
+			row[j] = *(column.(*Column))
+		}
+		rows[i] = row
+	}
+	return
+}
+
+func (mc *multiColumns) Release() {
+	for _, value := range mc.values {
+		for _, v := range value {
+			v.(*Column).Reset()
+		}
+		columnsPool.Put(value)
+	}
+	mc.values = nil
 }
