@@ -55,7 +55,7 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 
 	generic = &ViewGeneric{
 		spec:    spec,
-		content: query,
+		content: []byte(query),
 		fields:  fields,
 	}
 
@@ -64,7 +64,7 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 
 type ViewGeneric struct {
 	spec    *specifications.Specification
-	content string
+	content []byte
 	fields  []string
 }
 
@@ -73,7 +73,7 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 	method = specifications.QueryMethod
 	fields = generic.fields
 
-	_, _ = w.Write(bytex.FromString(generic.content))
+	_, _ = w.Write(generic.content)
 
 	if cond.Exist() {
 		_, _ = w.Write(specifications.SPACE)

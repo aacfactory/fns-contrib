@@ -33,8 +33,8 @@ func NewUpdateFieldsGeneric(ctx specifications.Context, spec *specifications.Spe
 
 	generic = &UpdateFieldsGeneric{
 		spec:    spec,
-		table:   tableName,
-		version: verName,
+		table:   []byte(tableName),
+		version: []byte(verName),
 	}
 
 	return
@@ -42,8 +42,8 @@ func NewUpdateFieldsGeneric(ctx specifications.Context, spec *specifications.Spe
 
 type UpdateFieldsGeneric struct {
 	spec    *specifications.Specification
-	table   string
-	version string
+	table   []byte
+	version []byte
 }
 
 func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writer, fields []specifications.FieldValue, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
@@ -56,18 +56,18 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 
 	_, _ = w.Write(specifications.UPDATE)
 	_, _ = w.Write(specifications.SPACE)
-	_, _ = w.Write(bytex.FromString(generic.table))
+	_, _ = w.Write(generic.table)
 	_, _ = w.Write(specifications.SPACE)
 	_, _ = w.Write(specifications.SET)
 	_, _ = w.Write(specifications.SPACE)
 
 	n := 0
 	if len(generic.version) > 0 {
-		_, _ = w.Write(bytex.FromString(generic.version))
+		_, _ = w.Write(generic.version)
 		_, _ = w.Write(specifications.SPACE)
 		_, _ = w.Write(specifications.EQ)
 		_, _ = w.Write(specifications.SPACE)
-		_, _ = w.Write(bytex.FromString(generic.version))
+		_, _ = w.Write(generic.version)
 		_, _ = w.Write(specifications.PLUS)
 		_, _ = w.Write([]byte("1"))
 		n++

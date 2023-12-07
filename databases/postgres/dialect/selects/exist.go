@@ -3,7 +3,6 @@ package selects
 import (
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -35,20 +34,20 @@ func NewExistGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 	generic = &ExistGeneric{
 		spec:    spec,
-		content: query,
+		content: []byte(query),
 	}
 	return
 }
 
 type ExistGeneric struct {
 	spec    *specifications.Specification
-	content string
+	content []byte
 }
 
 func (generic *ExistGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
 	method = specifications.QueryMethod
 
-	_, _ = w.Write(bytex.FromString(generic.content))
+	_, _ = w.Write(generic.content)
 
 	if cond.Exist() {
 		_, _ = w.Write(specifications.SPACE)

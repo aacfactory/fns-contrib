@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -107,7 +106,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 
 	generic = &UpdateGeneric{
 		spec:    spec,
-		content: query,
+		content: []byte(query),
 		fields:  fields,
 	}
 
@@ -116,7 +115,7 @@ func NewUpdateGeneric(ctx specifications.Context, spec *specifications.Specifica
 
 type UpdateGeneric struct {
 	spec    *specifications.Specification
-	content string
+	content []byte
 	fields  []string
 }
 
@@ -124,7 +123,7 @@ func (generic *UpdateGeneric) Render(_ specifications.Context, w io.Writer) (met
 	method = specifications.ExecuteMethod
 	fields = generic.fields
 
-	_, err = w.Write(bytex.FromString(generic.content))
+	_, err = w.Write(generic.content)
 	if err != nil {
 		return
 	}
