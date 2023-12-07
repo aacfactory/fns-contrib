@@ -1,16 +1,16 @@
 module github.com/aacfactory/fns-contrib/databases/sql
 
-go 1.21
+go 1.21.0
 
 replace github.com/aacfactory/fns v1.1.3 => ../../../fns
 
 require (
 	github.com/aacfactory/configures v1.12.1
-	github.com/aacfactory/errors v1.13.5
+	github.com/aacfactory/errors v1.13.10
 	github.com/aacfactory/fns v1.1.3
 	github.com/aacfactory/gcg v1.0.5
 	github.com/aacfactory/json v1.16.5
-	github.com/aacfactory/logs v1.13.0
+	github.com/aacfactory/logs v1.13.10
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.5.0
@@ -29,7 +29,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/rs/xid v1.5.0 // indirect
-	github.com/rs/zerolog v1.31.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

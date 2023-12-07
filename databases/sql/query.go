@@ -11,6 +11,7 @@ import (
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/logs"
+	"golang.org/x/sync/singleflight"
 	"time"
 )
 
@@ -37,12 +38,12 @@ func Query(ctx context.Context, query []byte, arguments ...interface{}) (v Rows,
 				Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", arguments)))
 		}
 		if queryErr != nil {
-			err = errors.Warning("sql: query failed").WithCause(queryErr)
+			err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", bytex.ToString(query))
 			return
 		}
 		v, err = NewRows(rows)
 		if err != nil {
-			err = errors.Warning("sql: query failed").WithCause(err)
+			err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", bytex.ToString(query))
 			return
 		}
 		return
@@ -84,10 +85,11 @@ type queryParam struct {
 }
 
 type queryFn struct {
-	debug bool
-	log   logs.Logger
-	db    databases.Database
-	group *transactions.Group
+	debug   bool
+	log     logs.Logger
+	db      databases.Database
+	group   *transactions.Group
+	barrier *singleflight.Group
 }
 
 func (fn *queryFn) Name() string {
@@ -133,12 +135,12 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 					Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
 			}
 			if queryErr != nil {
-				err = errors.Warning("sql: query failed").WithCause(queryErr)
+				err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", param.Query)
 				return
 			}
 			v, err = NewRows(rows)
 			if err != nil {
-				err = errors.Warning("sql: query failed").WithCause(err)
+				err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", param.Query)
 				return
 			}
 			return
@@ -149,20 +151,77 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 		useDebugLog(r)
 		handleBegin = time.Now()
 	}
-	rows, queryErr := fn.db.Query(r, query, param.Arguments)
-	if fn.debug && fn.log.DebugEnabled() {
-		latency := time.Now().Sub(handleBegin)
-		fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
-			Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
-	}
-	if queryErr != nil {
-		err = errors.Warning("sql: query failed").WithCause(queryErr)
-		return
-	}
-	v, err = NewRows(rows)
-	if err != nil {
-		err = errors.Warning("sql: query failed").WithCause(err)
-		return
+	//rows, queryErr := fn.db.Query(r, query, param.Arguments)
+	//if fn.debug && fn.log.DebugEnabled() {
+	//	latency := time.Now().Sub(handleBegin)
+	//	fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
+	//		Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
+	//}
+	//if queryErr != nil {
+	//	err = errors.Warning("sql: query failed").WithCause(queryErr)
+	//	return
+	//}
+	//v, err = NewRows(rows)
+	//if err != nil {
+	//	err = errors.Warning("sql: query failed").WithCause(err)
+	//	return
+	//}
+
+	requestHash, hasRequestHash := services.TryLoadRequestHash(r)
+	if hasRequestHash {
+		rows, queryErr := fn.db.Query(r, query, param.Arguments)
+		if fn.debug && fn.log.DebugEnabled() {
+			latency := time.Now().Sub(handleBegin)
+			fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
+				Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
+		}
+		if queryErr != nil {
+			err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", param.Query)
+			return
+		}
+		v, err = NewRows(rows)
+		if err != nil {
+			err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", param.Query)
+			return
+		}
+	} else {
+		requestHash, _ = services.HashRequest(r)
+		if len(requestHash) == 0 {
+			rows, queryErr := fn.db.Query(r, query, param.Arguments)
+			if fn.debug && fn.log.DebugEnabled() {
+				latency := time.Now().Sub(handleBegin)
+				fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
+					Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
+			}
+			if queryErr != nil {
+				err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", param.Query)
+				return
+			}
+			v, err = NewRows(rows)
+			if err != nil {
+				err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", param.Query)
+				return
+			}
+		} else {
+			v, err, _ = fn.barrier.Do(bytex.ToString(requestHash), func() (v interface{}, err error) {
+				rows, queryErr := fn.db.Query(r, query, param.Arguments)
+				if queryErr != nil {
+					err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", param.Query)
+					return
+				}
+				v, err = NewRows(rows)
+				if err != nil {
+					err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", param.Query)
+					return
+				}
+				return
+			})
+			if fn.debug && fn.log.DebugEnabled() {
+				latency := time.Now().Sub(handleBegin)
+				fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).
+					Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", param.Query, fmt.Sprintf("%+v", param.Arguments)))
+			}
+		}
 	}
 	return
 }
