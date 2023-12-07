@@ -18,7 +18,7 @@ var (
 	queryFnName = []byte("query")
 )
 
-func Query(ctx context.Context, query string, arguments ...interface{}) (v Rows, err error) {
+func Query(ctx context.Context, query []byte, arguments ...interface{}) (v Rows, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
 		var log logs.Logger
@@ -34,15 +34,15 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (v Rows,
 		if debug && log.DebugEnabled() {
 			latency := time.Now().Sub(handleBegin)
 			log.Debug().With("succeed", queryErr == nil).With("latency", latency.String()).With("transaction", tx.Id).
-				Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", query, fmt.Sprintf("%+v", arguments)))
+				Message(fmt.Sprintf("query debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", arguments)))
 		}
 		if queryErr != nil {
-			err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", query)
+			err = errors.Warning("sql: query failed").WithCause(queryErr).WithMeta("query", bytex.ToString(query))
 			return
 		}
 		v, err = NewRows(rows)
 		if err != nil {
-			err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", query)
+			err = errors.Warning("sql: query failed").WithCause(err).WithMeta("query", bytex.ToString(query))
 			return
 		}
 		return
@@ -58,7 +58,7 @@ func Query(ctx context.Context, query string, arguments ...interface{}) (v Rows,
 	}
 	eps := runtime.Endpoints(ctx)
 	param := queryParam{
-		Query:     query,
+		Query:     bytex.ToString(query),
 		Arguments: Arguments(arguments),
 	}
 	ep := endpointName
@@ -125,7 +125,7 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 				useDebugLog(r)
 				handleBegin = time.Now()
 			}
-			rows, queryErr := tx.Query(r, param.Query, param.Arguments)
+			rows, queryErr := tx.Query(r, bytex.FromString(param.Query), param.Arguments)
 			if fn.debug && fn.log.DebugEnabled() {
 				latency := time.Now().Sub(handleBegin)
 				fn.log.Debug().With("succeed", queryErr == nil).With("latency", latency.String()).With("transaction", info.Id).
@@ -148,7 +148,7 @@ func (fn *queryFn) Handle(r services.Request) (v interface{}, err error) {
 		useDebugLog(r)
 		handleBegin = time.Now()
 	}
-	rows, queryErr := fn.db.Query(r, param.Query, param.Arguments)
+	rows, queryErr := fn.db.Query(r, bytex.FromString(param.Query), param.Arguments)
 	if fn.debug && fn.log.DebugEnabled() {
 		latency := time.Now().Sub(handleBegin)
 		fn.log.Debug().With("succeed", err == nil).With("latency", latency.String()).

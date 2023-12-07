@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func BuildInsert[T any](ctx context.Context, entries []T) (method Method, query string, arguments []any, returning []string, err error) {
+func BuildInsert[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -50,7 +50,7 @@ func BuildInsert[T any](ctx context.Context, entries []T) (method Method, query 
 	return
 }
 
-func BuildInsertOrUpdate[T any](ctx context.Context, entries []T) (method Method, query string, arguments []any, returning []string, err error) {
+func BuildInsertOrUpdate[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -86,7 +86,7 @@ func BuildInsertOrUpdate[T any](ctx context.Context, entries []T) (method Method
 	return
 }
 
-func BuildInsertWhenExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query string, arguments []any, returning []string, err error) {
+func BuildInsertWhenExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -122,7 +122,7 @@ func BuildInsertWhenExist[T any](ctx context.Context, entries []T, src QueryExpr
 	return
 }
 
-func BuildInsertWhenNotExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query string, arguments []any, returning []string, err error) {
+func BuildInsertWhenNotExist[T any](ctx context.Context, entries []T, src QueryExpr) (method Method, query []byte, arguments []any, returning []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -158,7 +158,7 @@ func BuildInsertWhenNotExist[T any](ctx context.Context, entries []T, src QueryE
 	return
 }
 
-func BuildUpdate[T any](ctx context.Context, entries []T) (method Method, query string, arguments []any, err error) {
+func BuildUpdate[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -189,7 +189,7 @@ func BuildUpdate[T any](ctx context.Context, entries []T) (method Method, query 
 	return
 }
 
-func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Condition) (method Method, query string, arguments []any, err error) {
+func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -342,7 +342,7 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 	return
 }
 
-func BuildDelete[T any](ctx context.Context, entries []T) (method Method, query string, arguments []any, err error) {
+func BuildDelete[T any](ctx context.Context, entries []T) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -373,7 +373,7 @@ func BuildDelete[T any](ctx context.Context, entries []T) (method Method, query 
 	return
 }
 
-func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (method Method, query string, arguments []any, err error) {
+func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -448,7 +448,7 @@ func BuildDeleteAnyByCondition(ctx context.Context, entry any, cond Condition) (
 	return
 }
 
-func BuildDeleteByCondition[T any](ctx context.Context, cond Condition) (method Method, query string, arguments []any, err error) {
+func BuildDeleteByCondition[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	method, query, arguments, err = BuildDeleteAnyByCondition(ctx, Instance[T](), cond)
 	if err != nil {
 		return
@@ -456,7 +456,7 @@ func BuildDeleteByCondition[T any](ctx context.Context, cond Condition) (method 
 	return
 }
 
-func BuildCount[T any](ctx context.Context, cond Condition) (method Method, query string, arguments []any, err error) {
+func BuildCount[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -475,7 +475,7 @@ func BuildCount[T any](ctx context.Context, cond Condition) (method Method, quer
 	return
 }
 
-func BuildExist[T any](ctx context.Context, cond Condition) (method Method, query string, arguments []any, err error) {
+func BuildExist[T any](ctx context.Context, cond Condition) (method Method, query []byte, arguments []any, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -494,7 +494,7 @@ func BuildExist[T any](ctx context.Context, cond Condition) (method Method, quer
 	return
 }
 
-func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, offset int, length int) (method Method, query string, arguments []any, columns []string, err error) {
+func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr
@@ -516,7 +516,7 @@ func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, offse
 	return
 }
 
-func BuildView[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, offset int, length int) (method Method, query string, arguments []any, columns []string, err error) {
+func BuildView[T any](ctx context.Context, cond Condition, orders Orders, groupBy GroupBy, offset int, length int) (method Method, query []byte, arguments []any, columns []string, err error) {
 	dialect, dialectErr := LoadDialect(ctx)
 	if dialectErr != nil {
 		err = dialectErr

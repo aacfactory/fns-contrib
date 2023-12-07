@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/logs"
 	"sync/atomic"
 	"time"
@@ -126,7 +127,7 @@ func (db *cluster) Begin(ctx context.Context, options TransactionOptions) (tx Tr
 	return
 }
 
-func (db *cluster) Query(ctx context.Context, query string, args []any) (rows Rows, err error) {
+func (db *cluster) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
 	var r *sql.Rows
 	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
 	if db.prepare {
@@ -144,7 +145,7 @@ func (db *cluster) Query(ctx context.Context, query string, args []any) (rows Ro
 			return
 		}
 	} else {
-		r, err = db.nodes[pos].QueryContext(ctx, query, args...)
+		r, err = db.nodes[pos].QueryContext(ctx, bytex.ToString(query), args...)
 		if err != nil {
 			return
 		}
@@ -155,7 +156,7 @@ func (db *cluster) Query(ctx context.Context, query string, args []any) (rows Ro
 	return
 }
 
-func (db *cluster) Execute(ctx context.Context, query string, args []any) (result Result, err error) {
+func (db *cluster) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
 	var r sql.Result
 	pos := atomic.AddUint32(&db.pos, 1) % db.nodesLen
 	if db.prepare {
@@ -173,7 +174,7 @@ func (db *cluster) Execute(ctx context.Context, query string, args []any) (resul
 			return
 		}
 	} else {
-		r, err = db.nodes[pos].ExecContext(ctx, query, args...)
+		r, err = db.nodes[pos].ExecContext(ctx, bytex.ToString(query), args...)
 		if err != nil {
 			return
 		}

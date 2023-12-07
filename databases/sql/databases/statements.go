@@ -139,8 +139,8 @@ type Statements struct {
 	group        singleflight.Group
 }
 
-func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
-	key := mmhash.Sum64(bytex.FromString(query))
+func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
+	key := mmhash.Sum64(query)
 	has := false
 	stmt, has = stmts.pool.Get(key)
 	if has {
@@ -151,7 +151,7 @@ func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
 		return
 	}
 	v, groupErr, _ := stmts.group.Do(strconv.FormatUint(key, 16), func() (v interface{}, err error) {
-		value, prepareErr := stmts.preparer.Prepare(query)
+		value, prepareErr := stmts.preparer.Prepare(bytex.ToString(query))
 		if prepareErr != nil {
 			err = prepareErr
 			return

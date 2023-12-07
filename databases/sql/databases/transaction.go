@@ -3,6 +3,7 @@ package databases
 import (
 	"context"
 	"database/sql"
+	"github.com/aacfactory/fns/commons/bytex"
 )
 
 type TransactionOptions struct {
@@ -15,8 +16,8 @@ type TransactionOption func(options *TransactionOptions)
 type Transaction interface {
 	Commit() error
 	Rollback() error
-	Query(ctx context.Context, query string, args []any) (rows Rows, err error)
-	Execute(ctx context.Context, query string, args []any) (result Result, err error)
+	Query(ctx context.Context, query []byte, args []any) (rows Rows, err error)
+	Execute(ctx context.Context, query []byte, args []any) (result Result, err error)
 }
 
 func NewTransactionWithStatements(tx *sql.Tx, statements *Statements) Transaction {
@@ -49,7 +50,7 @@ func (tx *DefaultTransaction) Rollback() error {
 	return tx.core.Rollback()
 }
 
-func (tx *DefaultTransaction) Query(ctx context.Context, query string, args []any) (rows Rows, err error) {
+func (tx *DefaultTransaction) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
 	var r *sql.Rows
 	if tx.prepare {
 		stmt, prepareErr := tx.statements.Get(query)
@@ -69,7 +70,7 @@ func (tx *DefaultTransaction) Query(ctx context.Context, query string, args []an
 			return
 		}
 	} else {
-		r, err = tx.core.Query(query, args...)
+		r, err = tx.core.Query(bytex.ToString(query), args...)
 		if err != nil {
 			return
 		}
@@ -80,7 +81,7 @@ func (tx *DefaultTransaction) Query(ctx context.Context, query string, args []an
 	return
 }
 
-func (tx *DefaultTransaction) Execute(ctx context.Context, query string, args []any) (result Result, err error) {
+func (tx *DefaultTransaction) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
 	var r sql.Result
 	if tx.prepare {
 		stmt, prepareErr := tx.statements.Get(query)
@@ -100,7 +101,7 @@ func (tx *DefaultTransaction) Execute(ctx context.Context, query string, args []
 			return
 		}
 	} else {
-		r, err = tx.core.Exec(query, args...)
+		r, err = tx.core.Exec(bytex.ToString(query), args...)
 		if err != nil {
 			return
 		}

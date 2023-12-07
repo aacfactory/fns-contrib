@@ -18,7 +18,7 @@ var (
 	executeFnName = []byte("execute")
 )
 
-func Execute(ctx context.Context, query string, arguments ...interface{}) (result databases.Result, err error) {
+func Execute(ctx context.Context, query []byte, arguments ...interface{}) (result databases.Result, err error) {
 	tx, hasTx := loadTransaction(ctx)
 	if hasTx {
 		var log logs.Logger
@@ -34,7 +34,7 @@ func Execute(ctx context.Context, query string, arguments ...interface{}) (resul
 		if debug && log.DebugEnabled() {
 			latency := time.Now().Sub(handleBegin)
 			log.Debug().With("succeed", err == nil).With("latency", latency.String()).With("transaction", tx.Id).
-				Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", query, fmt.Sprintf("%+v", arguments)))
+				Message(fmt.Sprintf("execute debug log:\n- query:\n  %s\n- arguments:\n  %s\n", bytex.ToString(query), fmt.Sprintf("%+v", arguments)))
 		}
 		if err != nil {
 			err = errors.Warning("sql: execute failed").WithCause(err)
@@ -53,7 +53,7 @@ func Execute(ctx context.Context, query string, arguments ...interface{}) (resul
 	}
 	eps := runtime.Endpoints(ctx)
 	param := executeParam{
-		Query:     query,
+		Query:     bytex.ToString(query),
 		Arguments: Arguments(arguments),
 	}
 	ep := endpointName
@@ -120,7 +120,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 				useDebugLog(r)
 				handleBegin = time.Now()
 			}
-			result, executeErr := tx.Execute(r, param.Query, param.Arguments)
+			result, executeErr := tx.Execute(r, bytex.FromString(param.Query), param.Arguments)
 			if fn.debug && fn.log.DebugEnabled() {
 				latency := time.Now().Sub(handleBegin)
 				fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).With("transaction", info.Id).
@@ -139,7 +139,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 		useDebugLog(r)
 		handleBegin = time.Now()
 	}
-	result, executeErr := fn.db.Execute(r, param.Query, param.Arguments)
+	result, executeErr := fn.db.Execute(r, bytex.FromString(param.Query), param.Arguments)
 	if fn.debug && fn.log.DebugEnabled() {
 		latency := time.Now().Sub(handleBegin)
 		fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).
