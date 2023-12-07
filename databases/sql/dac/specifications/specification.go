@@ -156,10 +156,9 @@ func (spec *Specification) String() (s string) {
 }
 
 var (
-	tables    = sync.Map{}
-	sequences = sync.Map{}
-	dict      = NewDict()
-	group     = singleflight.Group{}
+	tables = sync.Map{}
+	dict   = NewDict()
+	group  = singleflight.Group{}
 )
 
 func GetSpecification(ctx context.Context, e any) (spec *Specification, err error) {
@@ -296,7 +295,7 @@ func scanTableFields(ctx context.Context, key string, rt reflect.Type) (columns 
 			columns = append(columns, anonymous...)
 			continue
 		}
-		column, columnErr := newColumn(ctx, i, field)
+		column, columnErr := newColumn(ctx, field)
 		if columnErr != nil {
 			err = errors.Warning("sql: scan table field failed").
 				WithCause(columnErr).

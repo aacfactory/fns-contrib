@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -121,54 +120,6 @@ type ColumnType struct {
 	Options []string
 }
 
-func (ct *ColumnType) fillName() {
-	if ct.Name == UnknownType {
-		switch ct.Value.Kind() {
-		case reflect.String:
-			ct.Name = StringType
-			break
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			ct.Name = IntType
-			break
-		case reflect.Bool:
-			ct.Name = BoolType
-			break
-		case reflect.Float32, reflect.Float64:
-			ct.Name = FloatType
-			break
-		case reflect.Uint8:
-			ct.Name = ByteType
-			break
-		default:
-			if ct.Value.ConvertibleTo(stringType) || ct.Value.ConvertibleTo(nullStringType) {
-				ct.Name = StringType
-			} else if ct.Value.ConvertibleTo(boolType) || ct.Value.ConvertibleTo(nullBoolType) {
-				ct.Name = BoolType
-			} else if ct.Value.ConvertibleTo(intType) || ct.Value.ConvertibleTo(nullInt16Type) || ct.Value.ConvertibleTo(nullInt32Type) || ct.Value.ConvertibleTo(nullInt64Type) {
-				ct.Name = IntType
-			} else if ct.Value.ConvertibleTo(floatType) || ct.Value.ConvertibleTo(nullFloatType) {
-				ct.Name = FloatType
-			} else if ct.Value.ConvertibleTo(dateType) {
-				ct.Name = DateType
-			} else if ct.Value.ConvertibleTo(timeType) {
-				ct.Name = TimeType
-			} else if ct.Value.ConvertibleTo(datetimeType) || ct.Value.ConvertibleTo(nullTimeType) {
-				ct.Name = DatetimeType
-			} else if ct.Value.ConvertibleTo(bytesType) {
-				ct.Name = BytesType
-			} else if ct.Value.ConvertibleTo(byteType) || ct.Value.ConvertibleTo(nullByteType) {
-				ct.Name = ByteType
-			} else if ct.Value.ConvertibleTo(rawType) {
-				ct.Name = BytesType
-			} else if ct.Value.ConvertibleTo(scannerType) && ct.Value.ConvertibleTo(jsonMarshalerType) {
-				ct.Name = ScanType
-			} else {
-				return
-			}
-		}
-	}
-}
-
 func (ct *ColumnType) String() string {
 	switch ct.Name {
 	case UnknownType:
@@ -204,11 +155,12 @@ func (ct *ColumnType) String() string {
 // Column
 // 'column:"{name},{kind},{options}"'
 type Column struct {
-	Field     string
-	Name      string
-	JsonIdent string
-	Kind      ColumnKind
-	Type      ColumnType
+	Field       string
+	Name        string
+	JsonIdent   string
+	Kind        ColumnKind
+	Type        ColumnType
+	ValueWriter ValueWriter
 }
 
 func (column *Column) Incr() bool {
@@ -338,80 +290,6 @@ func (column *Column) Valid() bool {
 	return ok
 }
 
-func (column *Column) ZeroValue() (v any) {
-	switch column.Type.Value.Kind() {
-	case reflect.Ptr:
-		v = reflect.New(column.Type.Value.Elem()).Elem().Interface()
-		break
-	default:
-		v = reflect.New(column.Type.Value).Elem().Interface()
-		break
-	}
-	return
-}
-
-func (column *Column) PtrValue() (v any) {
-	switch column.Type.Value.Kind() {
-	case reflect.Ptr:
-		v = reflect.New(column.Type.Value.Elem()).Interface()
-		break
-	default:
-		v = reflect.New(column.Type.Value).Interface()
-		break
-	}
-	return
-}
-
-func (column *Column) ScanValue() (v interface{}, err error) {
-	if column.Type.Value.Implements(scannerType) {
-		typ := column.Type.Value
-		if typ.Kind() == reflect.Ptr {
-			typ = column.Type.Value.Elem()
-		}
-		v = reflect.Indirect(reflect.New(typ)).Interface()
-		return
-	}
-	switch column.Type.Name {
-	case StringType:
-		v = ""
-		break
-	case BoolType:
-		v = false
-		break
-	case IntType:
-		v = int64(0)
-		break
-	case FloatType:
-		v = float64(0)
-		break
-	case DatetimeType:
-		v = time.Time{}
-		break
-	case DateType:
-		v = DateValue{}
-		break
-	case TimeType:
-		v = TimeValue{}
-		break
-	case ByteType:
-		v = byte(0)
-		break
-	case BytesType:
-		v = []byte{}
-		break
-	case JsonType:
-		v = JsonValue{}
-		break
-	case MappingType:
-		v = JsonValue{}
-		break
-	default:
-		err = errors.Warning("sql: type of column can not be scanned").WithMeta("column", column.Name)
-		return
-	}
-	return
-}
-
 func (column *Column) String() (s string) {
 	kind := column.Kind.String()
 	if column.Kind == Virtual {
@@ -432,7 +310,12 @@ func (column *Column) String() (s string) {
 	return
 }
 
-func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Column, err error) {
+func (column *Column) WriteValue(field reflect.Value, value any) (err error) {
+	err = column.ValueWriter.Write(value, field)
+	return
+}
+
+func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err error) {
 	tag, hasTag := rt.Tag.Lookup(columnTag)
 	if !hasTag {
 		return
@@ -441,6 +324,7 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 	if tag == discardTagValue {
 		return
 	}
+	var vw ValueWriter
 	kind := Normal
 	typ := ColumnType{
 		Name:    UnknownType,
@@ -461,12 +345,11 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 				if strings.ToLower(items[1]) == incrColumn {
 					switch rt.Type.Kind() {
 					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+						vw = &IntValue{}
 						break
 					default:
-						if rt.Type != intType && !rt.Type.ConvertibleTo(intType) {
-							err = errors.Warning("sql: type of incr pk column failed must be int64").WithMeta("field", rt.Name)
-							return
-						}
+						err = errors.Warning("sql: type of incr pk column failed must be int64").WithMeta("field", rt.Name)
+						return
 					}
 					typ.Name = IntType
 					typ.Options = append(typ.Options, incrColumn)
@@ -476,104 +359,117 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 				switch rt.Type.Kind() {
 				case reflect.String:
 					typ.Name = StringType
+					vw = &StringValue{}
 					break
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 					typ.Name = IntType
+					vw = &IntValue{}
 					break
 				default:
-					if rt.Type == intType || rt.Type.ConvertibleTo(intType) {
-						typ.Name = IntType
-					} else if rt.Type == stringType || rt.Type.ConvertibleTo(stringType) {
-						typ.Name = StringType
-					} else {
-						err = errors.Warning("sql: type of pk column failed must be int64 or string").WithMeta("field", rt.Name)
-						return
-					}
+					err = errors.Warning("sql: type of pk column failed must be int64 or string").WithMeta("field", rt.Name)
+					return
 				}
 			}
 			break
 		case acbColumn:
 			kind = Acb
-			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type) || rt.Type.ConvertibleTo(nullInt32Type) || rt.Type.ConvertibleTo(nullInt16Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of acb column failed must be string or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of acb column failed must be int64 or string").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != StringType && typ.Name != IntType {
+				err = errors.Warning("sql: type of acb column failed must be int64 or string").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case actColumn:
 			kind = Act
-			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of act column failed must be time or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of act column failed must be time.Time or int64").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != DatetimeType && typ.Name != IntType {
+				err = errors.Warning("sql: type of act column failed must be time.Time or int64").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case ambColumn:
 			kind = Amb
-			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of amb column failed must be string or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of amb column failed must be int64 or string").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != StringType && typ.Name != IntType {
+				err = errors.Warning("sql: type of amb column failed must be int64 or string").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case amtColumn:
 			kind = Amt
-			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of amt column failed must be time or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of amt column failed must be time.Time or int64").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != DatetimeType && typ.Name != IntType {
+				err = errors.Warning("sql: type of amt column failed must be time.Time or int64").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case adbColumn:
 			kind = Adb
-			typeOk := rt.Type.ConvertibleTo(stringType) || rt.Type.ConvertibleTo(nullStringType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type) || rt.Type.ConvertibleTo(nullInt32Type) || rt.Type.ConvertibleTo(nullInt16Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of adb column failed must be string or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of adb column failed must be int64 or string").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != StringType && typ.Name != IntType {
+				err = errors.Warning("sql: type of adb column failed must be int64 or string").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case adtColumn:
 			kind = Adt
-			typeOk := rt.Type.ConvertibleTo(datetimeType) || rt.Type.ConvertibleTo(nullTimeType) ||
-				rt.Type.ConvertibleTo(intType) ||
-				rt.Type.ConvertibleTo(nullInt64Type)
-			if !typeOk {
-				err = errors.Warning("sql: type of adt column failed must be time or int64").WithMeta("field", rt.Name)
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: type of adt column failed must be time.Time or int64").WithCause(err).WithMeta("field", rt.Name)
+				return
+			}
+			if typ.Name != DatetimeType && typ.Name != IntType {
+				err = errors.Warning("sql: type of adt column failed must be time.Time or int64").WithMeta("field", rt.Name)
 				return
 			}
 			break
 		case aolColumn:
 			kind = Aol
-			typeOk := rt.Type.Kind() == reflect.Int64 || rt.Type.ConvertibleTo(intType)
-			if !typeOk {
+			if rt.Type.Kind() == reflect.Int64 {
+				typ.Name = IntType
+				vw = &IntValue{}
+			} else {
 				err = errors.Warning("sql: type of aol column failed must be int64").WithMeta("field", rt.Name)
 				return
 			}
-			typ.Name = IntType
 			break
 		case incrColumn:
-			if rt.Type != intType && !rt.Type.ConvertibleTo(intType) {
+			if rt.Type.Kind() == reflect.Int64 {
+				typ.Name = IntType
+				vw = &IntValue{}
+			} else {
 				err = errors.Warning("sql: type of incr column failed must be int64").WithMeta("field", rt.Name)
 				return
 			}
-			typ.Name = IntType
 			typ.Options = append(typ.Options, incrColumn)
 		case jsonColumn:
 			kind = Json
 			typ.Name = JsonType
+			vw = &JsonValue{
+				ValueType: rt.Type,
+			}
 			break
 		case virtualColumn:
-			// name,vc,{kind},{query}
 			if len(items) < 3 {
 				err = errors.Warning("sql: scan virtual column failed, kind and query are required").WithMeta("field", rt.Name)
 				return
@@ -588,10 +484,18 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Options = append(typ.Options, vck, strings.TrimSpace(items[2]))
 			if vck == "object" || vck == "array" {
 				typ.Name = JsonType
+				vw = &JsonValue{
+					ValueType: rt.Type,
+				}
+			} else {
+				vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+				if err != nil {
+					err = errors.Warning("sql: scan virtual column failed, kind is invalid").WithCause(err).WithMeta("field", rt.Name)
+					return
+				}
 			}
 			break
 		case referenceColumn:
-			// name,ref,target
 			if len(items) < 2 {
 				err = errors.Warning("sql: scan reference column failed, mapping is required").WithMeta("field", rt.Name)
 				return
@@ -599,6 +503,9 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			kind = Reference
 			typ.Options = append(typ.Options, strings.TrimSpace(items[1]))
 			typ.Name = MappingType
+			vw = &MappingValue{
+				ValueType: rt.Type,
+			}
 			switch rt.Type.Kind() {
 			case reflect.Struct:
 				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type).Interface())
@@ -620,7 +527,6 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			break
 		case linkColumn:
-			// name,link,self+target
 			if len(items) < 2 {
 				err = errors.Warning("sql: scan link column failed, mapping is required").WithMeta("field", rt.Name)
 				return
@@ -637,6 +543,9 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			typ.Options = append(typ.Options, strings.TrimSpace(mr[1]))
 
 			typ.Name = MappingType
+			vw = &MappingValue{
+				ValueType: rt.Type,
+			}
 			switch rt.Type.Kind() {
 			case reflect.Struct:
 				typ.Mapping, err = GetSpecification(ctx, reflect.Zero(rt.Type).Interface())
@@ -658,7 +567,6 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 			break
 		case linksColumn:
-			// name,links,self+target
 			if len(items) < 2 {
 				err = errors.Warning("sql: scan links column failed, mapping is required").WithMeta("field", rt.Name)
 				return
@@ -678,6 +586,9 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			}
 
 			typ.Name = MappingType
+			vw = &MappingValue{
+				ValueType: rt.Type,
+			}
 			if rt.Type.Kind() != reflect.Slice {
 				err = errors.Warning("sql: scan links column failed").WithMeta("field", rt.Name).WithCause(fmt.Errorf("links column type must be slice struct or slice ptr struct"))
 				return
@@ -707,8 +618,18 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 			return
 		}
 	}
-
-	typ.fillName()
+	if typ.Name == UnknownType {
+		if rt.Type.ConvertibleTo(scannerType) && rt.Type.ConvertibleTo(jsonMarshalerType) {
+			vw = &ScanValue{}
+			typ.Name = ScanType
+		} else {
+			vw, typ.Name, err = NewBasicValueWriter(rt.Type)
+			if err != nil {
+				err = errors.Warning("sql: invalid column").WithCause(err).WithMeta("field", rt.Name).WithMeta("tag", tag)
+				return
+			}
+		}
+	}
 
 	// json
 	jsonTag, hasJsonTag := rt.Tag.Lookup(jsonColumn)
@@ -722,11 +643,12 @@ func newColumn(ctx context.Context, ri int, rt reflect.StructField) (column *Col
 	}
 
 	column = &Column{
-		Field:     rt.Name,
-		Name:      name,
-		JsonIdent: jsonTag,
-		Kind:      kind,
-		Type:      typ,
+		Field:       rt.Name,
+		Name:        name,
+		JsonIdent:   jsonTag,
+		Kind:        kind,
+		Type:        typ,
+		ValueWriter: vw,
 	}
 
 	if !column.Valid() {

@@ -42,7 +42,6 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 		return
 	}
 
-	// todo 从上一个找到的位置开始，因为是顺序的
 	if len(spec.Conflicts) > 0 {
 		conflicts, conflictsErr := spec.ConflictColumns()
 		if conflictsErr != nil {
@@ -79,14 +78,20 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 			return
 		}
 
-		for _, row := range multiGenerics {
+		entryLen := len(entries)
+		x := -1
+		for i, row := range multiGenerics {
 			items := row[0:pos]
 			conflictValues := row[pos:]
-			for i, entry := range entries {
+			if x < 0 {
+				x = i
+			}
+			for j := x; j < entryLen; j++ {
+				entry := entries[j]
 				rv := reflect.Indirect(reflect.ValueOf(&entry))
 				matched := 0
-				for j, value := range conflictValues {
-					if reflect.Indirect(rv.FieldByName(conflicts[j].Field)).Equal(reflect.Indirect(reflect.ValueOf(value.(*Generic).Value))) {
+				for z, value := range conflictValues {
+					if reflect.Indirect(rv.FieldByName(conflicts[z].Field)).Equal(reflect.Indirect(reflect.ValueOf(value.(*Generic).Value))) {
 						matched++
 					}
 				}
@@ -97,7 +102,8 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 						err = errors.Warning("sql: write returning value into entries failed").WithCause(wErr)
 						return
 					}
-					entries[i] = entry
+					x = j + 1
+					entries[j] = entry
 				}
 			}
 		}
