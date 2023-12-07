@@ -7,8 +7,6 @@ import (
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
-	"strconv"
-	"unsafe"
 )
 
 func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *QueryGeneric, err error) {
@@ -92,13 +90,11 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.OFFSET)
 		_, _ = buf.Write(specifications.SPACE)
-		os := strconv.Itoa(offset)
-		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(os), len(os)))
+		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.LIMIT)
 		_, _ = buf.Write(specifications.SPACE)
-		ls := strconv.Itoa(length)
-		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
+		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 	}
 
 	query := buf.String()

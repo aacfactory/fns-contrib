@@ -510,6 +510,9 @@ func BuildQuery[T any](ctx context.Context, cond Condition, orders Orders, offse
 	if err != nil {
 		return
 	}
+	if length > 0 {
+		arguments = append(arguments, offset, length)
+	}
 	return
 }
 
@@ -528,6 +531,9 @@ func BuildView[T any](ctx context.Context, cond Condition, orders Orders, groupB
 	method, query, arguments, columns, err = dialect.View(Todo(ctx, t, dialect), spec, cond, orders, groupBy, offset, length)
 	if err != nil {
 		return
+	}
+	if length > 0 {
+		arguments = append(arguments, offset, length)
 	}
 	return
 }
