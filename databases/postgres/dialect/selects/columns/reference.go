@@ -15,17 +15,16 @@ import (
 //	 ) AS "{host}_{away}"
 //
 // ) AS {name}
-func Reference(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
+func Reference(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment string, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	hostTableName := ctx.FormatIdent([]byte(spec.Name))
+	hostTableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		hostSchemaName := ctx.FormatIdent([]byte(spec.Schema))
-		hostSchemaName = append(hostSchemaName, '.')
-		hostTableName = append(hostSchemaName, hostTableName...)
+		hostSchemaName := ctx.FormatIdent(spec.Schema)
+		hostTableName = fmt.Sprintf("%s.%s", hostSchemaName, hostTableName)
 	}
-	hostColumnName := ctx.FormatIdent([]byte(column.Name))
+	hostColumnName := ctx.FormatIdent(column.Name)
 
 	awayField, mapping, ok := column.Reference()
 	if !ok {
@@ -45,24 +44,23 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 			WithMeta("field", column.Field)
 		return
 	}
-	awayColumnName := ctx.FormatIdent([]byte(awayColumn.Name))
+	awayColumnName := ctx.FormatIdent(awayColumn.Name)
 
-	awayTableName := ctx.FormatIdent([]byte(mapping.Name))
+	awayTableName := ctx.FormatIdent(mapping.Name)
 	if mapping.Schema != "" {
-		awaySchemaName := ctx.FormatIdent([]byte(mapping.Schema))
-		awaySchemaName = append(awaySchemaName, '.')
-		awayTableName = append(awaySchemaName, awayTableName...)
+		awaySchemaName := ctx.FormatIdent(mapping.Schema)
+		awayTableName = fmt.Sprintf("%s.%s", awaySchemaName, awayTableName)
 	}
 
-	srcName := ctx.FormatIdent([]byte(fmt.Sprintf("%s_%s", spec.Name, mapping.Name)))
+	srcName := ctx.FormatIdent(fmt.Sprintf("%s_%s", spec.Name, mapping.Name))
 
 	_, _ = buf.Write(specifications.LB) // (
 	// json >>>
 	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("row_to_json"))
+	_, _ = buf.WriteString("row_to_json")
 	_, _ = buf.Write(specifications.LB)
-	_, _ = buf.Write(srcName)
+	_, _ = buf.WriteString(srcName)
 	_, _ = buf.Write(specifications.DOT)
 	_, _ = buf.Write(specifications.STAR)
 	_, _ = buf.Write(specifications.RB)
@@ -85,50 +83,50 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 				err = fragmentErr
 				return
 			}
-			_, _ = buf.Write(mappingColumnFragment)
+			_, _ = buf.WriteString(mappingColumnFragment)
 			break
 		default:
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.Name))
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.AS)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.JsonIdent)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.JsonIdent))
 		}
 	}
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayTableName)
+	_, _ = buf.WriteString(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.WHERE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayColumnName)
+	_, _ = buf.WriteString(awayColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(hostTableName)
+	_, _ = buf.WriteString(hostTableName)
 	_, _ = buf.Write(specifications.DOT)
-	_, _ = buf.Write(hostColumnName)
+	_, _ = buf.WriteString(hostColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.OFFSET)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("0"))
+	_, _ = buf.WriteString("0")
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.LIMIT)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("1"))
+	_, _ = buf.WriteString("1")
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(srcName)
+	_, _ = buf.WriteString(srcName)
 	// json <<<
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte(hostField)))
+	_, _ = buf.WriteString(ctx.FormatIdent(hostField))
 
-	fragment = []byte(buf.String())
+	fragment = buf.String()
 	return
 }

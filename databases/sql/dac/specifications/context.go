@@ -6,15 +6,15 @@ import (
 
 type Context interface {
 	context.Context
-	FormatIdent(ident []byte) []byte
-	NextQueryPlaceholder() (v []byte)
+	FormatIdent(ident string) string
+	NextQueryPlaceholder() (v string)
 	SkipNextQueryPlaceholderCursor(n int)
 	// Localization
 	// key can be struct field, struct value and [struct value, struct value]
 	// when field then return column name
 	// when value then return table name
 	// when [struct value, struct value] then return column name of table name
-	Localization(key any) (content [][]byte, has bool)
+	Localization(key any) (content []string, has bool)
 }
 
 func Todo(ctx context.Context, key any, dialect Dialect) Context {
@@ -60,11 +60,11 @@ func (ctx *renderCtx) getDialect() Dialect {
 	return nil
 }
 
-func (ctx *renderCtx) FormatIdent(ident []byte) []byte {
+func (ctx *renderCtx) FormatIdent(ident string) string {
 	return ctx.getDialect().FormatIdent(ident)
 }
 
-func (ctx *renderCtx) NextQueryPlaceholder() (v []byte) {
+func (ctx *renderCtx) NextQueryPlaceholder() (v string) {
 	if ctx.ph == nil {
 		parent, ok := ctx.Context.(Context)
 		if ok {
@@ -88,7 +88,7 @@ func (ctx *renderCtx) SkipNextQueryPlaceholderCursor(n int) {
 	return
 }
 
-func (ctx *renderCtx) Localization(key any) (content [][]byte, has bool) {
+func (ctx *renderCtx) Localization(key any) (content []string, has bool) {
 	sk, ok := key.(string)
 	if ok {
 		content, has = dict.Get(ctx.key, sk)

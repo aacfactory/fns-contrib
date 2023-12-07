@@ -81,6 +81,10 @@ func (lit Literal) Value() string {
 	return lit.value
 }
 
+func (lit Literal) String() string {
+	return lit.value
+}
+
 func (lit Literal) Bytes() []byte {
 	return unsafe.Slice(unsafe.StringData(lit.value), len(lit.value))
 }

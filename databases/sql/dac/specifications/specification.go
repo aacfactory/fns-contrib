@@ -257,11 +257,11 @@ func ScanTable(ctx context.Context, table any) (spec *Specification, err error) 
 		Conflicts: conflicts,
 	}
 
-	tableNames := make([][]byte, 0, 1)
+	tableNames := make([]string, 0, 1)
 	if schema != "" {
-		tableNames = append(tableNames, []byte(schema))
+		tableNames = append(tableNames, schema)
 	}
-	tableNames = append(tableNames, []byte(name))
+	tableNames = append(tableNames, name)
 	dict.Set(fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), tableNames...)
 
 	return
@@ -304,7 +304,7 @@ func scanTableFields(ctx context.Context, key string, rt reflect.Type) (columns 
 		}
 		if column != nil {
 			columns = append(columns, column)
-			dict.Set(fmt.Sprintf("%s:%s", key, column.Field), []byte(column.Name))
+			dict.Set(fmt.Sprintf("%s:%s", key, column.Field), column.Name)
 		}
 	}
 

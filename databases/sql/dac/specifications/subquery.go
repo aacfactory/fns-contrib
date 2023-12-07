@@ -24,7 +24,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		_, _ = buf.Write(LB)
 		_, _ = buf.WriteString(query)
 		_, _ = buf.Write(RB)
-		_, err = w.Write(buf.Bytes())
+		_, err = w.Write([]byte(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: sub query render failed").WithCause(err)
 			return
@@ -38,8 +38,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		}
 		tableName := tableNames[0]
 		if len(tableNames) == 2 {
-			tableName = append(tableNames[0], '.')
-			tableName = append(tableName, tableNames[1]...)
+			tableName = fmt.Sprintf("%s.%s", tableNames[0], tableNames[1])
 		}
 		ctx = SwitchKey(ctx, query)
 		column, hasColumn := ctx.Localization(expr.Field)
@@ -53,17 +52,17 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		_, _ = buf.Write(SELECT)
 		_, _ = buf.Write(SPACE)
 		if expr.Aggregate == "" {
-			_, _ = buf.Write(column[0])
+			_, _ = buf.WriteString(column[0])
 		} else {
 			_, _ = buf.WriteString(expr.Aggregate)
 			_, _ = buf.Write(LB)
-			_, _ = buf.Write(column[0])
+			_, _ = buf.WriteString(column[0])
 			_, _ = buf.Write(RB)
 		}
 		_, _ = buf.Write(SPACE)
 		_, _ = buf.Write(FROM)
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(tableName)
+		_, _ = buf.WriteString(tableName)
 		if expr.Cond.Exist() {
 			_, _ = buf.Write(SPACE)
 			_, _ = buf.Write(WHERE)
@@ -75,7 +74,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			}
 		}
 		_, _ = buf.Write(RB)
-		_, err = w.Write(buf.Bytes())
+		_, err = w.Write([]byte(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: sub query render failed").WithCause(err)
 			return

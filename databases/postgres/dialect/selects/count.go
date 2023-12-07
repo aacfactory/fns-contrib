@@ -1,6 +1,7 @@
 package selects
 
 import (
+	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
@@ -10,11 +11,10 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 
 	_, _ = buf.Write(specifications.SELECT)
@@ -22,19 +22,19 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 	_, _ = buf.Write(specifications.COUNT)
 	_, _ = buf.Write(specifications.LB)
-	_, _ = buf.Write([]byte("1"))
+	_, _ = buf.WriteString("1")
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte("_COUNT_")))
+	_, _ = buf.WriteString(ctx.FormatIdent("_COUNT_"))
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 
-	query := []byte(buf.String())
+	query := buf.String()
 
 	generic = &CountGeneric{
 		spec:    spec,
@@ -46,7 +46,7 @@ func NewCountGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 type CountGeneric struct {
 	spec    *specifications.Specification
-	content []byte
+	content string
 }
 
 func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
@@ -55,7 +55,7 @@ func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, con
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.Write(generic.content)
+	_, _ = buf.WriteString(generic.content)
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)
@@ -67,9 +67,9 @@ func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, con
 		}
 	}
 
-	query := buf.Bytes()
+	query := buf.String()
 
-	_, err = w.Write(query)
+	_, err = w.Write([]byte(query))
 
 	return
 }

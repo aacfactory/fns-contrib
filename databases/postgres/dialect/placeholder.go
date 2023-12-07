@@ -2,17 +2,15 @@ package dialect
 
 import (
 	"fmt"
-	"strconv"
 )
 
 type Placeholder struct {
 	count int
 }
 
-func (ph *Placeholder) Next() (v []byte) {
+func (ph *Placeholder) Next() (v string) {
 	ph.count++
-	v = append(v, '$')
-	v = append(v, strconv.Itoa(ph.count)...)
+	v = fmt.Sprintf("$%d", ph.count)
 	return v
 }
 
@@ -20,6 +18,6 @@ func (ph *Placeholder) SkipCursor(n int) {
 	ph.count = ph.count + n
 }
 
-func (ph *Placeholder) Current() (v []byte) {
-	return []byte(fmt.Sprintf("$%d", ph.count))
+func (ph *Placeholder) Current() (v string) {
+	return fmt.Sprintf("$%d", ph.count)
 }

@@ -17,6 +17,10 @@ const (
 
 type Operator string
 
+func (op Operator) String() string {
+	return string(op)
+}
+
 func (op Operator) Bytes() []byte {
 	s := string(op)
 	return unsafe.Slice(unsafe.StringData(s), len(s))

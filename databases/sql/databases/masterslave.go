@@ -8,7 +8,6 @@ import (
 	"github.com/aacfactory/logs"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 func MasterSlave() Database {
@@ -153,7 +152,7 @@ func (db *masterSlave) Begin(ctx context.Context, options TransactionOptions) (t
 	return
 }
 
-func (db *masterSlave) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
+func (db *masterSlave) Query(ctx context.Context, query string, args []any) (rows Rows, err error) {
 	pos := atomic.AddUint32(&db.pos, 1) % db.slaversLen
 	var r *sql.Rows
 	if db.prepare {
@@ -173,7 +172,7 @@ func (db *masterSlave) Query(ctx context.Context, query []byte, args []any) (row
 		}
 	} else {
 		slaver := db.slavers[pos]
-		r, err = slaver.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = slaver.QueryContext(ctx, query, args...)
 		if err != nil {
 			return
 		}
@@ -184,7 +183,7 @@ func (db *masterSlave) Query(ctx context.Context, query []byte, args []any) (row
 	return
 }
 
-func (db *masterSlave) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
+func (db *masterSlave) Execute(ctx context.Context, query string, args []any) (result Result, err error) {
 	var r sql.Result
 	if db.prepare {
 		stmt, prepareErr := db.masterStatements.Get(query)
@@ -201,7 +200,7 @@ func (db *masterSlave) Execute(ctx context.Context, query []byte, args []any) (r
 			return
 		}
 	} else {
-		r, err = db.master.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = db.master.ExecContext(ctx, query, args...)
 		if err != nil {
 			return
 		}

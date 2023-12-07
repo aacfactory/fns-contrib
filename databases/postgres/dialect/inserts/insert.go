@@ -21,10 +21,10 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 	}
 
 	// conflict
-	var conflictFragment []byte
+	var conflictFragment string
 	conflicts := spec.Conflicts
 	var conflictFields []string
-	conflictColumns := make([][]byte, 0, 1)
+	conflictColumns := make([]string, 0, 1)
 	if len(conflicts) > 0 {
 		buf := bytebufferpool.Get()
 		_, _ = buf.Write(specifications.SPACE)
@@ -46,10 +46,10 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			conflictColumn := ctx.FormatIdent([]byte(cc.Name))
+			conflictColumn := ctx.FormatIdent(cc.Name)
 			conflictColumns = append(conflictColumns, conflictColumn)
 			conflictFields = append(conflictFields, cc.Field)
-			_, _ = buf.Write(conflictColumn)
+			_, _ = buf.WriteString(conflictColumn)
 			n++
 		}
 		_, _ = buf.Write(specifications.RB)
@@ -57,12 +57,12 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		_, _ = buf.Write(specifications.DO)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.NOTHING)
-		conflictFragment = []byte(buf.String())
+		conflictFragment = buf.String()
 		bytebufferpool.Put(buf)
 	}
 
 	// returning
-	var returningFragment []byte
+	var returningFragment string
 	if len(returning) > 0 {
 		method = specifications.QueryMethod
 		buf := bytebufferpool.Get()
@@ -75,17 +75,17 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			}
 			column, has := spec.ColumnByField(r)
 			if has {
-				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+				_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 			}
 		}
 		if len(conflicts) > 0 {
 			for _, conflictColumn := range conflictColumns {
 				_, _ = buf.Write(specifications.COMMA)
-				_, _ = buf.Write(conflictColumn)
+				_, _ = buf.WriteString(conflictColumn)
 			}
 			returning = append(returning, conflictFields...)
 		}
-		returningFragment = []byte(buf.String())
+		returningFragment = buf.String()
 		bytebufferpool.Put(buf)
 	}
 
@@ -105,10 +105,10 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 type InsertGeneric struct {
 	spec              *specifications.Specification
 	method            specifications.Method
-	content           []byte
+	content           string
 	vr                ValueRender
-	conflictFragment  []byte
-	returningFragment []byte
+	conflictFragment  string
+	returningFragment string
 	returning         []string
 	fields            []string
 }
@@ -121,7 +121,7 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.Write(generic.content)
+	_, _ = buf.WriteString(generic.content)
 
 	for i := 0; i < values; i++ {
 		if i > 0 {
@@ -130,12 +130,12 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 		_ = generic.vr.Render(ctx, buf)
 	}
 
-	_, _ = buf.Write(generic.conflictFragment)
-	_, _ = buf.Write(generic.returningFragment)
+	_, _ = buf.WriteString(generic.conflictFragment)
+	_, _ = buf.WriteString(generic.returningFragment)
 
-	query := buf.Bytes()
+	query := buf.String()
 
-	_, err = w.Write(query)
+	_, err = w.Write([]byte(query))
 	if err != nil {
 		return
 	}

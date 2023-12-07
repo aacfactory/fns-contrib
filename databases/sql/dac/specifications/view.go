@@ -117,11 +117,11 @@ func ScanView(ctx context.Context, view any) (spec *Specification, err error) {
 			Type:    rt,
 			Columns: columns,
 		}
-		tableNames := make([][]byte, 0, 1)
+		tableNames := make([]string, 0, 1)
 		if schema != "" {
-			tableNames = append(tableNames, []byte(schema))
+			tableNames = append(tableNames, schema)
 		}
-		tableNames = append(tableNames, []byte(name))
+		tableNames = append(tableNames, name)
 		dict.Set(fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), tableNames...)
 	} else {
 		base, baseErr := GetSpecification(ctx, info.base)
@@ -147,11 +147,11 @@ func ScanView(ctx context.Context, view any) (spec *Specification, err error) {
 			Type:     rt,
 			Columns:  columns,
 		}
-		tableNames := make([][]byte, 0, 1)
+		tableNames := make([]string, 0, 1)
 		if base.Schema != "" {
-			tableNames = append(tableNames, []byte(base.Schema))
+			tableNames = append(tableNames, base.Schema)
 		}
-		tableNames = append(tableNames, []byte(base.Name))
+		tableNames = append(tableNames, base.Name)
 		dict.Set(fmt.Sprintf("%s.%s", rt.PkgPath(), rt.Name()), tableNames...)
 	}
 	return

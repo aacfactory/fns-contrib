@@ -27,16 +27,9 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		arguments = append(arguments, args...)
 		break
 	case conditions.Predicate:
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
-		args, rErr := Predicate{left}.Render(ctx, buf)
+		args, rErr := Predicate{left}.Render(ctx, w)
 		if rErr != nil {
 			err = rErr
-			return
-		}
-		_, err = w.Write(buf.Bytes())
-		if err != nil {
-			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
 		}
 		arguments = append(arguments, args...)
@@ -55,7 +48,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		if left.Group {
 			_, _ = buf.Write(RB)
 		}
-		_, err = w.Write(buf.Bytes())
+		_, err = w.Write([]byte(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
@@ -93,7 +86,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 			err = rErr
 			return
 		}
-		_, err = w.Write(buf.Bytes())
+		_, err = w.Write([]byte(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
@@ -114,7 +107,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		if right.Group {
 			_, _ = buf.Write(RB)
 		}
-		_, err = w.Write(buf.Bytes())
+		_, err = w.Write([]byte(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return

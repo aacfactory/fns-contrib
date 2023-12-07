@@ -1,11 +1,11 @@
 package inserts
 
 import (
-	"bytes"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
+	"strings"
 )
 
 func NewInsertWhenExistsGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *InsertWhenExistsGeneric, err error) {
@@ -33,7 +33,7 @@ func NewInsertWhenExistsGeneric(ctx specifications.Context, spec *specifications
 type InsertWhenExistsGeneric struct {
 	spec      *specifications.Specification
 	method    specifications.Method
-	content   []byte
+	content   string
 	fields    []string
 	returning []string
 }
@@ -50,10 +50,10 @@ func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.
 	if err != nil {
 		return
 	}
-	srcQuery := []byte(srcBuf.String())
+	srcQuery := srcBuf.String()
 
-	query := bytes.Replace(generic.content, srcPlaceHold, srcQuery, 1)
-	_, err = w.Write(query)
+	query := strings.Replace(generic.content, srcPlaceHold, srcQuery, 1)
+	_, err = w.Write([]byte(query))
 	if err != nil {
 		return
 	}

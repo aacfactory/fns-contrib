@@ -6,7 +6,6 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/logs"
 	"time"
-	"unsafe"
 )
 
 func Standalone() Database {
@@ -104,7 +103,7 @@ func (db *standalone) Begin(ctx context.Context, options TransactionOptions) (tx
 	return
 }
 
-func (db *standalone) Query(ctx context.Context, query []byte, args []any) (rows Rows, err error) {
+func (db *standalone) Query(ctx context.Context, query string, args []any) (rows Rows, err error) {
 	var r *sql.Rows
 	if db.prepare {
 		stmt, prepareErr := db.statements.Get(query)
@@ -121,7 +120,7 @@ func (db *standalone) Query(ctx context.Context, query []byte, args []any) (rows
 			return
 		}
 	} else {
-		r, err = db.core.QueryContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = db.core.QueryContext(ctx, query, args...)
 		if err != nil {
 			return
 		}
@@ -133,7 +132,7 @@ func (db *standalone) Query(ctx context.Context, query []byte, args []any) (rows
 	return
 }
 
-func (db *standalone) Execute(ctx context.Context, query []byte, args []any) (result Result, err error) {
+func (db *standalone) Execute(ctx context.Context, query string, args []any) (result Result, err error) {
 	var r sql.Result
 	if db.prepare {
 		stmt, prepareErr := db.statements.Get(query)
@@ -150,7 +149,7 @@ func (db *standalone) Execute(ctx context.Context, query []byte, args []any) (re
 			return
 		}
 	} else {
-		r, err = db.core.ExecContext(ctx, unsafe.String(unsafe.SliceData(query), len(query)), args...)
+		r, err = db.core.ExecContext(ctx, query, args...)
 		if err != nil {
 			return
 		}

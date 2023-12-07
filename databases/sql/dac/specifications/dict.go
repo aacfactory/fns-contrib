@@ -16,7 +16,7 @@ type Dict struct {
 	values sync.Map
 }
 
-func (dict *Dict) Get(key ...any) (value [][]byte, has bool) {
+func (dict *Dict) Get(key ...any) (value []string, has bool) {
 	keyLen := len(key)
 	if keyLen == 0 || keyLen > 2 {
 		return
@@ -30,13 +30,13 @@ func (dict *Dict) Get(key ...any) (value [][]byte, has bool) {
 	if keyLen == 1 {
 		v, exist := dict.values.Load(st)
 		if exist {
-			value, has = v.([][]byte)
+			value, has = v.([]string)
 		}
 		return
 	}
 	v, exist := dict.values.Load(fmt.Sprintf("%s:%s", st, key[1]))
 	if exist {
-		value, has = v.([][]byte)
+		value, has = v.([]string)
 	}
 	return
 }
@@ -44,11 +44,11 @@ func (dict *Dict) Get(key ...any) (value [][]byte, has bool) {
 // Set
 // table: key is {path}.{name}, value is table name
 // column: key is {path}.{name}:{field}, value is column name
-func (dict *Dict) Set(key string, value ...[]byte) {
+func (dict *Dict) Set(key string, value ...string) {
 	dict.values.Store(key, value)
 	return
 }
 
-func DictSet(key string, value ...[]byte) {
+func DictSet(key string, value ...string) {
 	dict.Set(key, value...)
 }

@@ -19,17 +19,16 @@ import (
 //	)
 //
 // ) AS "{name}"
-func Links(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
+func Links(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment string, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	hostTableName := ctx.FormatIdent([]byte(spec.Name))
+	hostTableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		hostSchemaName := ctx.FormatIdent([]byte(spec.Schema))
-		hostSchemaName = append(hostSchemaName, '.')
-		hostTableName = append(hostSchemaName, hostTableName...)
+		hostSchemaName := ctx.FormatIdent(spec.Schema)
+		hostTableName = fmt.Sprintf("%s.%s", hostSchemaName, hostTableName)
 	}
-	hostColumnIdent := ctx.FormatIdent([]byte(column.Name))
+	hostColumnIdent := ctx.FormatIdent(column.Name)
 
 	hostField, awayField, mapping, orders, length, ok := column.Links()
 	if !ok {
@@ -47,7 +46,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 			WithMeta("field", column.Field)
 		return
 	}
-	hostColumnName := ctx.FormatIdent([]byte(hostColumn.Name))
+	hostColumnName := ctx.FormatIdent(hostColumn.Name)
 
 	awayColumn, hasAwayColumn := mapping.ColumnByField(awayField)
 	if !hasAwayColumn {
@@ -57,31 +56,30 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 			WithMeta("field", column.Field)
 		return
 	}
-	awayColumnName := ctx.FormatIdent([]byte(awayColumn.Name))
+	awayColumnName := ctx.FormatIdent(awayColumn.Name)
 
-	awayTableName := ctx.FormatIdent([]byte(mapping.Name))
+	awayTableName := ctx.FormatIdent(mapping.Name)
 	if mapping.Schema != "" {
-		awaySchemaName := ctx.FormatIdent([]byte(mapping.Schema))
-		awaySchemaName = append(awaySchemaName, '.')
-		awayTableName = append(awaySchemaName, awayTableName...)
+		awaySchemaName := ctx.FormatIdent(mapping.Schema)
+		awayTableName = fmt.Sprintf("%s.%s", awaySchemaName, awayTableName)
 	}
 
-	srcName := ctx.FormatIdent([]byte(fmt.Sprintf("%s_%s", spec.Name, mapping.Name)))
+	srcName := ctx.FormatIdent(fmt.Sprintf("%s_%s", spec.Name, mapping.Name))
 
 	_, _ = buf.Write(specifications.LB)
 	// json >>>
 	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("to_json"))
+	_, _ = buf.WriteString("to_json")
 	_, _ = buf.Write(specifications.LB)
-	_, _ = buf.Write([]byte("ARRAY"))
+	_, _ = buf.WriteString("ARRAY")
 	_, _ = buf.Write(specifications.LB)
 
 	_, _ = buf.Write(specifications.SELECT)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write([]byte("row_to_json"))
+	_, _ = buf.WriteString("row_to_json")
 	_, _ = buf.Write(specifications.LB)
-	_, _ = buf.Write(srcName)
+	_, _ = buf.WriteString(srcName)
 	_, _ = buf.Write(specifications.DOT)
 	_, _ = buf.Write(specifications.STAR)
 	_, _ = buf.Write(specifications.RB)
@@ -103,30 +101,30 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 				err = fragmentErr
 				return
 			}
-			_, _ = buf.Write(mappingColumnFragment)
+			_, _ = buf.WriteString(mappingColumnFragment)
 			break
 		default:
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.Name))
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.AS)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.JsonIdent)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.JsonIdent))
 		}
 	}
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayTableName)
+	_, _ = buf.WriteString(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.WHERE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayColumnName)
+	_, _ = buf.WriteString(awayColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(hostTableName)
+	_, _ = buf.WriteString(hostTableName)
 	_, _ = buf.Write(specifications.DOT)
-	_, _ = buf.Write(hostColumnName)
+	_, _ = buf.WriteString(hostColumnName)
 
 	if len(orders) > 0 {
 		_, _ = buf.Write(specifications.SPACE)
@@ -146,7 +144,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 					WithMeta("field", column.Field)
 				return
 			}
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mc.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mc.Name))
 			if order.Desc {
 				_, _ = buf.Write(specifications.SPACE)
 				_, _ = buf.Write(specifications.DESC)
@@ -157,11 +155,11 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.OFFSET)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write([]byte("0"))
+		_, _ = buf.WriteString("0")
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.LIMIT)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write([]byte(strconv.Itoa(length)))
+		_, _ = buf.WriteString(strconv.Itoa(length))
 	}
 
 	_, _ = buf.Write(specifications.RB)
@@ -169,7 +167,7 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
 
-	_, _ = buf.Write(srcName)
+	_, _ = buf.WriteString(srcName)
 
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.RB)
@@ -178,8 +176,8 @@ func Links(ctx specifications.Context, spec *specifications.Specification, colum
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(hostColumnIdent)
+	_, _ = buf.WriteString(hostColumnIdent)
 
-	fragment = []byte(buf.String())
+	fragment = buf.String()
 	return
 }

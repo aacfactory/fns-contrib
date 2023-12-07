@@ -4,14 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/logs"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"golang.org/x/sync/singleflight"
-	"strconv"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 type Preparer interface {
@@ -114,7 +111,7 @@ func NewStatements(log logs.Logger, preparer Preparer, size int, evictTimeout ti
 	if evictTimeout < 1 {
 		evictTimeout = 10 * time.Second
 	}
-	pool, poolErr := simplelru.NewLRU[uint64, *Statement](size, func(key uint64, value *Statement) {
+	pool, poolErr := simplelru.NewLRU[string, *Statement](size, func(key string, value *Statement) {
 		value.evict()
 	})
 	if poolErr != nil {
@@ -135,14 +132,13 @@ type Statements struct {
 	log          logs.Logger
 	evictTimeout time.Duration
 	preparer     Preparer
-	pool         *simplelru.LRU[uint64, *Statement]
+	pool         *simplelru.LRU[string, *Statement]
 	group        singleflight.Group
 }
 
-func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
-	key := mmhash.Sum64(query)
+func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
 	has := false
-	stmt, has = stmts.pool.Get(key)
+	stmt, has = stmts.pool.Get(query)
 	if has {
 		if stmt.closed.Load() {
 			stmt, err = stmts.Get(query)
@@ -150,8 +146,8 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 		}
 		return
 	}
-	v, groupErr, _ := stmts.group.Do(strconv.FormatUint(key, 16), func() (v interface{}, err error) {
-		value, prepareErr := stmts.preparer.Prepare(unsafe.String(unsafe.SliceData(query), len(query)))
+	v, groupErr, _ := stmts.group.Do(query, func() (v interface{}, err error) {
+		value, prepareErr := stmts.preparer.Prepare(query)
 		if prepareErr != nil {
 			err = prepareErr
 			return
@@ -163,7 +159,7 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 			evictTimeout: stmts.evictTimeout,
 			value:        value,
 		}
-		stmts.pool.Add(key, st)
+		stmts.pool.Add(query, st)
 		v = st
 		return
 	})

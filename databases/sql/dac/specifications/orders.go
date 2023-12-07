@@ -29,13 +29,13 @@ func (o Orders) Render(ctx Context, w io.Writer) (argument []any, err error) {
 			err = errors.Warning("sql: render order by failed").WithCause(fmt.Errorf("%s was not found", order.Name))
 			return
 		}
-		_, _ = buf.Write(content[0])
+		_, _ = buf.WriteString(content[0])
 		if order.Desc {
 			_, _ = buf.Write(SPACE)
 			_, _ = buf.Write(DESC)
 		}
 	}
-	_, err = w.Write(buf.Bytes())
+	_, err = w.Write([]byte(buf.String()))
 	if err != nil {
 		err = errors.Warning("sql: render order by failed").WithCause(err)
 		return

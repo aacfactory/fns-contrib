@@ -1,6 +1,7 @@
 package selects
 
 import (
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
@@ -14,11 +15,10 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 
 	_, _ = buf.Write(specifications.SELECT)
@@ -34,16 +34,16 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 			err = errors.Warning("sql: new query generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
 			return
 		}
-		_, _ = buf.Write(fragment)
+		_, _ = buf.WriteString(fragment)
 		fields = append(fields, column.Field)
 	}
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 
-	query := []byte(buf.String())
+	query := buf.String()
 
 	generic = &QueryGeneric{
 		spec:    spec,
@@ -56,7 +56,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 type QueryGeneric struct {
 	spec    *specifications.Specification
-	content []byte
+	content string
 	fields  []string
 }
 
@@ -67,7 +67,7 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.Write(generic.content)
+	_, _ = buf.WriteString(generic.content)
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)
@@ -101,9 +101,9 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
 	}
 
-	query := buf.Bytes()
+	query := buf.String()
 
-	_, err = w.Write(query)
+	_, err = w.Write([]byte(query))
 
 	return
 }

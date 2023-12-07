@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
@@ -13,20 +14,18 @@ import (
 func NewViewGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *ViewGeneric, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	var tableName []byte
+	tableName := ""
 	if spec.ViewBase == nil {
-		tableName = ctx.FormatIdent([]byte(spec.Name))
+		tableName = ctx.FormatIdent(spec.Name)
 		if spec.Schema != "" {
-			schema := ctx.FormatIdent([]byte(spec.Schema))
-			schema = append(schema, '.')
-			tableName = append(schema, tableName...)
+			schema := ctx.FormatIdent(spec.Schema)
+			tableName = fmt.Sprintf("%s.%s", schema, tableName)
 		}
 	} else {
-		tableName = ctx.FormatIdent([]byte(spec.ViewBase.Name))
+		tableName = ctx.FormatIdent(spec.ViewBase.Name)
 		if spec.ViewBase.Schema != "" {
-			schema := ctx.FormatIdent([]byte(spec.ViewBase.Schema))
-			schema = append(schema, '.')
-			tableName = append(schema, tableName...)
+			schema := ctx.FormatIdent(spec.ViewBase.Schema)
+			tableName = fmt.Sprintf("%s.%s", schema, tableName)
 		}
 	}
 	// name
@@ -44,16 +43,16 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 			err = errors.Warning("sql: new view generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
 			return
 		}
-		_, _ = buf.Write(fragment)
+		_, _ = buf.WriteString(fragment)
 		fields = append(fields, column.Field)
 	}
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 
-	query := []byte(buf.String())
+	query := buf.String()
 
 	generic = &ViewGeneric{
 		spec:    spec,
@@ -66,7 +65,7 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 
 type ViewGeneric struct {
 	spec    *specifications.Specification
-	content []byte
+	content string
 	fields  []string
 }
 
@@ -78,7 +77,7 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.Write(generic.content)
+	_, _ = buf.Write([]byte(generic.content))
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)

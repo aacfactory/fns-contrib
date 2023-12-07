@@ -18,17 +18,16 @@ func NewUpdateFieldsGeneric(ctx specifications.Context, spec *specifications.Spe
 	defer bytebufferpool.Put(buf)
 
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 
 	ver, hasVer := spec.AuditVersion()
-	var verName []byte
+	verName := ""
 	if hasVer {
-		verName = ctx.FormatIdent([]byte(ver.Name))
+		verName = ctx.FormatIdent(ver.Name)
 	}
 
 	generic = &UpdateFieldsGeneric{
@@ -42,8 +41,8 @@ func NewUpdateFieldsGeneric(ctx specifications.Context, spec *specifications.Spe
 
 type UpdateFieldsGeneric struct {
 	spec    *specifications.Specification
-	table   []byte
-	version []byte
+	table   string
+	version string
 }
 
 func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writer, fields []specifications.FieldValue, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
@@ -59,20 +58,20 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 
 	_, _ = buf.Write(specifications.UPDATE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(generic.table)
+	_, _ = buf.WriteString(generic.table)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.SET)
 	_, _ = buf.Write(specifications.SPACE)
 
 	n := 0
 	if len(generic.version) > 0 {
-		_, _ = buf.Write(generic.version)
+		_, _ = buf.WriteString(generic.version)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(generic.version)
+		_, _ = buf.WriteString(generic.version)
 		_, _ = buf.Write(specifications.PLUS)
-		_, _ = buf.Write([]byte("1"))
+		_, _ = buf.WriteString("1")
 		n++
 	}
 
@@ -93,11 +92,11 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+		_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(ctx.NextQueryPlaceholder())
+		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 		arguments = append(arguments, field.Value)
 		n++
 	}

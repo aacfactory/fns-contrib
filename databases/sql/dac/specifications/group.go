@@ -31,7 +31,7 @@ func (group GroupBy) Render(ctx Context, w io.Writer) (argument []any, err error
 			err = errors.Warning("sql: group by render failed").WithMeta("field", field)
 			return
 		}
-		_, _ = buf.Write(content[0])
+		_, _ = buf.WriteString(content[0])
 	}
 	if group.Havings.Exist() {
 		_, _ = buf.Write(SPACE)
@@ -43,7 +43,7 @@ func (group GroupBy) Render(ctx Context, w io.Writer) (argument []any, err error
 			return
 		}
 	}
-	_, err = w.Write(buf.Bytes())
+	_, err = w.Write([]byte(buf.String()))
 	if err != nil {
 		err = errors.Warning("sql: group by render failed").WithCause(err)
 		return
