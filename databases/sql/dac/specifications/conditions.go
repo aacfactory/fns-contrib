@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 	"reflect"
@@ -48,7 +49,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		if left.Group {
 			_, _ = buf.Write(RB)
 		}
-		_, err = w.Write([]byte(buf.String()))
+		_, err = w.Write(bytex.FromString(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
@@ -67,7 +68,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		return
 	}
 	_, _ = w.Write(SPACE)
-	_, _ = w.Write(cond.Operation.Bytes())
+	_, _ = w.Write(bytex.FromString(cond.Operation.String()))
 	_, _ = w.Write(SPACE)
 	switch right := cond.Right.(type) {
 	case Render:
@@ -86,7 +87,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 			err = rErr
 			return
 		}
-		_, err = w.Write([]byte(buf.String()))
+		_, err = w.Write(bytex.FromString(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
@@ -107,7 +108,7 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		if right.Group {
 			_, _ = buf.Write(RB)
 		}
-		_, err = w.Write([]byte(buf.String()))
+		_, err = w.Write(bytex.FromString(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return

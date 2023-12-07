@@ -1,10 +1,12 @@
 package specifications
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 	"strings"
@@ -22,18 +24,18 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 		err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s was not found in localization", p.Field))
 		return
 	}
-	_, _ = buf.WriteString(column[0])
+	_, _ = buf.Write(bytex.FromString(column[0]))
 	_, _ = buf.Write(SPACE)
-	_, _ = buf.WriteString(p.Operator.String())
+	_, _ = buf.Write(bytex.FromString(p.Operator.String()))
 	_, _ = buf.Write(SPACE)
 
 	switch expr := p.Expression.(type) {
 	case conditions.Literal:
-		_, _ = buf.WriteString(expr.String())
+		_, _ = buf.Write(bytex.FromString(expr.String()))
 		break
 	case sql.NamedArg:
 		_, _ = buf.Write(AT)
-		_, _ = buf.WriteString(expr.Name)
+		_, _ = buf.Write(bytex.FromString(expr.Name))
 		argument = append(argument, expr)
 		break
 	case conditions.QueryExpr:
@@ -67,11 +69,11 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 			}
 		}
 
-		exprs := make([]string, 0, len(expr))
+		exprs := make([][]byte, 0, len(expr))
 		for _, e := range expr {
 			switch se := e.(type) {
 			case conditions.Literal:
-				exprs = append(exprs, se.String())
+				exprs = append(exprs, bytex.FromString(se.String()))
 				break
 			case sql.NamedArg:
 				err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s only can has named arg", p.Field))
@@ -89,27 +91,27 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 				if len(expr) == 1 {
 					subQuery = subQuery[strings.IndexByte(subQuery, '(')+1 : strings.LastIndexByte(subQuery, ')')]
 				}
-				exprs = append(exprs, subQuery)
+				exprs = append(exprs, bytex.FromString(subQuery))
 				argument = append(argument, sub...)
 				break
 			default:
-				exprs = append(exprs, ctx.NextQueryPlaceholder())
+				exprs = append(exprs, bytex.FromString(ctx.NextQueryPlaceholder()))
 				argument = append(argument, se)
 				break
 			}
 		}
 
 		_, _ = buf.Write(LB)
-		_, _ = buf.WriteString(strings.Join(exprs, string(COMMA)))
+		_, _ = buf.Write(bytes.Join(exprs, COMMA))
 		_, _ = buf.Write(RB)
 		break
 	default:
-		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
+		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 		argument = append(argument, expr)
 		break
 	}
 
-	_, err = w.Write([]byte(buf.String()))
+	_, err = w.Write(bytex.FromString(buf.String()))
 	if err != nil {
 		err = errors.Warning("sql: predicate render failed").WithCause(err)
 		return

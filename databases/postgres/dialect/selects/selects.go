@@ -5,6 +5,7 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -65,7 +66,7 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.WriteString(generic.content)
+	_, _ = buf.Write(bytex.FromString(generic.content))
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)
@@ -90,16 +91,16 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.OFFSET)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
+		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.LIMIT)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
+		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 	}
 
 	query := buf.String()
 
-	_, err = w.Write([]byte(query))
+	_, err = w.Write(bytex.FromString(query))
 
 	return
 }

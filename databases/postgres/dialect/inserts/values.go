@@ -2,6 +2,7 @@ package inserts
 
 import (
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -38,10 +39,10 @@ func (value *ValueRender) Render(ctx specifications.Context, w io.Writer) (err e
 			_, _ = buf.Write([]byte("1"))
 			continue
 		}
-		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
+		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 	}
 	_, _ = buf.Write(specifications.RB)
 	p := buf.String()
-	_, err = w.Write([]byte(p))
+	_, err = w.Write(bytex.FromString(p))
 	return
 }

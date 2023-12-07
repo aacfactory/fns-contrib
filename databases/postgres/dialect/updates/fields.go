@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -58,18 +59,18 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 
 	_, _ = buf.Write(specifications.UPDATE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.WriteString(generic.table)
+	_, _ = buf.Write(bytex.FromString(generic.table))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.SET)
 	_, _ = buf.Write(specifications.SPACE)
 
 	n := 0
 	if len(generic.version) > 0 {
-		_, _ = buf.WriteString(generic.version)
+		_, _ = buf.Write(bytex.FromString(generic.table))
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.WriteString(generic.version)
+		_, _ = buf.Write(bytex.FromString(generic.version))
 		_, _ = buf.Write(specifications.PLUS)
 		_, _ = buf.WriteString("1")
 		n++
@@ -92,11 +93,11 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
+		_, _ = buf.Write(bytex.FromString(ctx.FormatIdent(column.Name)))
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.EQ)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
+		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 		arguments = append(arguments, field.Value)
 		n++
 	}
@@ -113,7 +114,7 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 		arguments = append(arguments, condValues...)
 	}
 
-	query := []byte(buf.String())
+	query := bytex.FromString(buf.String())
 	_, err = w.Write(query)
 	if err != nil {
 		err = errors.Warning("sql: render update field failed").WithCause(err)

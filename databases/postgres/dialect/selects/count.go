@@ -3,6 +3,7 @@ package selects
 import (
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -55,7 +56,7 @@ func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, con
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.WriteString(generic.content)
+	_, _ = buf.Write(bytex.FromString(generic.content))
 
 	if cond.Exist() {
 		_, _ = buf.Write(specifications.SPACE)
@@ -69,7 +70,7 @@ func (generic *CountGeneric) Render(ctx specifications.Context, w io.Writer, con
 
 	query := buf.String()
 
-	_, err = w.Write([]byte(query))
+	_, err = w.Write(bytex.FromString(query))
 
 	return
 }

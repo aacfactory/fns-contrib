@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -135,7 +136,7 @@ func (generic *DeleteGeneric) Render(_ specifications.Context, w io.Writer) (met
 	method = specifications.ExecuteMethod
 	fields = generic.fields
 
-	_, err = w.Write([]byte(generic.content))
+	_, err = w.Write(bytex.FromString(generic.content))
 	if err != nil {
 		return
 	}

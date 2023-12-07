@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/logs"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"golang.org/x/sync/singleflight"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -111,7 +114,7 @@ func NewStatements(log logs.Logger, preparer Preparer, size int, evictTimeout ti
 	if evictTimeout < 1 {
 		evictTimeout = 10 * time.Second
 	}
-	pool, poolErr := simplelru.NewLRU[string, *Statement](size, func(key string, value *Statement) {
+	pool, poolErr := simplelru.NewLRU[uint64, *Statement](size, func(key uint64, value *Statement) {
 		value.evict()
 	})
 	if poolErr != nil {
@@ -132,13 +135,14 @@ type Statements struct {
 	log          logs.Logger
 	evictTimeout time.Duration
 	preparer     Preparer
-	pool         *simplelru.LRU[string, *Statement]
+	pool         *simplelru.LRU[uint64, *Statement]
 	group        singleflight.Group
 }
 
 func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
+	key := mmhash.Sum64(bytex.FromString(query))
 	has := false
-	stmt, has = stmts.pool.Get(query)
+	stmt, has = stmts.pool.Get(key)
 	if has {
 		if stmt.closed.Load() {
 			stmt, err = stmts.Get(query)
@@ -146,7 +150,7 @@ func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
 		}
 		return
 	}
-	v, groupErr, _ := stmts.group.Do(query, func() (v interface{}, err error) {
+	v, groupErr, _ := stmts.group.Do(strconv.FormatUint(key, 16), func() (v interface{}, err error) {
 		value, prepareErr := stmts.preparer.Prepare(query)
 		if prepareErr != nil {
 			err = prepareErr
@@ -159,7 +163,7 @@ func (stmts *Statements) Get(query string) (stmt *Statement, err error) {
 			evictTimeout: stmts.evictTimeout,
 			value:        value,
 		}
-		stmts.pool.Add(query, st)
+		stmts.pool.Add(key, st)
 		v = st
 		return
 	})

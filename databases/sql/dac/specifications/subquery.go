@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -22,9 +23,9 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		buf := bytebufferpool.Get()
 		defer bytebufferpool.Put(buf)
 		_, _ = buf.Write(LB)
-		_, _ = buf.WriteString(query)
+		_, _ = buf.Write(bytex.FromString(query))
 		_, _ = buf.Write(RB)
-		_, err = w.Write([]byte(buf.String()))
+		_, err = w.Write(bytex.FromString(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: sub query render failed").WithCause(err)
 			return
@@ -52,17 +53,17 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 		_, _ = buf.Write(SELECT)
 		_, _ = buf.Write(SPACE)
 		if expr.Aggregate == "" {
-			_, _ = buf.WriteString(column[0])
+			_, _ = buf.Write(bytex.FromString(column[0]))
 		} else {
 			_, _ = buf.WriteString(expr.Aggregate)
 			_, _ = buf.Write(LB)
-			_, _ = buf.WriteString(column[0])
+			_, _ = buf.Write(bytex.FromString(column[0]))
 			_, _ = buf.Write(RB)
 		}
 		_, _ = buf.Write(SPACE)
 		_, _ = buf.Write(FROM)
 		_, _ = buf.Write(SPACE)
-		_, _ = buf.WriteString(tableName)
+		_, _ = buf.Write(bytex.FromString(tableName))
 		if expr.Cond.Exist() {
 			_, _ = buf.Write(SPACE)
 			_, _ = buf.Write(WHERE)
@@ -74,7 +75,7 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			}
 		}
 		_, _ = buf.Write(RB)
-		_, err = w.Write([]byte(buf.String()))
+		_, err = w.Write(bytex.FromString(buf.String()))
 		if err != nil {
 			err = errors.Warning("sql: sub query render failed").WithCause(err)
 			return

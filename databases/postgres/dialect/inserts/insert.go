@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -121,7 +122,7 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	_, _ = buf.WriteString(generic.content)
+	_, _ = buf.Write(bytex.FromString(generic.content))
 
 	for i := 0; i < values; i++ {
 		if i > 0 {
@@ -130,12 +131,12 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 		_ = generic.vr.Render(ctx, buf)
 	}
 
-	_, _ = buf.WriteString(generic.conflictFragment)
-	_, _ = buf.WriteString(generic.returningFragment)
+	_, _ = buf.Write(bytex.FromString(generic.conflictFragment))
+	_, _ = buf.Write(bytex.FromString(generic.returningFragment))
 
 	query := buf.String()
 
-	_, err = w.Write([]byte(query))
+	_, err = w.Write(bytex.FromString(query))
 	if err != nil {
 		return
 	}

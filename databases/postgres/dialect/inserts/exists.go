@@ -3,6 +3,7 @@ package inserts
 import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 	"strings"
@@ -53,7 +54,7 @@ func (generic *InsertWhenExistsGeneric) Render(ctx specifications.Context, w io.
 	srcQuery := srcBuf.String()
 
 	query := strings.Replace(generic.content, srcPlaceHold, srcQuery, 1)
-	_, err = w.Write([]byte(query))
+	_, err = w.Write(bytex.FromString(query))
 	if err != nil {
 		return
 	}

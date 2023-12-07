@@ -3,6 +3,7 @@ package deletes
 import (
 	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -75,7 +76,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		_, _ = buf.WriteString(tableName)
 	}
 
-	query := []byte(buf.String())
+	query := buf.String()
 
 	generic = &DeleteByConditionsGeneric{
 		spec:    spec,
@@ -88,7 +89,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 
 type DeleteByConditionsGeneric struct {
 	spec    *specifications.Specification
-	content []byte
+	content string
 	audits  []string
 }
 
@@ -96,7 +97,7 @@ func (generic *DeleteByConditionsGeneric) Render(ctx specifications.Context, w i
 	method = specifications.ExecuteMethod
 	audits = generic.audits
 
-	_, err = w.Write(generic.content)
+	_, err = w.Write(bytex.FromString(generic.content))
 	if err != nil {
 		return
 	}
