@@ -42,7 +42,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.WriteString(tableName)
 
-	query := buf.String()
+	query := []byte(buf.String())
 
 	generic = &QueryGeneric{
 		spec:    spec,
@@ -55,7 +55,7 @@ func NewQueryGeneric(ctx specifications.Context, spec *specifications.Specificat
 
 type QueryGeneric struct {
 	spec    *specifications.Specification
-	content string
+	content []byte
 	fields  []string
 }
 
@@ -63,24 +63,21 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 	method = specifications.QueryMethod
 	fields = generic.fields
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(bytex.FromString(generic.content))
+	_, _ = w.Write(generic.content)
 
 	if cond.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.WHERE)
-		_, _ = buf.Write(specifications.SPACE)
-		arguments, err = cond.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.WHERE)
+		_, _ = w.Write(specifications.SPACE)
+		arguments, err = cond.Render(ctx, w)
 		if err != nil {
 			return
 		}
 	}
 
 	if len(orders) > 0 {
-		_, _ = buf.Write(specifications.SPACE)
-		_, orderErr := orders.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, orderErr := orders.Render(ctx, w)
 		if orderErr != nil {
 			err = orderErr
 			return
@@ -88,19 +85,15 @@ func (generic *QueryGeneric) Render(ctx specifications.Context, w io.Writer, con
 	}
 
 	if length > 0 {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.OFFSET)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.LIMIT)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.OFFSET)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.LIMIT)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 	}
-
-	query := buf.String()
-
-	_, err = w.Write(bytex.FromString(query))
 
 	return
 }

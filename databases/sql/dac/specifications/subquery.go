@@ -5,7 +5,6 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/valyala/bytebufferpool"
 	"io"
 )
 
@@ -20,12 +19,9 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("literal sub query can not has condition"))
 			return
 		}
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
-		_, _ = buf.Write(LB)
-		_, _ = buf.Write(bytex.FromString(query))
-		_, _ = buf.Write(RB)
-		_, err = w.Write(bytex.FromString(buf.String()))
+		_, _ = w.Write(LB)
+		_, _ = w.Write(bytex.FromString(query))
+		_, _ = w.Write(RB)
 		if err != nil {
 			err = errors.Warning("sql: sub query render failed").WithCause(err)
 			return
@@ -47,39 +43,32 @@ func (expr QueryExpr) Render(ctx Context, w io.Writer) (argument []any, err erro
 			err = errors.Warning("sql: sub query render failed").WithCause(fmt.Errorf("%s was not found in localization", expr.Field))
 			return
 		}
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
-		_, _ = buf.Write(LB)
-		_, _ = buf.Write(SELECT)
-		_, _ = buf.Write(SPACE)
+		_, _ = w.Write(LB)
+		_, _ = w.Write(SELECT)
+		_, _ = w.Write(SPACE)
 		if expr.Aggregate == "" {
-			_, _ = buf.Write(bytex.FromString(column[0]))
+			_, _ = w.Write(bytex.FromString(column[0]))
 		} else {
-			_, _ = buf.WriteString(expr.Aggregate)
-			_, _ = buf.Write(LB)
-			_, _ = buf.Write(bytex.FromString(column[0]))
-			_, _ = buf.Write(RB)
+			_, _ = w.Write(bytex.FromString(expr.Aggregate))
+			_, _ = w.Write(LB)
+			_, _ = w.Write(bytex.FromString(column[0]))
+			_, _ = w.Write(RB)
 		}
-		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(FROM)
-		_, _ = buf.Write(SPACE)
-		_, _ = buf.Write(bytex.FromString(tableName))
+		_, _ = w.Write(SPACE)
+		_, _ = w.Write(FROM)
+		_, _ = w.Write(SPACE)
+		_, _ = w.Write(bytex.FromString(tableName))
 		if expr.Cond.Exist() {
-			_, _ = buf.Write(SPACE)
-			_, _ = buf.Write(WHERE)
-			_, _ = buf.Write(SPACE)
-			argument, err = Condition{expr.Cond}.Render(ctx, buf)
+			_, _ = w.Write(SPACE)
+			_, _ = w.Write(WHERE)
+			_, _ = w.Write(SPACE)
+			argument, err = Condition{expr.Cond}.Render(ctx, w)
 			if err != nil {
 				err = errors.Warning("sql: sub query render failed").WithCause(err)
 				return
 			}
 		}
-		_, _ = buf.Write(RB)
-		_, err = w.Write(bytex.FromString(buf.String()))
-		if err != nil {
-			err = errors.Warning("sql: sub query render failed").WithCause(err)
-			return
-		}
+		_, _ = w.Write(RB)
 		break
 	}
 	return

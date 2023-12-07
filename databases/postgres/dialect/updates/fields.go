@@ -54,25 +54,22 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 
 	method = specifications.ExecuteMethod
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(specifications.UPDATE)
-	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(bytex.FromString(generic.table))
-	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(specifications.SET)
-	_, _ = buf.Write(specifications.SPACE)
+	_, _ = w.Write(specifications.UPDATE)
+	_, _ = w.Write(specifications.SPACE)
+	_, _ = w.Write(bytex.FromString(generic.table))
+	_, _ = w.Write(specifications.SPACE)
+	_, _ = w.Write(specifications.SET)
+	_, _ = w.Write(specifications.SPACE)
 
 	n := 0
 	if len(generic.version) > 0 {
-		_, _ = buf.Write(bytex.FromString(generic.table))
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.EQ)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(bytex.FromString(generic.version))
-		_, _ = buf.Write(specifications.PLUS)
-		_, _ = buf.WriteString("1")
+		_, _ = w.Write(bytex.FromString(generic.version))
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.EQ)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(bytex.FromString(generic.version))
+		_, _ = w.Write(specifications.PLUS)
+		_, _ = w.Write([]byte("1"))
 		n++
 	}
 
@@ -91,34 +88,27 @@ func (generic *UpdateFieldsGeneric) Render(ctx specifications.Context, w io.Writ
 			return
 		}
 		if n > 0 {
-			_, _ = buf.Write(specifications.COMMA)
+			_, _ = w.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(bytex.FromString(ctx.FormatIdent(column.Name)))
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.EQ)
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
+		_, _ = w.Write(bytex.FromString(ctx.FormatIdent(column.Name)))
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.EQ)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 		arguments = append(arguments, field.Value)
 		n++
 	}
 
 	if cond.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.WHERE)
-		_, _ = buf.Write(specifications.SPACE)
-		condValues, condErr := cond.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.WHERE)
+		_, _ = w.Write(specifications.SPACE)
+		condValues, condErr := cond.Render(ctx, w)
 		if condErr != nil {
 			err = errors.Warning("sql: render update field failed").WithCause(condErr)
 			return
 		}
 		arguments = append(arguments, condValues...)
-	}
-
-	query := bytex.FromString(buf.String())
-	_, err = w.Write(query)
-	if err != nil {
-		err = errors.Warning("sql: render update field failed").WithCause(err)
-		return
 	}
 
 	return

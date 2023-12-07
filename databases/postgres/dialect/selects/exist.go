@@ -48,24 +48,17 @@ type ExistGeneric struct {
 func (generic *ExistGeneric) Render(ctx specifications.Context, w io.Writer, cond specifications.Condition) (method specifications.Method, arguments []any, err error) {
 	method = specifications.QueryMethod
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(bytex.FromString(generic.content))
+	_, _ = w.Write(bytex.FromString(generic.content))
 
 	if cond.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.WHERE)
-		_, _ = buf.Write(specifications.SPACE)
-		arguments, err = cond.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.WHERE)
+		_, _ = w.Write(specifications.SPACE)
+		arguments, err = cond.Render(ctx, w)
 		if err != nil {
 			return
 		}
 	}
-
-	query := buf.String()
-
-	_, err = w.Write(bytex.FromString(query))
 
 	return
 }

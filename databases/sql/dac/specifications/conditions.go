@@ -5,7 +5,6 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/conditions"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/valyala/bytebufferpool"
 	"io"
 	"reflect"
 )
@@ -36,23 +35,16 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		arguments = append(arguments, args...)
 		break
 	case conditions.Condition:
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
 		if left.Group {
-			_, _ = buf.Write(LB)
+			_, _ = w.Write(LB)
 		}
-		args, rErr := Condition{left}.Render(ctx, buf)
+		args, rErr := Condition{left}.Render(ctx, w)
 		if rErr != nil {
 			err = rErr
 			return
 		}
 		if left.Group {
-			_, _ = buf.Write(RB)
-		}
-		_, err = w.Write(bytex.FromString(buf.String()))
-		if err != nil {
-			err = errors.Warning("sql: condition render failed").WithCause(err)
-			return
+			_, _ = w.Write(RB)
 		}
 		arguments = append(arguments, args...)
 		break
@@ -80,38 +72,24 @@ func (cond Condition) Render(ctx Context, w io.Writer) (arguments []any, err err
 		arguments = append(arguments, args...)
 		break
 	case conditions.Predicate:
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
-		args, rErr := Predicate{right}.Render(ctx, buf)
+		args, rErr := Predicate{right}.Render(ctx, w)
 		if rErr != nil {
 			err = rErr
-			return
-		}
-		_, err = w.Write(bytex.FromString(buf.String()))
-		if err != nil {
-			err = errors.Warning("sql: condition render failed").WithCause(err)
 			return
 		}
 		arguments = append(arguments, args...)
 		break
 	case conditions.Condition:
-		buf := bytebufferpool.Get()
-		defer bytebufferpool.Put(buf)
 		if right.Group {
-			_, _ = buf.Write(LB)
+			_, _ = w.Write(LB)
 		}
-		args, rErr := Condition{right}.Render(ctx, buf)
+		args, rErr := Condition{right}.Render(ctx, w)
 		if rErr != nil {
 			err = rErr
 			return
 		}
 		if right.Group {
-			_, _ = buf.Write(RB)
-		}
-		_, err = w.Write(bytex.FromString(buf.String()))
-		if err != nil {
-			err = errors.Warning("sql: condition render failed").WithCause(err)
-			return
+			_, _ = w.Write(RB)
 		}
 		arguments = append(arguments, args...)
 		break

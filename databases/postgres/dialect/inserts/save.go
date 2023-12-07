@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -131,7 +130,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 	generic = &InsertOrUpdateGeneric{
 		spec:      spec,
 		method:    method,
-		content:   query,
+		content:   []byte(query),
 		returning: returning,
 		fields:    fields,
 	}
@@ -141,7 +140,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 type InsertOrUpdateGeneric struct {
 	spec      *specifications.Specification
 	method    specifications.Method
-	content   string
+	content   []byte
 	returning []string
 	fields    []string
 }
@@ -151,7 +150,7 @@ func (generic *InsertOrUpdateGeneric) Render(_ specifications.Context, w io.Writ
 	returning = generic.returning
 	fields = generic.fields
 
-	_, err = w.Write(bytex.FromString(generic.content))
+	_, err = w.Write(generic.content)
 	if err != nil {
 		return
 	}

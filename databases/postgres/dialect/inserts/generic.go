@@ -92,8 +92,8 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	return
 }
 
-const (
-	srcPlaceHold = "$$SOURCE_QUERY$$"
+var (
+	srcPlaceHold = []byte("$$SOURCE_QUERY$$")
 )
 
 func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specifications.Specification, exist bool) (method specifications.Method, query string, fields []string, returning []string, err error) {
@@ -227,7 +227,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
 	//_, _ = buf.Write(specifications.LB)
-	_, _ = buf.WriteString(srcPlaceHold)
+	_, _ = buf.Write(srcPlaceHold)
 	//_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)

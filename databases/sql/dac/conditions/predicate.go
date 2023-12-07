@@ -1,5 +1,7 @@
 package conditions
 
+import "fmt"
+
 func Eq(field string, expression any) Predicate {
 	return Predicate{
 		Field:      field,
@@ -76,7 +78,7 @@ func Like(field string, expression string) Predicate {
 	return Predicate{
 		Field:      field,
 		Operator:   LIKE,
-		Expression: String(expression + "%"),
+		Expression: fmt.Sprintf("%s%%", expression),
 	}
 }
 
@@ -84,7 +86,7 @@ func LikeLast(field string, expression string) Predicate {
 	return Predicate{
 		Field:      field,
 		Operator:   LIKE,
-		Expression: String("%" + expression),
+		Expression: fmt.Sprintf("%%%s", expression),
 	}
 }
 
@@ -92,7 +94,7 @@ func LikeContains(field string, expression string) Predicate {
 	return Predicate{
 		Field:      field,
 		Operator:   LIKE,
-		Expression: String("%" + expression + "%"),
+		Expression: fmt.Sprintf("%%%s%%", expression),
 	}
 }
 

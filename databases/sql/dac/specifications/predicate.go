@@ -17,29 +17,27 @@ type Predicate struct {
 }
 
 func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) {
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
 	column, hasColumn := ctx.Localization(p.Field)
 	if !hasColumn {
 		err = errors.Warning("sql: predicate render failed").WithCause(fmt.Errorf("%s was not found in localization", p.Field))
 		return
 	}
-	_, _ = buf.Write(bytex.FromString(column[0]))
-	_, _ = buf.Write(SPACE)
-	_, _ = buf.Write(bytex.FromString(p.Operator.String()))
-	_, _ = buf.Write(SPACE)
+	_, _ = w.Write(bytex.FromString(column[0]))
+	_, _ = w.Write(SPACE)
+	_, _ = w.Write(bytex.FromString(p.Operator.String()))
+	_, _ = w.Write(SPACE)
 
 	switch expr := p.Expression.(type) {
 	case conditions.Literal:
-		_, _ = buf.Write(bytex.FromString(expr.String()))
+		_, _ = w.Write(bytex.FromString(expr.String()))
 		break
 	case sql.NamedArg:
-		_, _ = buf.Write(AT)
-		_, _ = buf.Write(bytex.FromString(expr.Name))
+		_, _ = w.Write(AT)
+		_, _ = w.Write(bytex.FromString(expr.Name))
 		argument = append(argument, expr)
 		break
 	case conditions.QueryExpr:
-		sub, subErr := QueryExpr{expr}.Render(ctx, buf)
+		sub, subErr := QueryExpr{expr}.Render(ctx, w)
 		if subErr != nil {
 			err = errors.Warning("sql: predicate render failed").WithCause(subErr)
 			return
@@ -59,7 +57,7 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 		if exprLen == 1 {
 			queryExpr, isQueryExpr := expr[0].(QueryExpr)
 			if isQueryExpr {
-				sub, subErr := queryExpr.Render(ctx, buf)
+				sub, subErr := queryExpr.Render(ctx, w)
 				if subErr != nil {
 					err = errors.Warning("sql: predicate render failed").WithCause(subErr)
 					return
@@ -101,20 +99,15 @@ func (p Predicate) Render(ctx Context, w io.Writer) (argument []any, err error) 
 			}
 		}
 
-		_, _ = buf.Write(LB)
-		_, _ = buf.Write(bytes.Join(exprs, COMMA))
-		_, _ = buf.Write(RB)
+		_, _ = w.Write(LB)
+		_, _ = w.Write(bytes.Join(exprs, COMMA))
+		_, _ = w.Write(RB)
 		break
 	default:
-		_, _ = buf.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
+		_, _ = w.Write(bytex.FromString(ctx.NextQueryPlaceholder()))
 		argument = append(argument, expr)
 		break
 	}
 
-	_, err = w.Write(bytex.FromString(buf.String()))
-	if err != nil {
-		err = errors.Warning("sql: predicate render failed").WithCause(err)
-		return
-	}
 	return
 }

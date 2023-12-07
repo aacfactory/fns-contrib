@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"io"
 )
@@ -93,10 +92,10 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 	generic = &InsertGeneric{
 		spec:              spec,
 		method:            method,
-		content:           query,
+		content:           []byte(query),
 		vr:                vr,
-		conflictFragment:  conflictFragment,
-		returningFragment: returningFragment,
+		conflictFragment:  []byte(conflictFragment),
+		returningFragment: []byte(returningFragment),
 		returning:         returning,
 		fields:            fields,
 	}
@@ -106,10 +105,10 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 type InsertGeneric struct {
 	spec              *specifications.Specification
 	method            specifications.Method
-	content           string
+	content           []byte
 	vr                ValueRender
-	conflictFragment  string
-	returningFragment string
+	conflictFragment  []byte
+	returningFragment []byte
 	returning         []string
 	fields            []string
 }
@@ -119,27 +118,17 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 	returning = generic.returning
 	fields = generic.fields
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(bytex.FromString(generic.content))
+	_, _ = w.Write(generic.content)
 
 	for i := 0; i < values; i++ {
 		if i > 0 {
-			_, _ = buf.Write(specifications.COMMA)
+			_, _ = w.Write(specifications.COMMA)
 		}
-		_ = generic.vr.Render(ctx, buf)
+		_ = generic.vr.Render(ctx, w)
 	}
 
-	_, _ = buf.Write(bytex.FromString(generic.conflictFragment))
-	_, _ = buf.Write(bytex.FromString(generic.returningFragment))
-
-	query := buf.String()
-
-	_, err = w.Write(bytex.FromString(query))
-	if err != nil {
-		return
-	}
+	_, _ = w.Write(generic.conflictFragment)
+	_, _ = w.Write(generic.returningFragment)
 
 	return
 }
