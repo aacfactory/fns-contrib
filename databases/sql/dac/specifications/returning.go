@@ -2,10 +2,8 @@ package specifications
 
 import (
 	"context"
-	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql"
-	"reflect"
 )
 
 func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning []string, entries []T) (affected int64, err error) {
@@ -42,72 +40,5 @@ func WriteInsertReturning[T any](ctx context.Context, rows sql.Rows, returning [
 		return
 	}
 
-	if len(spec.Conflicts) > 0 {
-		conflicts, conflictsErr := spec.ConflictColumns()
-		if conflictsErr != nil {
-			releaseGenerics(multiGenerics...)
-			err = errors.Warning("sql: write returning value into entries failed").WithCause(conflictsErr)
-			return
-		}
-		pos := len(returning)
-		tmpConflicts := make([]*Column, 0, len(conflicts))
-		for i, fieldName := range returning {
-			matched := -1
-			for j, conflict := range conflicts {
-				if conflict.Field == fieldName {
-					matched = j
-					if pos > i {
-						pos = i
-					}
-					break
-				}
-			}
-			if matched > 0 {
-				tmpConflicts = append(tmpConflicts, conflicts[matched])
-			}
-		}
-		conflicts = tmpConflicts
-		if pos == len(returning) {
-			releaseGenerics(multiGenerics...)
-			err = errors.Warning("sql: write returning value into entries failed").WithCause(fmt.Errorf("there is no conflict column in returning"))
-			return
-		}
-		if pos == 0 {
-			releaseGenerics(multiGenerics...)
-			err = errors.Warning("sql: write returning value into entries failed").WithCause(fmt.Errorf("there is no valid column in returning"))
-			return
-		}
-
-		entryLen := len(entries)
-		x := -1
-		for i, row := range multiGenerics {
-			items := row[0:pos]
-			conflictValues := row[pos:]
-			if x < 0 {
-				x = i
-			}
-			for j := x; j < entryLen; j++ {
-				entry := entries[j]
-				rv := reflect.Indirect(reflect.ValueOf(&entry))
-				matched := 0
-				for z, value := range conflictValues {
-					if reflect.Indirect(rv.FieldByName(conflicts[z].Field)).Equal(reflect.Indirect(reflect.ValueOf(value.(*Generic).Value))) {
-						matched++
-					}
-				}
-				if matched == len(conflictValues) {
-					wErr := items.WriteTo(spec, returning, &entry)
-					if wErr != nil {
-						releaseGenerics(multiGenerics...)
-						err = errors.Warning("sql: write returning value into entries failed").WithCause(wErr)
-						return
-					}
-					x = j + 1
-					entries[j] = entry
-				}
-			}
-		}
-		releaseGenerics(multiGenerics...)
-	}
 	return
 }

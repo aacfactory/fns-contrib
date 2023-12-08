@@ -127,7 +127,10 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 		_ = generic.vr.Render(ctx, w)
 	}
 
-	_, _ = w.Write(generic.conflictFragment)
+	if values == 1 {
+		_, _ = w.Write(generic.conflictFragment)
+	}
+
 	_, _ = w.Write(generic.returningFragment)
 
 	return
