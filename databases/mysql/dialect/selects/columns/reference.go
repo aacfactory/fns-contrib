@@ -13,17 +13,16 @@ import (
 //	SELECT JSON_OBJECT('id', id, ...) FROM "schema"."away" WHERE "pk" = "host"."ref_column" OFFSET 0 LIMIT 1
 //
 // ) AS {name}
-func Reference(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
+func Reference(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment string, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	hostTableName := ctx.FormatIdent([]byte(spec.Name))
+	hostTableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		hostSchemaName := ctx.FormatIdent([]byte(spec.Schema))
-		hostSchemaName = append(hostSchemaName, '.')
-		hostTableName = append(hostSchemaName, hostTableName...)
+		hostSchemaName := ctx.FormatIdent(spec.Schema)
+		hostTableName = fmt.Sprintf("%s.%s", hostSchemaName, hostTableName)
 	}
-	hostColumnName := ctx.FormatIdent([]byte(column.Name))
+	hostColumnName := ctx.FormatIdent(column.Name)
 
 	awayField, mapping, ok := column.Reference()
 	if !ok {
@@ -43,13 +42,12 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 			WithMeta("field", column.Field)
 		return
 	}
-	awayColumnName := ctx.FormatIdent([]byte(awayColumn.Name))
+	awayColumnName := ctx.FormatIdent(awayColumn.Name)
 
-	awayTableName := ctx.FormatIdent([]byte(mapping.Name))
+	awayTableName := ctx.FormatIdent(mapping.Name)
 	if mapping.Schema != "" {
-		awaySchemaName := ctx.FormatIdent([]byte(mapping.Schema))
-		awaySchemaName = append(awaySchemaName, '.')
-		awayTableName = append(awaySchemaName, awayTableName...)
+		awaySchemaName := ctx.FormatIdent(mapping.Schema)
+		awayTableName = fmt.Sprintf("%s.%s", awaySchemaName, hostTableName)
 	}
 
 	_, _ = buf.Write(specifications.LB) // (
@@ -69,31 +67,31 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 				err = fragmentErr
 				return
 			}
-			_, _ = buf.Write(mappingColumnFragment)
+			_, _ = buf.WriteString(mappingColumnFragment)
 			break
 		default:
 			_, _ = buf.Write([]byte("'"))
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.JsonIdent)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.JsonIdent))
 			_, _ = buf.Write([]byte("'"))
 			_, _ = buf.Write(specifications.COMMA)
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.Name))
 		}
 	}
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayTableName)
+	_, _ = buf.WriteString(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.WHERE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayColumnName)
+	_, _ = buf.WriteString(awayColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(hostTableName)
+	_, _ = buf.WriteString(hostTableName)
 	_, _ = buf.Write(specifications.DOT)
-	_, _ = buf.Write(hostColumnName)
+	_, _ = buf.WriteString(hostColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.OFFSET)
 	_, _ = buf.Write(specifications.SPACE)
@@ -107,8 +105,8 @@ func Reference(ctx specifications.Context, spec *specifications.Specification, c
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte(hostField)))
+	_, _ = buf.WriteString(ctx.FormatIdent(hostField))
 
-	fragment = []byte(buf.String())
+	fragment = buf.String()
 	return
 }

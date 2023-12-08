@@ -1,19 +1,19 @@
 package dialect
 
-var (
-	query = []byte("?")
+const (
+	query = "?"
 )
 
 type Placeholder struct {
 }
 
-func (ph *Placeholder) Next() []byte {
+func (ph *Placeholder) Next() string {
 	return query
 }
 
 func (ph *Placeholder) SkipCursor(_ int) {
 }
 
-func (ph *Placeholder) Current() []byte {
+func (ph *Placeholder) Current() string {
 	return query
 }

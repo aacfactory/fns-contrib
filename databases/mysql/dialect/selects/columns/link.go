@@ -7,15 +7,14 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func Link(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
+func Link(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment string, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
-	hostTableName := ctx.FormatIdent([]byte(spec.Name))
+	hostTableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		hostSchemaName := ctx.FormatIdent([]byte(spec.Schema))
-		hostSchemaName = append(hostSchemaName, '.')
-		hostTableName = append(hostSchemaName, hostTableName...)
+		hostSchemaName := ctx.FormatIdent(spec.Schema)
+		hostTableName = fmt.Sprintf("%s.%s", hostSchemaName, hostTableName)
 	}
 
 	hostField, awayField, mapping, ok := column.Link()
@@ -43,13 +42,12 @@ func Link(ctx specifications.Context, spec *specifications.Specification, column
 			WithMeta("field", column.Field)
 		return
 	}
-	awayColumnName := ctx.FormatIdent([]byte(awayColumn.Name))
+	awayColumnName := ctx.FormatIdent(awayColumn.Name)
 
-	awayTableName := ctx.FormatIdent([]byte(mapping.Name))
+	awayTableName := ctx.FormatIdent(mapping.Name)
 	if mapping.Schema != "" {
-		awaySchemaName := ctx.FormatIdent([]byte(mapping.Schema))
-		awaySchemaName = append(awaySchemaName, '.')
-		awayTableName = append(awaySchemaName, awayTableName...)
+		awaySchemaName := ctx.FormatIdent(mapping.Schema)
+		hostTableName = fmt.Sprintf("%s.%s", awaySchemaName, awayTableName)
 	}
 
 	_, _ = buf.Write(specifications.LB) // (
@@ -70,31 +68,31 @@ func Link(ctx specifications.Context, spec *specifications.Specification, column
 				err = fragmentErr
 				return
 			}
-			_, _ = buf.Write(mappingColumnFragment)
+			_, _ = buf.WriteString(mappingColumnFragment)
 			break
 		default:
 			_, _ = buf.Write([]byte("'"))
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.JsonIdent)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.JsonIdent))
 			_, _ = buf.Write([]byte("'"))
 			_, _ = buf.Write(specifications.COMMA)
-			_, _ = buf.Write(ctx.FormatIdent([]byte(mappingColumn.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(mappingColumn.Name))
 		}
 	}
 	_, _ = buf.Write(specifications.RB)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayTableName)
+	_, _ = buf.WriteString(awayTableName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.WHERE)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(awayColumnName)
+	_, _ = buf.WriteString(awayColumnName)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.EQ)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(hostTableName)
+	_, _ = buf.WriteString(hostTableName)
 	_, _ = buf.Write(specifications.DOT)
-	_, _ = buf.Write(ctx.FormatIdent([]byte(hostColumn.Name)))
+	_, _ = buf.WriteString(ctx.FormatIdent(hostColumn.Name))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.OFFSET)
 	_, _ = buf.Write(specifications.SPACE)
@@ -108,8 +106,8 @@ func Link(ctx specifications.Context, spec *specifications.Specification, column
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+	_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 
-	fragment = []byte(buf.String())
+	fragment = buf.String()
 	return
 }

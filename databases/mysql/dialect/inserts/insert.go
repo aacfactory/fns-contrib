@@ -31,7 +31,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 		buf := bytebufferpool.Get()
 		_, _ = buf.Write(IGNORE)
 		_, _ = buf.Write(query[6:])
-		query = buf.Bytes()
+		query = []byte(buf.String())
 		bytebufferpool.Put(buf)
 		for _, conflict := range spec.Conflicts {
 			cc, hasCC := spec.ColumnByField(conflict)
@@ -41,8 +41,8 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 					WithCause(errors.Warning(fmt.Sprintf("column was not found by %s field", conflict))).WithMeta("table", spec.Key)
 				return
 			}
-			conflictColumn := ctx.FormatIdent([]byte(cc.Name))
-			conflictColumns = append(conflictColumns, conflictColumn)
+			conflictColumn := ctx.FormatIdent(cc.Name)
+			conflictColumns = append(conflictColumns, []byte(conflictColumn))
 			conflictFields = append(conflictFields, cc.Field)
 		}
 	}
@@ -61,7 +61,7 @@ func NewInsertGeneric(ctx specifications.Context, spec *specifications.Specifica
 			}
 			column, has := spec.ColumnByField(r)
 			if has {
-				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+				_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 			}
 		}
 		if len(conflictColumns) > 0 {
@@ -102,26 +102,16 @@ func (generic *InsertGeneric) Render(ctx specifications.Context, w io.Writer, va
 	returning = generic.returning
 	fields = generic.fields
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(generic.content)
+	_, _ = w.Write(generic.content)
 
 	for i := 0; i < values; i++ {
 		if i > 0 {
-			_, _ = buf.Write(specifications.COMMA)
+			_, _ = w.Write(specifications.COMMA)
 		}
-		_ = generic.vr.Render(ctx, buf)
+		_ = generic.vr.Render(ctx, w)
 	}
 
-	_, _ = buf.Write(generic.returningFragment)
-
-	query := buf.Bytes()
-
-	_, err = w.Write(query)
-	if err != nil {
-		return
-	}
+	_, _ = w.Write(generic.returningFragment)
 
 	return
 }

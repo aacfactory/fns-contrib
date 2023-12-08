@@ -1,6 +1,7 @@
 package deletes
 
 import (
+	"fmt"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
 	"io"
@@ -15,11 +16,10 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 
 	by, at, hasAd := spec.AuditDeletion()
@@ -27,14 +27,14 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		n := 0
 		_, _ = buf.Write(specifications.UPDATE)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(tableName)
+		_, _ = buf.WriteString(tableName)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.SET)
 		ver, hasVer := spec.AuditVersion()
 		if hasVer {
-			verName := ctx.FormatIdent([]byte(ver.Name))
+			verName := ctx.FormatIdent(ver.Name)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(verName)
+			_, _ = buf.WriteString(verName)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
@@ -46,11 +46,11 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			_, _ = buf.Write(ctx.FormatIdent([]byte(by.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(by.Name))
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(ctx.NextQueryPlaceholder())
+			_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 			audits = append(audits, by.Field)
 			n++
 		}
@@ -58,11 +58,11 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			_, _ = buf.Write(ctx.FormatIdent([]byte(at.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(at.Name))
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(ctx.NextQueryPlaceholder())
+			_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 			audits = append(audits, at.Field)
 			n++
 		}
@@ -72,7 +72,7 @@ func NewDeleteByConditionsGeneric(ctx specifications.Context, spec *specificatio
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.FROM)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(tableName)
+		_, _ = buf.WriteString(tableName)
 	}
 
 	query := []byte(buf.String())

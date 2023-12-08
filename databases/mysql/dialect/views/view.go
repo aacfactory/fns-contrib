@@ -1,6 +1,7 @@
 package views
 
 import (
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/mysql/dialect/selects/columns"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
@@ -13,20 +14,18 @@ import (
 func NewViewGeneric(ctx specifications.Context, spec *specifications.Specification) (generic *ViewGeneric, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
-	var tableName []byte
+	tableName := ""
 	if spec.ViewBase == nil {
-		tableName = ctx.FormatIdent([]byte(spec.Name))
+		tableName = ctx.FormatIdent(spec.Name)
 		if spec.Schema != "" {
-			schema := ctx.FormatIdent([]byte(spec.Schema))
-			schema = append(schema, '.')
-			tableName = append(schema, tableName...)
+			schema := ctx.FormatIdent(spec.Schema)
+			tableName = fmt.Sprintf("%s.%s", schema, tableName)
 		}
 	} else {
-		tableName = ctx.FormatIdent([]byte(spec.ViewBase.Name))
-		if spec.ViewBase.Schema != "" {
-			schema := ctx.FormatIdent([]byte(spec.ViewBase.Schema))
-			schema = append(schema, '.')
-			tableName = append(schema, tableName...)
+		tableName = ctx.FormatIdent(spec.ViewBase.Name)
+		if spec.Schema != "" {
+			schema := ctx.FormatIdent(spec.ViewBase.Schema)
+			tableName = fmt.Sprintf("%s.%s", schema, tableName)
 		}
 	}
 	// name
@@ -44,14 +43,14 @@ func NewViewGeneric(ctx specifications.Context, spec *specifications.Specificati
 			err = errors.Warning("sql: new view generic failed").WithCause(columnErr).WithMeta("table", spec.Key)
 			return
 		}
-		_, _ = buf.Write(fragment)
+		_, _ = buf.WriteString(fragment)
 		fields = append(fields, column.Field)
 	}
 
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.FROM)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 
 	query := []byte(buf.String())
 
@@ -75,24 +74,21 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 	method = specifications.QueryMethod
 	fields = generic.fields
 
-	buf := bytebufferpool.Get()
-	defer bytebufferpool.Put(buf)
-
-	_, _ = buf.Write(generic.content)
+	_, _ = w.Write(generic.content)
 
 	if cond.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.WHERE)
-		_, _ = buf.Write(specifications.SPACE)
-		arguments, err = cond.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.WHERE)
+		_, _ = w.Write(specifications.SPACE)
+		arguments, err = cond.Render(ctx, w)
 		if err != nil {
 			return
 		}
 	}
 
 	if len(orders) > 0 {
-		_, _ = buf.Write(specifications.SPACE)
-		_, orderErr := orders.Render(ctx, buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, orderErr := orders.Render(ctx, w)
 		if orderErr != nil {
 			err = orderErr
 			return
@@ -100,8 +96,8 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 	}
 
 	if groupBy.Exist() {
-		_, _ = buf.Write(specifications.SPACE)
-		_, groupByErr := groupBy.Render(specifications.SwitchKey(ctx, generic.spec.Instance()), buf)
+		_, _ = w.Write(specifications.SPACE)
+		_, groupByErr := groupBy.Render(specifications.SwitchKey(ctx, generic.spec.Instance()), w)
 		if groupByErr != nil {
 			err = groupByErr
 			return
@@ -109,21 +105,17 @@ func (generic *ViewGeneric) Render(ctx specifications.Context, w io.Writer, cond
 	}
 
 	if length > 0 {
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.OFFSET)
-		_, _ = buf.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.OFFSET)
+		_, _ = w.Write(specifications.SPACE)
 		os := strconv.Itoa(offset)
-		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(os), len(os)))
-		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(specifications.LIMIT)
-		_, _ = buf.Write(specifications.SPACE)
+		_, _ = w.Write(unsafe.Slice(unsafe.StringData(os), len(os)))
+		_, _ = w.Write(specifications.SPACE)
+		_, _ = w.Write(specifications.LIMIT)
+		_, _ = w.Write(specifications.SPACE)
 		ls := strconv.Itoa(length)
-		_, _ = buf.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
+		_, _ = w.Write(unsafe.Slice(unsafe.StringData(ls), len(ls)))
 	}
-
-	query := []byte(buf.String())
-
-	_, err = w.Write(query)
 
 	return
 }

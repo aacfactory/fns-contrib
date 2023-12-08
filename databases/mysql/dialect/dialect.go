@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/valyala/bytebufferpool"
 	"golang.org/x/sync/singleflight"
 	"sync"
@@ -30,7 +31,7 @@ func (dialect *Dialect) Name() string {
 	return Name
 }
 
-func (dialect *Dialect) FormatIdent(ident []byte) []byte {
+func (dialect *Dialect) FormatIdent(ident string) string {
 	identLen := len(ident)
 	if identLen == 0 {
 		return ident
@@ -38,11 +39,7 @@ func (dialect *Dialect) FormatIdent(ident []byte) []byte {
 	if ident[0] == '`' {
 		return ident
 	}
-	p := make([]byte, identLen+2)
-	p[0] = '`'
-	p[identLen+1] = '`'
-	copy(p[1:], ident)
-	return p
+	return fmt.Sprintf("`%s`", ident)
 }
 
 func (dialect *Dialect) QueryPlaceholder() specifications.QueryPlaceholder {
@@ -66,7 +63,7 @@ func (dialect *Dialect) Insert(ctx specifications.Context, spec *specifications.
 		err = errors.Warning("sql: dialect generate insert failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -87,7 +84,7 @@ func (dialect *Dialect) InsertOrUpdate(ctx specifications.Context, spec *specifi
 		err = errors.Warning("sql: dialect generate insert or update failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -108,7 +105,7 @@ func (dialect *Dialect) InsertWhenExist(ctx specifications.Context, spec *specif
 		err = errors.Warning("sql: dialect generate insert when exist failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -129,7 +126,7 @@ func (dialect *Dialect) InsertWhenNotExist(ctx specifications.Context, spec *spe
 		err = errors.Warning("sql: dialect generate insert when not exist failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -150,7 +147,7 @@ func (dialect *Dialect) Update(ctx specifications.Context, spec *specifications.
 		err = errors.Warning("sql: dialect generate update failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -171,7 +168,7 @@ func (dialect *Dialect) UpdateFields(ctx specifications.Context, spec *specifica
 		err = errors.Warning("sql: dialect generate update fields failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -192,7 +189,7 @@ func (dialect *Dialect) Delete(ctx specifications.Context, spec *specifications.
 		err = errors.Warning("sql: dialect generate delete failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -213,7 +210,7 @@ func (dialect *Dialect) DeleteByConditions(ctx specifications.Context, spec *spe
 		err = errors.Warning("sql: dialect generate delete by conditions failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -234,7 +231,7 @@ func (dialect *Dialect) Exist(ctx specifications.Context, spec *specifications.S
 		err = errors.Warning("sql: dialect generate exist failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -255,7 +252,7 @@ func (dialect *Dialect) Count(ctx specifications.Context, spec *specifications.S
 		err = errors.Warning("sql: dialect generate count failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -276,7 +273,7 @@ func (dialect *Dialect) Query(ctx specifications.Context, spec *specifications.S
 		err = errors.Warning("sql: dialect generate query failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }
 
@@ -297,6 +294,6 @@ func (dialect *Dialect) View(ctx specifications.Context, spec *specifications.Sp
 		err = errors.Warning("sql: dialect generate view failed").WithMeta("table", spec.Key).WithCause(err).WithMeta("dialect", Name)
 		return
 	}
-	query = buf.Bytes()
+	query = bytex.FromString(buf.String())
 	return
 }

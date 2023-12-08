@@ -13,17 +13,16 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	defer bytebufferpool.Put(buf)
 
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 	_, _ = buf.Write(specifications.INSERT)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.INTO)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 	_, _ = buf.Write(specifications.SPACE)
 
 	// column
@@ -36,12 +35,12 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 		err = errors.Warning("pk is required")
 		return
 	}
-	var pkName []byte
+	pkName := ""
 	if pk.Incr() {
 		returning = append(returning, pk.Field)
 	} else {
-		pkName = ctx.FormatIdent([]byte(pk.Name))
-		_, _ = buf.Write(pkName)
+		pkName = ctx.FormatIdent(pk.Name)
+		_, _ = buf.WriteString(pkName)
 		vr.Add()
 		fields = append(fields, pk.Field)
 		n++
@@ -49,11 +48,11 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 	// ver
 	ver, hasVer := spec.AuditVersion()
 	if hasVer {
-		verName := ctx.FormatIdent([]byte(ver.Name))
+		verName := ctx.FormatIdent(ver.Name)
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(verName)
+		_, _ = buf.WriteString(verName)
 		vr.Add()
 		vr.MarkAsVersion()
 		n++
@@ -72,11 +71,11 @@ func generateInsertQuery(ctx specifications.Context, spec *specifications.Specif
 			continue
 		}
 
-		columnName := ctx.FormatIdent([]byte(column.Name))
+		columnName := ctx.FormatIdent(column.Name)
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(columnName)
+		_, _ = buf.WriteString(columnName)
 		vr.Add()
 		fields = append(fields, column.Field)
 		n++
@@ -102,17 +101,16 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 	// name
-	tableName := ctx.FormatIdent([]byte(spec.Name))
+	tableName := ctx.FormatIdent(spec.Name)
 	if spec.Schema != "" {
-		schema := ctx.FormatIdent([]byte(spec.Schema))
-		schema = append(schema, '.')
-		tableName = append(schema, tableName...)
+		schema := ctx.FormatIdent(spec.Schema)
+		tableName = fmt.Sprintf("%s.%s", schema, tableName)
 	}
 	_, _ = buf.Write(specifications.INSERT)
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.INTO)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(tableName)
+	_, _ = buf.WriteString(tableName)
 
 	// column
 	_, _ = buf.Write(specifications.SPACE)
@@ -125,12 +123,12 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		err = errors.Warning("pk is required")
 		return
 	}
-	var pkName []byte
+	pkName := ""
 	if pk.Incr() {
 		returning = append(returning, pk.Field)
 	} else {
-		pkName = ctx.FormatIdent([]byte(pk.Name))
-		_, _ = buf.Write(pkName)
+		pkName = ctx.FormatIdent(pk.Name)
+		_, _ = buf.WriteString(pkName)
 		fields = append(fields, pk.Field)
 		n++
 	}
@@ -138,11 +136,11 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	// ver
 	ver, hasVer := spec.AuditVersion()
 	if hasVer {
-		verName := ctx.FormatIdent([]byte(ver.Name))
+		verName := ctx.FormatIdent(ver.Name)
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(verName)
+		_, _ = buf.WriteString(verName)
 		n++
 	}
 	// columns
@@ -160,11 +158,11 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			returning = append(returning, column.Field)
 			continue
 		}
-		columnName := ctx.FormatIdent([]byte(column.Name))
+		columnName := ctx.FormatIdent(column.Name)
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(columnName)
+		_, _ = buf.WriteString(columnName)
 		fields = append(fields, column.Field)
 		columnsLen++
 		n++
@@ -179,7 +177,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 
 	n = 0
 	if !pk.Incr() {
-		_, _ = buf.Write(ctx.NextQueryPlaceholder())
+		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 		n++
 	}
 
@@ -195,7 +193,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 		if n > 0 {
 			_, _ = buf.Write(specifications.COMMA)
 		}
-		_, _ = buf.Write(ctx.NextQueryPlaceholder())
+		_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 		n++
 	}
 	_, _ = buf.Write(specifications.SPACE)
@@ -209,7 +207,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte("__TMP__")))
+	_, _ = buf.WriteString(ctx.FormatIdent("__TMP__"))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.WHERE)
 	_, _ = buf.Write(specifications.SPACE)
@@ -234,7 +232,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.AS)
 	_, _ = buf.Write(specifications.SPACE)
-	_, _ = buf.Write(ctx.FormatIdent([]byte("__SRC__")))
+	_, _ = buf.WriteString(ctx.FormatIdent("__SRC__"))
 	_, _ = buf.Write(specifications.SPACE)
 	_, _ = buf.Write(specifications.RB)
 
@@ -256,7 +254,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			_, _ = buf.Write(ctx.FormatIdent([]byte(cc.Name)))
+			_, _ = buf.WriteString(ctx.FormatIdent(cc.Name))
 			n++
 		}
 		_, _ = buf.Write(specifications.RB)
@@ -278,7 +276,7 @@ func generateInsertExistOrNotQuery(ctx specifications.Context, spec *specificati
 			}
 			column, has := spec.ColumnByField(r)
 			if has {
-				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+				_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 			}
 		}
 	}

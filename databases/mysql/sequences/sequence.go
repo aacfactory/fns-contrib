@@ -22,7 +22,7 @@ func Next(ctx context.Context, key string) (n int64, err error) {
 	_, _ = buf.Write(bytex.FromString(key))
 	_, _ = buf.Write([]byte("'"))
 	_, _ = buf.Write(specifications.RB)
-	query := buf.Bytes()
+	query := []byte(buf.String())
 	rows, queryErr := sql.Query(ctx, query)
 	if queryErr != nil {
 		err = errors.Warning("mysql: next sequence value failed").WithCause(queryErr)

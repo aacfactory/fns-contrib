@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func Virtual(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment []byte, err error) {
+func Virtual(ctx specifications.Context, spec *specifications.Specification, column *specifications.Column) (fragment string, err error) {
 	buf := bytebufferpool.Get()
 	defer bytebufferpool.Put(buf)
 
@@ -19,7 +19,7 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 			WithMeta("field", column.Field)
 		return
 	}
-	name := ctx.FormatIdent([]byte(column.Name))
+	name := ctx.FormatIdent(column.Name)
 	switch kind {
 	case specifications.BasicVirtualQuery, specifications.ObjectVirtualQuery, specifications.ArrayVirtualQuery:
 		_, _ = buf.Write(specifications.LB)
@@ -28,17 +28,17 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(name)
+		_, _ = buf.WriteString(name)
 		break
 	case specifications.AggregateVirtualQuery:
 		_, _ = buf.Write([]byte(query))
 		_, _ = buf.Write(specifications.LB)
-		_, _ = buf.Write(name)
+		_, _ = buf.WriteString(name)
 		_, _ = buf.Write(specifications.RB)
 		_, _ = buf.Write(specifications.SPACE)
 		_, _ = buf.Write(specifications.AS)
 		_, _ = buf.Write(specifications.SPACE)
-		_, _ = buf.Write(ctx.FormatIdent(append(append([]byte(column.Name), '_'), query...)))
+		_, _ = buf.WriteString(ctx.FormatIdent(fmt.Sprintf("%s_%s", column.Name, query)))
 		break
 	default:
 		err = errors.Warning("sql: render virtual field failed").
@@ -48,6 +48,6 @@ func Virtual(ctx specifications.Context, spec *specifications.Specification, col
 		return
 	}
 
-	fragment = []byte(buf.String())
+	fragment = buf.String()
 	return
 }

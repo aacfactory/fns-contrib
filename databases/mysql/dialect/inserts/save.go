@@ -1,6 +1,7 @@
 package inserts
 
 import (
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/dac/specifications"
 	"github.com/valyala/bytebufferpool"
@@ -34,11 +35,10 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 	conflicts := spec.Conflicts
 	if len(conflicts) > 0 {
 		// name
-		tableName := ctx.FormatIdent([]byte(spec.Name))
+		tableName := ctx.FormatIdent(spec.Name)
 		if spec.Schema != "" {
-			schema := ctx.FormatIdent([]byte(spec.Schema))
-			schema = append(schema, '.')
-			tableName = append(schema, tableName...)
+			schema := ctx.FormatIdent(spec.Schema)
+			tableName = fmt.Sprintf("%s.%s", schema, tableName)
 		}
 
 		_, _ = buf.Write(specifications.SPACE)
@@ -69,14 +69,14 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 				if n > 0 {
 					_, _ = buf.Write(specifications.COMMA)
 				}
-				verName := ctx.FormatIdent([]byte(column.Name))
-				_, _ = buf.Write(verName)
+				verName := ctx.FormatIdent(column.Name)
+				_, _ = buf.WriteString(verName)
 				_, _ = buf.Write(specifications.SPACE)
 				_, _ = buf.Write(specifications.EQ)
 				_, _ = buf.Write(specifications.SPACE)
-				_, _ = buf.Write(tableName)
+				_, _ = buf.WriteString(tableName)
 				_, _ = buf.Write(specifications.DOT)
-				_, _ = buf.Write(verName)
+				_, _ = buf.WriteString(verName)
 				_, _ = buf.Write(specifications.PLUS)
 				_, _ = buf.Write([]byte("1"))
 				n++
@@ -85,12 +85,12 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 			if n > 0 {
 				_, _ = buf.Write(specifications.COMMA)
 			}
-			columnName := ctx.FormatIdent([]byte(column.Name))
-			_, _ = buf.Write(columnName)
+			columnName := ctx.FormatIdent(column.Name)
+			_, _ = buf.WriteString(columnName)
 			_, _ = buf.Write(specifications.SPACE)
 			_, _ = buf.Write(specifications.EQ)
 			_, _ = buf.Write(specifications.SPACE)
-			_, _ = buf.Write(ctx.NextQueryPlaceholder())
+			_, _ = buf.WriteString(ctx.NextQueryPlaceholder())
 			fields = append(fields, column.Field)
 			n++
 		}
@@ -109,7 +109,7 @@ func NewInsertOrUpdateGeneric(ctx specifications.Context, spec *specifications.S
 			}
 			column, has := spec.ColumnByField(r)
 			if has {
-				_, _ = buf.Write(ctx.FormatIdent([]byte(column.Name)))
+				_, _ = buf.WriteString(ctx.FormatIdent(column.Name))
 			}
 		}
 	}
