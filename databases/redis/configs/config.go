@@ -1,4 +1,6 @@
-package databases
+package configs
+
+import "github.com/redis/rueidis"
 
 type Config struct {
 	Addr            []string   `json:"addr"`
@@ -19,6 +21,11 @@ type Config struct {
 	ConnMaxIdleTime string     `json:"connMaxIdleTime"`
 	ConnMaxLifetime string     `json:"connMaxLifetime"`
 	SSL             *SSLConfig `json:"ssl"`
+}
+
+func (config *Config) Make() (client rueidis.Client, err error) {
+
+	return
 }
 
 type SentinelConfig struct {

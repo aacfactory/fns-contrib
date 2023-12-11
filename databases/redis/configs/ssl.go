@@ -1,4 +1,4 @@
-package databases
+package configs
 
 import (
 	"crypto/tls"
