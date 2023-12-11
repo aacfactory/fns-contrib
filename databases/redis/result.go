@@ -42,6 +42,7 @@ type Result interface {
 	AsFtAggregate() (total int64, docs []map[string]string, err error)
 	AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error)
 	AsGeosearch() (location []GeoLocation, err error)
+	AsJson(dst any) (err error)
 }
 
 func newResult(raw rueidis.RedisResult) (r Result) {
@@ -370,5 +371,14 @@ func (r *result) AsGeosearch() (location []GeoLocation, err error) {
 		return
 	}
 	location, err = r.Msg.AsGeosearch()
+	return
+}
+
+func (r *result) AsJson(dst any) (err error) {
+	if r.Err != "" {
+		err = errors.New(r.Err)
+		return
+	}
+	err = r.Msg.AsJson(dst)
 	return
 }

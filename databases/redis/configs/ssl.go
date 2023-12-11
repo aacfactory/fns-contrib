@@ -10,6 +10,7 @@ import (
 )
 
 type SSLConfig struct {
+	Enable             bool   `json:"enable"`
 	CaFilePath         string `json:"caFilePath"`
 	CertFilePath       string `json:"certFilePath"`
 	KeyFilePath        string `json:"keyFilePath"`

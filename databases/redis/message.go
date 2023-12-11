@@ -3,6 +3,7 @@ package redis
 import (
 	"errors"
 	"fmt"
+	"github.com/aacfactory/json"
 	"github.com/redis/rueidis"
 	"math"
 	"strconv"
@@ -89,6 +90,7 @@ type Message interface {
 	AsFtAggregate() (total int64, docs []map[string]string, err error)
 	AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error)
 	AsGeosearch() (location []GeoLocation, err error)
+	AsJson(dst any) (err error)
 }
 
 const (
@@ -1115,5 +1117,17 @@ func (m *message) AsGeosearch() (location []GeoLocation, err error) {
 	default:
 		err = errors.New("REDIS: VALUE CAN NOT AS Geosearch")
 	}
+	return
+}
+
+func (m *message) AsJson(dst any) (err error) {
+	if err = m.Error(); err != nil {
+		return
+	}
+	p, pErr := m.AsBytes()
+	if pErr != nil {
+		err = pErr
+	}
+	err = json.Unmarshal(p, dst)
 	return
 }
