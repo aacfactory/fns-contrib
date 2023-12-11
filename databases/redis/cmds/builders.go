@@ -18,4 +18,5 @@ func GetBuilder(name string) (b Builder, has bool) {
 
 func init() {
 	registerGeneric()
+	registerString()
 }
