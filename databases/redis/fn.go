@@ -37,13 +37,22 @@ func (handler *commandHandler) Handle(ctx services.Request) (v any, err error) {
 	switch commandsLen {
 	case 0:
 		err = errors.Warning("redis: invalid param")
-		break
+		return
 	case 1:
-		resp = append(resp, handler.client.Do(ctx, commands.Build(handler.client)[0]))
+		cc, ok := commands.Build(handler.client)
+		if !ok {
+			err = errors.Warning("redis: invalid param")
+			return
+		}
+		resp = append(resp, handler.client.Do(ctx, cc[0]))
 		break
 	default:
-		completes := commands.Build(handler.client)
-		resp = handler.client.DoMulti(ctx, completes...)
+		cc, ok := commands.Build(handler.client)
+		if !ok {
+			err = errors.Warning("redis: invalid param")
+			return
+		}
+		resp = handler.client.DoMulti(ctx, cc...)
 		break
 	}
 	results := make([]Result, commandsLen)
