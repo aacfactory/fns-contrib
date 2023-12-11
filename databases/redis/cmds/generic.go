@@ -2,7 +2,9 @@ package cmds
 
 import (
 	"github.com/redis/rueidis"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 // generic
@@ -25,8 +27,6 @@ const (
 	SORTRO    = "SORT_RO"
 	TOUCH     = "TOUCH"
 	UNLINKS   = "UNLINKS"
-	WAIT      = "WAIT"
-	WAITAOF   = "WAITAOF"
 )
 
 func registerGeneric() {
@@ -35,7 +35,19 @@ func registerGeneric() {
 	builders[DEL] = &DelBuilder{}
 	builders[EXIST] = &ExistBuilder{}
 	builders[EXPIRE] = &ExpireBuilder{}
-
+	builders[EXPIREAT] = &ExpireAtBuilder{}
+	builders[TTL] = &TTLBuilder{}
+	builders[PEXPIRE] = &PExpireBuilder{}
+	builders[PEXPIREAT] = &PExpireAtBuilder{}
+	builders[PTTL] = &PTTLBuilder{}
+	builders[PERSIST] = &PersistBuilder{}
+	builders[RENAME] = &RenameBuilder{}
+	builders[RENAMENX] = &RenameNxBuilder{}
+	builders[SCAN] = &ScanBuilder{}
+	builders[SORT] = &SortBuilder{}
+	builders[SORTRO] = &SortRoBuilder{}
+	builders[TOUCH] = &TouchBuilder{}
+	builders[UNLINKS] = &UnlinksBuilder{}
 }
 
 type CopyBuilder struct {
@@ -104,5 +116,411 @@ func (b *ExpireBuilder) Completed(client rueidis.Client, params []string) (v rue
 }
 
 func (b *ExpireBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type ExpireAtBuilder struct {
+}
+
+func (b *ExpireAtBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	timestamp, timestampErr := strconv.ParseInt(params[1], 10, 64)
+	if timestampErr != nil {
+		return
+	}
+	v = client.B().Expireat().Key(params[0]).Timestamp(timestamp).Build()
+	ok = true
+	return
+}
+
+func (b *ExpireAtBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type TTLBuilder struct {
+}
+
+func (b *TTLBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Ttl().Key(params[0]).Build()
+	ok = true
+	return
+}
+
+func (b *TTLBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	v = client.B().Ttl().Key(params[0]).Cache()
+	ok = true
+	return
+}
+
+type PExpireBuilder struct {
+}
+
+func (b *PExpireBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	sec, secErr := strconv.ParseInt(params[1], 10, 64)
+	if secErr != nil {
+		return
+	}
+	v = client.B().Pexpire().Key(params[0]).Milliseconds(sec).Build()
+	ok = true
+	return
+}
+
+func (b *PExpireBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type PExpireAtBuilder struct {
+}
+
+func (b *PExpireAtBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	timestamp, timestampErr := strconv.ParseInt(params[1], 10, 64)
+	if timestampErr != nil {
+		return
+	}
+	v = client.B().Pexpireat().Key(params[0]).MillisecondsTimestamp(timestamp).Build()
+	ok = true
+	return
+}
+
+func (b *PExpireAtBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type PTTLBuilder struct {
+}
+
+func (b *PTTLBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Pttl().Key(params[0]).Build()
+	ok = true
+	return
+}
+
+func (b *PTTLBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	v = client.B().Pttl().Key(params[0]).Cache()
+	ok = true
+	return
+}
+
+type PersistBuilder struct {
+}
+
+func (b *PersistBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Persist().Key(params[0]).Build()
+	ok = true
+	return
+}
+
+func (b *PersistBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type RenameBuilder struct {
+}
+
+func (b *RenameBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Rename().Key(params[0]).Newkey(params[1]).Build()
+	ok = true
+	return
+}
+
+func (b *RenameBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type RenameNxBuilder struct {
+}
+
+func (b *RenameNxBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Renamenx().Key(params[0]).Newkey(params[1]).Build()
+	ok = true
+	return
+}
+
+func (b *RenameNxBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type ScanBuilder struct {
+}
+
+func (b *ScanBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	cursor, cursorErr := strconv.ParseUint(params[0], 10, 64)
+	if cursorErr != nil {
+		return
+	}
+	pattern := ""
+	if len(params) > 1 {
+		for _, param := range params {
+			match, has := strings.CutPrefix(param, "MATCH:")
+			if has {
+				pattern = match
+				break
+			}
+		}
+	}
+	count := int64(0)
+	if len(params) > 1 {
+		for _, param := range params {
+			cv, has := strings.CutPrefix(param, "COUNT:")
+			if has {
+				var countErr error
+				count, countErr = strconv.ParseInt(cv, 10, 64)
+				if countErr != nil {
+					return
+				}
+				break
+			}
+		}
+	}
+	typ := ""
+	if len(params) > 1 {
+		for _, param := range params {
+			t, has := strings.CutPrefix(param, "TYPE:")
+			if has {
+				typ = t
+				break
+			}
+		}
+	}
+
+	if pattern != "" && count > 0 && typ != "" {
+		v = client.B().Scan().Cursor(cursor).Match(pattern).Count(count).Type(typ).Build()
+	} else if pattern != "" && count > 0 && typ == "" {
+		v = client.B().Scan().Cursor(cursor).Match(pattern).Count(count).Build()
+	} else if pattern != "" && count == 0 && typ != "" {
+		v = client.B().Scan().Cursor(cursor).Match(pattern).Type(typ).Build()
+	} else if pattern == "" && count > 0 && typ != "" {
+		v = client.B().Scan().Cursor(cursor).Count(count).Type(typ).Build()
+	} else if pattern == "" && count > 0 && typ == "" {
+		v = client.B().Scan().Cursor(cursor).Count(count).Build()
+	} else if pattern == "" && count == 0 && typ != "" {
+		v = client.B().Scan().Cursor(cursor).Type(typ).Build()
+	} else {
+		v = client.B().Scan().Cursor(cursor).Build()
+	}
+	ok = true
+	return
+}
+
+func (b *ScanBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type SortBuilder struct {
+}
+
+func (b *SortBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	key := params[0]
+	params = params[1:]
+	if len(params) == 0 {
+		v = client.B().Sort().Key(key).Build()
+		ok = true
+		return
+	}
+	by := ""
+	for _, param := range params {
+		match, has := strings.CutPrefix(param, "BY:")
+		if has {
+			by = match
+			break
+		}
+	}
+	offset := int64(0)
+	limit := int64(0)
+	for _, param := range params {
+		limits, has := strings.CutPrefix(param, "LIMIT:")
+		if has {
+			items := strings.Split(limits, ",")
+			if len(items) != 2 {
+				return
+			}
+			var limitsErr error
+			offset, limitsErr = strconv.ParseInt(items[0], 10, 64)
+			if limitsErr != nil {
+				return
+			}
+			limit, limitsErr = strconv.ParseInt(items[1], 10, 64)
+			if limitsErr != nil {
+				return
+			}
+			break
+		}
+	}
+	gets := make([]string, 0, 1)
+	for _, param := range params {
+		get, has := strings.CutPrefix(param, "GET:")
+		if has {
+			gets = append(gets, get)
+		}
+	}
+	order := ""
+	for _, param := range params {
+		ov, has := strings.CutPrefix(param, "ORDER:")
+		if has {
+			order = strings.ToLower(ov)
+			break
+		}
+	}
+	alpha := false
+	for _, param := range params {
+		if param == "ALPHA" {
+			alpha = true
+			break
+		}
+	}
+	store := ""
+	for _, param := range params {
+		sv, has := strings.CutPrefix(param, "STORE:")
+		if has {
+			store = sv
+			break
+		}
+	}
+	rv := reflect.ValueOf(client.B().Sort().Key(key))
+	if by != "" {
+		rv = rv.MethodByName("By").Call([]reflect.Value{reflect.ValueOf(by)})[0]
+	}
+	if limit > 0 {
+		rv = rv.MethodByName("Limit").Call([]reflect.Value{reflect.ValueOf(offset), reflect.ValueOf(limit)})[0]
+	}
+	if len(gets) > 0 {
+		rv = rv.MethodByName("Get").Call([]reflect.Value{})[0]
+		for _, get := range gets {
+			rv = rv.MethodByName("Get").Call([]reflect.Value{reflect.ValueOf(get)})[0]
+		}
+	}
+	if order == "asc" {
+		rv = rv.MethodByName("Asc").Call([]reflect.Value{})[0]
+	} else if order == "desc" {
+		rv = rv.MethodByName("Desc").Call([]reflect.Value{})[0]
+	}
+	if alpha {
+		rv = rv.MethodByName("Alpha").Call([]reflect.Value{})[0]
+	}
+	if store != "" {
+		rv = rv.MethodByName("Store").Call([]reflect.Value{reflect.ValueOf(store)})[0]
+	}
+	rv = rv.MethodByName("Build").Call([]reflect.Value{})[0]
+	v = rv.Interface().(rueidis.Completed)
+	ok = true
+	return
+}
+
+func (b *SortBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type SortRoBuilder struct {
+}
+
+func (b *SortRoBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	key := params[0]
+	params = params[1:]
+	if len(params) == 0 {
+		v = client.B().Sort().Key(key).Build()
+		ok = true
+		return
+	}
+	by := ""
+	for _, param := range params {
+		match, has := strings.CutPrefix(param, "BY:")
+		if has {
+			by = match
+			break
+		}
+	}
+	offset := int64(0)
+	limit := int64(0)
+	for _, param := range params {
+		limits, has := strings.CutPrefix(param, "LIMIT:")
+		if has {
+			items := strings.Split(limits, ",")
+			if len(items) != 2 {
+				return
+			}
+			var limitsErr error
+			offset, limitsErr = strconv.ParseInt(items[0], 10, 64)
+			if limitsErr != nil {
+				return
+			}
+			limit, limitsErr = strconv.ParseInt(items[1], 10, 64)
+			if limitsErr != nil {
+				return
+			}
+			break
+		}
+	}
+	gets := make([]string, 0, 1)
+	for _, param := range params {
+		get, has := strings.CutPrefix(param, "GET:")
+		if has {
+			gets = append(gets, get)
+		}
+	}
+	order := ""
+	for _, param := range params {
+		ov, has := strings.CutPrefix(param, "ORDER:")
+		if has {
+			order = strings.ToLower(ov)
+			break
+		}
+	}
+	alpha := false
+	for _, param := range params {
+		if param == "ALPHA" {
+			alpha = true
+			break
+		}
+	}
+	rv := reflect.ValueOf(client.B().SortRo().Key(key))
+	if by != "" {
+		rv = rv.MethodByName("By").Call([]reflect.Value{reflect.ValueOf(by)})[0]
+	}
+	if limit > 0 {
+		rv = rv.MethodByName("Limit").Call([]reflect.Value{reflect.ValueOf(offset), reflect.ValueOf(limit)})[0]
+	}
+	for _, get := range gets {
+		rv = rv.MethodByName("Get").Call([]reflect.Value{reflect.ValueOf(get)})[0]
+	}
+	if order == "asc" {
+		rv = rv.MethodByName("Asc").Call([]reflect.Value{})[0]
+	} else if order == "desc" {
+		rv = rv.MethodByName("Desc").Call([]reflect.Value{})[0]
+	}
+	if alpha {
+		rv = rv.MethodByName("Alpha").Call([]reflect.Value{})[0]
+	}
+	rv = rv.MethodByName("Build").Call([]reflect.Value{})[0]
+	v = rv.Interface().(rueidis.Completed)
+	ok = true
+	return
+}
+
+func (b *SortRoBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type TouchBuilder struct {
+}
+
+func (b *TouchBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Touch().Key(params[0]).Build()
+	ok = true
+	return
+}
+
+func (b *TouchBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
+	return
+}
+
+type UnlinksBuilder struct {
+}
+
+func (b *UnlinksBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
+	v = client.B().Unlink().Key(params...).Build()
+	ok = true
+	return
+}
+
+func (b *UnlinksBuilder) Cacheable(client rueidis.Client, params []string) (v rueidis.Cacheable, ok bool) {
 	return
 }
