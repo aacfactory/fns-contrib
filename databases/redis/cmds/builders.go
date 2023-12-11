@@ -11,7 +11,7 @@ var (
 	builders = map[string]Builder{}
 )
 
-func GetBuilder(name string) (b Builder, has bool) {
+func LoadBuilder(name string) (b Builder, has bool) {
 	b, has = builders[name]
 	return
 }

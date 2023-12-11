@@ -25,7 +25,7 @@ func (cc Commands) Len() int {
 func (cc Commands) Build(client rueidis.Client) (v []rueidis.Completed, ok bool) {
 	v = make([]rueidis.Completed, cc.Len())
 	for i, value := range cc {
-		b, has := cmds.GetBuilder(value.Name)
+		b, has := cmds.LoadBuilder(value.Name)
 		if has {
 			var c rueidis.Completed
 			c, ok = b.Completed(client, value.Params)
@@ -60,7 +60,7 @@ func (cc Cacheables) Valid() bool {
 func (cc Cacheables) Build(client rueidis.Client) (v []rueidis.CacheableTTL, ok bool) {
 	v = make([]rueidis.CacheableTTL, len(cc))
 	for i, value := range cc {
-		b, has := cmds.GetBuilder(value.Name)
+		b, has := cmds.LoadBuilder(value.Name)
 		if has {
 			var c rueidis.Cacheable
 			c, ok = b.Cacheable(client, value.Params)
