@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Copy(dst string, src string) CopyBuilder {
+func Copy(src string, dst string) CopyBuilder {
 	return CopyBuilder{
 		params: []string{src, dst},
 	}
