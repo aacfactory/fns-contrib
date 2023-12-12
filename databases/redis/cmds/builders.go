@@ -19,4 +19,5 @@ func LoadBuilder(name string) (b Builder, has bool) {
 func init() {
 	registerGeneric()
 	registerString()
+	registerHash()
 }
