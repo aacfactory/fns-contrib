@@ -3,6 +3,7 @@ package tests_test
 import (
 	"context"
 	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidisaside"
 	"testing"
 )
 
@@ -22,6 +23,10 @@ func TestConnect(t *testing.T) {
 		t.Error(err)
 		return
 	}
+
+	cc, _ := rueidisaside.NewClient()
+
+	cc.Get()
 
 	t.Log(v)
 }
