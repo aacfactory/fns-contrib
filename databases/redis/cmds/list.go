@@ -299,7 +299,7 @@ type LMPOPBuilder struct {
 }
 
 func (b *LMPOPBuilder) Completed(client rueidis.Client, params []string) (v rueidis.Completed, ok bool) {
-	nk, nkErr := strconv.ParseInt(params[1], 10, 64)
+	nk, nkErr := strconv.ParseInt(params[0], 10, 64)
 	if nkErr != nil {
 		return
 	}

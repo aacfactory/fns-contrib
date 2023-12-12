@@ -21,4 +21,5 @@ func init() {
 	registerString()
 	registerHash()
 	registerList()
+	registerSet()
 }
