@@ -6,7 +6,7 @@ func IsRedisError(e error) (err *Error, ok bool) {
 }
 
 type Error struct {
-	*message
+	message
 }
 
 func (err *Error) Error() string {

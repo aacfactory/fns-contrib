@@ -49,13 +49,13 @@ func newResult(raw rueidis.RedisResult) (r Result) {
 	msg, msgErr := raw.ToMessage()
 	_, ok := rueidis.IsRedisErr(msgErr)
 	if !ok {
-		r = &result{
+		r = result{
 			Msg: newMessage(msg),
 			Err: raw.Error().Error(),
 		}
 		return
 	}
-	r = &result{
+	r = result{
 		Msg: newMessage(msg),
 		Err: "",
 	}
@@ -63,25 +63,25 @@ func newResult(raw rueidis.RedisResult) (r Result) {
 }
 
 type result struct {
-	Msg *message `json:"msg"`
-	Err string   `json:"err"`
+	Msg message `json:"msg"`
+	Err string  `json:"err"`
 }
 
-func (r *result) Expired() (ok bool) {
+func (r result) Expired() (ok bool) {
 	if r.Err == "" {
 		ok = r.Msg.Expired()
 	}
 	return
 }
 
-func (r *result) ExpireAT() (t time.Time, has bool) {
+func (r result) ExpireAT() (t time.Time, has bool) {
 	if r.Err == "" {
 		t, has = r.Msg.ExpireAT()
 	}
 	return
 }
 
-func (r *result) Error() (err error) {
+func (r result) Error() (err error) {
 	if r.Err == "" {
 		err = r.Msg.Error()
 		return
@@ -90,21 +90,21 @@ func (r *result) Error() (err error) {
 	return
 }
 
-func (r *result) IsNil() (ok bool) {
+func (r result) IsNil() (ok bool) {
 	if r.Err == "" {
 		ok = r.Msg.IsNil()
 	}
 	return
 }
 
-func (r *result) IsCacheHit() (ok bool) {
+func (r result) IsCacheHit() (ok bool) {
 	if r.Err == "" {
 		ok = r.Msg.IsCacheHit()
 	}
 	return
 }
 
-func (r *result) Message() (msg Message, err error) {
+func (r result) Message() (msg Message, err error) {
 	if r.Err == "" {
 		msg = r.Msg
 		return
@@ -113,7 +113,7 @@ func (r *result) Message() (msg Message, err error) {
 	return
 }
 
-func (r *result) AsString() (v string, err error) {
+func (r result) AsString() (v string, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -122,7 +122,7 @@ func (r *result) AsString() (v string, err error) {
 	return
 }
 
-func (r *result) AsBool() (v bool, err error) {
+func (r result) AsBool() (v bool, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -131,7 +131,7 @@ func (r *result) AsBool() (v bool, err error) {
 	return
 }
 
-func (r *result) AsInt() (v int64, err error) {
+func (r result) AsInt() (v int64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -140,7 +140,7 @@ func (r *result) AsInt() (v int64, err error) {
 	return
 }
 
-func (r *result) AsUint() (v uint64, err error) {
+func (r result) AsUint() (v uint64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -149,7 +149,7 @@ func (r *result) AsUint() (v uint64, err error) {
 	return
 }
 
-func (r *result) AsFloat() (v float64, err error) {
+func (r result) AsFloat() (v float64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -158,7 +158,7 @@ func (r *result) AsFloat() (v float64, err error) {
 	return
 }
 
-func (r *result) AsBytes() (v []byte, err error) {
+func (r result) AsBytes() (v []byte, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -167,7 +167,7 @@ func (r *result) AsBytes() (v []byte, err error) {
 	return
 }
 
-func (r *result) AsArray() (v []Message, err error) {
+func (r result) AsArray() (v []Message, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -176,7 +176,7 @@ func (r *result) AsArray() (v []Message, err error) {
 	return
 }
 
-func (r *result) AsStrSlice() (v []string, err error) {
+func (r result) AsStrSlice() (v []string, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -185,7 +185,7 @@ func (r *result) AsStrSlice() (v []string, err error) {
 	return
 }
 
-func (r *result) AsBytesSlice() (v [][]byte, err error) {
+func (r result) AsBytesSlice() (v [][]byte, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -194,7 +194,7 @@ func (r *result) AsBytesSlice() (v [][]byte, err error) {
 	return
 }
 
-func (r *result) AsIntSlice() (v []int64, err error) {
+func (r result) AsIntSlice() (v []int64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -203,7 +203,7 @@ func (r *result) AsIntSlice() (v []int64, err error) {
 	return
 }
 
-func (r *result) AsBoolSlice() (v []bool, err error) {
+func (r result) AsBoolSlice() (v []bool, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -212,7 +212,7 @@ func (r *result) AsBoolSlice() (v []bool, err error) {
 	return
 }
 
-func (r *result) AsFloatSlice() (v []float64, err error) {
+func (r result) AsFloatSlice() (v []float64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -221,7 +221,7 @@ func (r *result) AsFloatSlice() (v []float64, err error) {
 	return
 }
 
-func (r *result) AsMap() (v map[string]Message, err error) {
+func (r result) AsMap() (v map[string]Message, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -230,7 +230,7 @@ func (r *result) AsMap() (v map[string]Message, err error) {
 	return
 }
 
-func (r *result) AsStrMap() (v map[string]string, err error) {
+func (r result) AsStrMap() (v map[string]string, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -239,7 +239,7 @@ func (r *result) AsStrMap() (v map[string]string, err error) {
 	return
 }
 
-func (r *result) AsBytesMap() (v map[string][]byte, err error) {
+func (r result) AsBytesMap() (v map[string][]byte, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -248,7 +248,7 @@ func (r *result) AsBytesMap() (v map[string][]byte, err error) {
 	return
 }
 
-func (r *result) AsBoolMap() (v map[string]bool, err error) {
+func (r result) AsBoolMap() (v map[string]bool, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -257,7 +257,7 @@ func (r *result) AsBoolMap() (v map[string]bool, err error) {
 	return
 }
 
-func (r *result) AsIntMap() (v map[string]int64, err error) {
+func (r result) AsIntMap() (v map[string]int64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -266,7 +266,7 @@ func (r *result) AsIntMap() (v map[string]int64, err error) {
 	return
 }
 
-func (r *result) AsFloatMap() (v map[string]float64, err error) {
+func (r result) AsFloatMap() (v map[string]float64, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -275,7 +275,7 @@ func (r *result) AsFloatMap() (v map[string]float64, err error) {
 	return
 }
 
-func (r *result) AsXRangeEntry() (entry XRangeEntry, err error) {
+func (r result) AsXRangeEntry() (entry XRangeEntry, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -284,7 +284,7 @@ func (r *result) AsXRangeEntry() (entry XRangeEntry, err error) {
 	return
 }
 
-func (r *result) AsXRange() (entries []XRangeEntry, err error) {
+func (r result) AsXRange() (entries []XRangeEntry, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -293,7 +293,7 @@ func (r *result) AsXRange() (entries []XRangeEntry, err error) {
 	return
 }
 
-func (r *result) AsZScore() (v ZScore, err error) {
+func (r result) AsZScore() (v ZScore, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -302,7 +302,7 @@ func (r *result) AsZScore() (v ZScore, err error) {
 	return
 }
 
-func (r *result) AsZScores() (v []ZScore, err error) {
+func (r result) AsZScores() (v []ZScore, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -311,7 +311,7 @@ func (r *result) AsZScores() (v []ZScore, err error) {
 	return
 }
 
-func (r *result) AsScanEntry() (e ScanEntry, err error) {
+func (r result) AsScanEntry() (e ScanEntry, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -320,7 +320,7 @@ func (r *result) AsScanEntry() (e ScanEntry, err error) {
 	return
 }
 
-func (r *result) AsLMPop() (kvs KeyValues, err error) {
+func (r result) AsLMPop() (kvs KeyValues, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -329,7 +329,7 @@ func (r *result) AsLMPop() (kvs KeyValues, err error) {
 	return
 }
 
-func (r *result) AsZMPop() (kvs KeyZScores, err error) {
+func (r result) AsZMPop() (kvs KeyZScores, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -338,7 +338,7 @@ func (r *result) AsZMPop() (kvs KeyZScores, err error) {
 	return
 }
 
-func (r *result) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
+func (r result) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -347,7 +347,7 @@ func (r *result) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
 	return
 }
 
-func (r *result) AsFtAggregate() (total int64, docs []map[string]string, err error) {
+func (r result) AsFtAggregate() (total int64, docs []map[string]string, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -356,7 +356,7 @@ func (r *result) AsFtAggregate() (total int64, docs []map[string]string, err err
 	return
 }
 
-func (r *result) AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error) {
+func (r result) AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -365,7 +365,7 @@ func (r *result) AsFtAggregateCursor() (cursor, total int64, docs []map[string]s
 	return
 }
 
-func (r *result) AsGeosearch() (location []GeoLocation, err error) {
+func (r result) AsGeosearch() (location []GeoLocation, err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return
@@ -374,7 +374,7 @@ func (r *result) AsGeosearch() (location []GeoLocation, err error) {
 	return
 }
 
-func (r *result) AsJson(dst any) (err error) {
+func (r result) AsJson(dst any) (err error) {
 	if r.Err != "" {
 		err = errors.New(r.Err)
 		return

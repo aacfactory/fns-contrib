@@ -93,9 +93,14 @@ func DoMulti(ctx context.Context, commands ...IncompleteCommand) (v []Result, er
 		err = handleErr
 		return
 	}
-	v, err = services.ValueOfResponse[[]Result](response)
+	r := make([]result, 0, 1)
+	err = response.TransformTo(&r)
 	if err != nil {
 		return
+	}
+	v = make([]Result, len(r))
+	for i, e := range r {
+		v[i] = e
 	}
 	return
 }

@@ -112,10 +112,10 @@ const (
 	ErrNoScript    = "REDIS: NO_SCRIPT"
 )
 
-func newMessage(raw rueidis.RedisMessage) (v *message) {
+func newMessage(raw rueidis.RedisMessage) (v message) {
 	if err := raw.Error(); err != nil {
 		if rueidis.IsRedisNil(err) {
-			v = &message{
+			v = message{
 				Type:     typeError,
 				Content:  ErrNil,
 				Values:   nil,
@@ -126,7 +126,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 		}
 		if rErr, ok := rueidis.IsRedisErr(err); ok {
 			if rErr.IsNil() {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrNil,
 					Values:   nil,
@@ -136,7 +136,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 				return
 			}
 			if rErr.IsNoScript() {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrNoScript,
 					Values:   nil,
@@ -146,7 +146,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 				return
 			}
 			if rErr.IsTryAgain() {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrTryAgain,
 					Values:   nil,
@@ -156,7 +156,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 				return
 			}
 			if rErr.IsClusterDown() {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrClusterDown,
 					Values:   nil,
@@ -166,27 +166,27 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 				return
 			}
 			if addr, isAsk := rErr.IsAsk(); isAsk {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrAsk,
-					Values:   []*message{{Content: addr}},
+					Values:   []message{{Content: addr}},
 					Deadline: "",
 					CacheHit: raw.IsCacheHit(),
 				}
 				return
 			}
 			if addr, isAsk := rErr.IsMoved(); isAsk {
-				v = &message{
+				v = message{
 					Type:     typeError,
 					Content:  ErrMoved,
-					Values:   []*message{{Content: addr}},
+					Values:   []message{{Content: addr}},
 					Deadline: "",
 					CacheHit: raw.IsCacheHit(),
 				}
 				return
 			}
 		}
-		v = &message{
+		v = message{
 			Type:     typeError,
 			Content:  err.Error(),
 			Values:   nil,
@@ -201,7 +201,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsString() {
 		vv, _ := raw.ToString()
-		v = &message{
+		v = message{
 			Type:     typeString,
 			Content:  vv,
 			Values:   nil,
@@ -212,7 +212,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsBool() {
 		vv, _ := raw.AsBool()
-		v = &message{
+		v = message{
 			Type:     typeBool,
 			Content:  strconv.FormatBool(vv),
 			Values:   nil,
@@ -223,7 +223,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsInt64() {
 		vv, _ := raw.AsInt64()
-		v = &message{
+		v = message{
 			Type:     typeInt,
 			Content:  strconv.FormatInt(vv, 10),
 			Values:   nil,
@@ -234,7 +234,7 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsFloat64() {
 		vv, _ := raw.AsFloat64()
-		v = &message{
+		v = message{
 			Type:     typeFloat,
 			Content:  strconv.FormatFloat(vv, 'f', 6, 64),
 			Values:   nil,
@@ -245,10 +245,10 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsArray() {
 		vv, _ := raw.ToArray()
-		v = &message{
+		v = message{
 			Type:     typeArray,
 			Content:  "",
-			Values:   make([]*message, 0, len(vv)),
+			Values:   make([]message, 0, len(vv)),
 			Deadline: deadline,
 			CacheHit: raw.IsCacheHit(),
 		}
@@ -259,10 +259,10 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 	}
 	if raw.IsMap() {
 		vv, _ := raw.AsMap()
-		v = &message{
+		v = message{
 			Type:     typeMap,
 			Content:  "",
-			Values:   make([]*message, 0, len(vv)),
+			Values:   make([]message, 0, len(vv)),
 			Deadline: deadline,
 			CacheHit: raw.IsCacheHit(),
 		}
@@ -276,14 +276,14 @@ func newMessage(raw rueidis.RedisMessage) (v *message) {
 }
 
 type message struct {
-	Type     int        `json:"type"`
-	Content  string     `json:"content"`
-	Values   []*message `json:"values"`
-	Deadline string     `json:"deadline"`
-	CacheHit bool       `json:"cacheHit"`
+	Type     int       `json:"type"`
+	Content  string    `json:"content"`
+	Values   []message `json:"values"`
+	Deadline string    `json:"deadline"`
+	CacheHit bool      `json:"cacheHit"`
 }
 
-func (m *message) Expired() (ok bool) {
+func (m message) Expired() (ok bool) {
 	if m.Error() != nil {
 		return
 	}
@@ -298,7 +298,7 @@ func (m *message) Expired() (ok bool) {
 	return
 }
 
-func (m *message) ExpireAT() (t time.Time, has bool) {
+func (m message) ExpireAT() (t time.Time, has bool) {
 	if m.Error() != nil {
 		return
 	}
@@ -314,7 +314,7 @@ func (m *message) ExpireAT() (t time.Time, has bool) {
 	return
 }
 
-func (m *message) Error() (err error) {
+func (m message) Error() (err error) {
 	if m.Type == typeError {
 		err = &Error{
 			m,
@@ -324,7 +324,7 @@ func (m *message) Error() (err error) {
 	return
 }
 
-func (m *message) IsNil() (ok bool) {
+func (m message) IsNil() (ok bool) {
 	if m.Type == typeError {
 		ok = m.Content == ErrNil
 		return
@@ -332,42 +332,42 @@ func (m *message) IsNil() (ok bool) {
 	return
 }
 
-func (m *message) IsString() (ok bool) {
+func (m message) IsString() (ok bool) {
 	ok = m.Type == typeString
 	return
 }
 
-func (m *message) IsBool() (ok bool) {
+func (m message) IsBool() (ok bool) {
 	ok = m.Type == typeBool
 	return
 }
 
-func (m *message) IsInt() (ok bool) {
+func (m message) IsInt() (ok bool) {
 	ok = m.Type == typeInt
 	return
 }
 
-func (m *message) IsFloat() (ok bool) {
+func (m message) IsFloat() (ok bool) {
 	ok = m.Type == typeFloat
 	return
 }
 
-func (m *message) IsArray() (ok bool) {
+func (m message) IsArray() (ok bool) {
 	ok = m.Type == typeArray
 	return
 }
 
-func (m *message) IsMap() (ok bool) {
+func (m message) IsMap() (ok bool) {
 	ok = m.Type == typeMap
 	return
 }
 
-func (m *message) IsCacheHit() (ok bool) {
+func (m message) IsCacheHit() (ok bool) {
 	ok = m.CacheHit
 	return
 }
 
-func (m *message) AsString() (v string, err error) {
+func (m message) AsString() (v string, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -391,7 +391,7 @@ func (m *message) AsString() (v string, err error) {
 	return
 }
 
-func (m *message) AsBool() (v bool, err error) {
+func (m message) AsBool() (v bool, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -412,7 +412,7 @@ func (m *message) AsBool() (v bool, err error) {
 	return
 }
 
-func (m *message) AsInt() (v int64, err error) {
+func (m message) AsInt() (v int64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -430,7 +430,7 @@ func (m *message) AsInt() (v int64, err error) {
 	return
 }
 
-func (m *message) AsUint() (v uint64, err error) {
+func (m message) AsUint() (v uint64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -448,7 +448,7 @@ func (m *message) AsUint() (v uint64, err error) {
 	return
 }
 
-func (m *message) AsFloat() (v float64, err error) {
+func (m message) AsFloat() (v float64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -478,7 +478,7 @@ func (m *message) AsFloat() (v float64, err error) {
 	return
 }
 
-func (m *message) AsBytes() (v []byte, err error) {
+func (m message) AsBytes() (v []byte, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -502,7 +502,7 @@ func (m *message) AsBytes() (v []byte, err error) {
 	return
 }
 
-func (m *message) AsArray() (v []Message, err error) {
+func (m message) AsArray() (v []Message, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -519,7 +519,7 @@ func (m *message) AsArray() (v []Message, err error) {
 	return
 }
 
-func (m *message) AsStrSlice() (v []string, err error) {
+func (m message) AsStrSlice() (v []string, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -541,7 +541,7 @@ func (m *message) AsStrSlice() (v []string, err error) {
 	return
 }
 
-func (m *message) AsBytesSlice() (v [][]byte, err error) {
+func (m message) AsBytesSlice() (v [][]byte, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -563,7 +563,7 @@ func (m *message) AsBytesSlice() (v [][]byte, err error) {
 	return
 }
 
-func (m *message) AsIntSlice() (v []int64, err error) {
+func (m message) AsIntSlice() (v []int64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -585,7 +585,7 @@ func (m *message) AsIntSlice() (v []int64, err error) {
 	return
 }
 
-func (m *message) AsBoolSlice() (v []bool, err error) {
+func (m message) AsBoolSlice() (v []bool, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -607,7 +607,7 @@ func (m *message) AsBoolSlice() (v []bool, err error) {
 	return
 }
 
-func (m *message) AsFloatSlice() (v []float64, err error) {
+func (m message) AsFloatSlice() (v []float64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -629,7 +629,7 @@ func (m *message) AsFloatSlice() (v []float64, err error) {
 	return
 }
 
-func (m *message) AsMap() (v map[string]Message, err error) {
+func (m message) AsMap() (v map[string]Message, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -646,7 +646,7 @@ func (m *message) AsMap() (v map[string]Message, err error) {
 	return
 }
 
-func (m *message) AsStrMap() (v map[string]string, err error) {
+func (m message) AsStrMap() (v map[string]string, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -668,7 +668,7 @@ func (m *message) AsStrMap() (v map[string]string, err error) {
 	return
 }
 
-func (m *message) AsBytesMap() (v map[string][]byte, err error) {
+func (m message) AsBytesMap() (v map[string][]byte, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -690,7 +690,7 @@ func (m *message) AsBytesMap() (v map[string][]byte, err error) {
 	return
 }
 
-func (m *message) AsBoolMap() (v map[string]bool, err error) {
+func (m message) AsBoolMap() (v map[string]bool, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -712,7 +712,7 @@ func (m *message) AsBoolMap() (v map[string]bool, err error) {
 	return
 }
 
-func (m *message) AsIntMap() (v map[string]int64, err error) {
+func (m message) AsIntMap() (v map[string]int64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -734,7 +734,7 @@ func (m *message) AsIntMap() (v map[string]int64, err error) {
 	return
 }
 
-func (m *message) AsFloatMap() (v map[string]float64, err error) {
+func (m message) AsFloatMap() (v map[string]float64, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -756,7 +756,7 @@ func (m *message) AsFloatMap() (v map[string]float64, err error) {
 	return
 }
 
-func (m *message) AsXRangeEntry() (entry XRangeEntry, err error) {
+func (m message) AsXRangeEntry() (entry XRangeEntry, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -793,7 +793,7 @@ func (m *message) AsXRangeEntry() (entry XRangeEntry, err error) {
 	return
 }
 
-func (m *message) AsXRange() (entries []XRangeEntry, err error) {
+func (m message) AsXRange() (entries []XRangeEntry, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -814,7 +814,7 @@ func (m *message) AsXRange() (entries []XRangeEntry, err error) {
 	return
 }
 
-func (m *message) AsZScore() (v ZScore, err error) {
+func (m message) AsZScore() (v ZScore, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -834,7 +834,7 @@ func (m *message) AsZScore() (v ZScore, err error) {
 	return
 }
 
-func (m *message) AsZScores() (v []ZScore, err error) {
+func (m message) AsZScores() (v []ZScore, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -880,7 +880,7 @@ func (m *message) AsZScores() (v []ZScore, err error) {
 	return
 }
 
-func (m *message) AsScanEntry() (e ScanEntry, err error) {
+func (m message) AsScanEntry() (e ScanEntry, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -903,7 +903,7 @@ func (m *message) AsScanEntry() (e ScanEntry, err error) {
 	return
 }
 
-func (m *message) AsLMPop() (kvs KeyValues, err error) {
+func (m message) AsLMPop() (kvs KeyValues, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -926,7 +926,7 @@ func (m *message) AsLMPop() (kvs KeyValues, err error) {
 	return
 }
 
-func (m *message) AsZMPop() (kvs KeyZScores, err error) {
+func (m message) AsZMPop() (kvs KeyZScores, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -949,7 +949,7 @@ func (m *message) AsZMPop() (kvs KeyZScores, err error) {
 	return
 }
 
-func (m *message) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
+func (m message) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -1009,7 +1009,7 @@ func (m *message) AsFtSearch() (total int64, docs []FtSearchDoc, err error) {
 	return
 }
 
-func (m *message) AsFtAggregate() (total int64, docs []map[string]string, err error) {
+func (m message) AsFtAggregate() (total int64, docs []map[string]string, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -1057,7 +1057,7 @@ func (m *message) AsFtAggregate() (total int64, docs []map[string]string, err er
 	return
 }
 
-func (m *message) AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error) {
+func (m message) AsFtAggregateCursor() (cursor, total int64, docs []map[string]string, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -1070,7 +1070,7 @@ func (m *message) AsFtAggregateCursor() (cursor, total int64, docs []map[string]
 	return
 }
 
-func (m *message) AsGeosearch() (location []GeoLocation, err error) {
+func (m message) AsGeosearch() (location []GeoLocation, err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
@@ -1120,7 +1120,7 @@ func (m *message) AsGeosearch() (location []GeoLocation, err error) {
 	return
 }
 
-func (m *message) AsJson(dst any) (err error) {
+func (m message) AsJson(dst any) (err error) {
 	if err = m.Error(); err != nil {
 		return
 	}
