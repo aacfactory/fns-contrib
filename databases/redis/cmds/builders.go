@@ -22,4 +22,5 @@ func init() {
 	registerHash()
 	registerList()
 	registerSet()
+	registerSortedSet()
 }

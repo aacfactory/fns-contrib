@@ -331,3 +331,78 @@ func (builder SUNIONSTOREBuilder) Build() (cmd Command) {
 	cmd.Params = builder.params
 	return
 }
+
+func S() Sets {
+	return Sets{}
+}
+
+type Sets struct {
+}
+
+func (s Sets) Add(key string, members ...string) SADDBuilder {
+	return SAdd(key, members...)
+}
+
+func (s Sets) Card(key string) SCARDBuilder {
+	return SCard(key)
+}
+
+func (s Sets) Diff(key ...string) SDIFFBuilder {
+	return SDiff(key...)
+}
+
+func (s Sets) DiffStore(dst string, key ...string) SDIFFSTOREBuilder {
+	return SDiffStore(dst, key...)
+}
+
+func (s Sets) Inter(key ...string) SINTERBuilder {
+	return SInter(key...)
+}
+
+func (s Sets) InterCard(numKey int64, key ...string) SINTERCARDBuilder {
+	return SInterCard(numKey, key...)
+}
+
+func (s Sets) InterStore(dst string, key ...string) SINTERSTOREBuilder {
+	return SInterStore(dst, key...)
+}
+
+func (s Sets) ISMember(key string, member string) SINTERSTOREBuilder {
+	return SISMember(key, member)
+}
+
+func (s Sets) Members(key string) SMEMBERSBuilder {
+	return SMembers(key)
+}
+
+func (s Sets) MISMember(key string, members ...string) SMISMEMBERBuilder {
+	return SMISMember(key, members...)
+}
+
+func (s Sets) Move(src string, dst string, member string) SMOVEBuilder {
+	return SMove(src, dst, member)
+}
+
+func (s Sets) Pop(key string) SPOPBuilder {
+	return SPop(key)
+}
+
+func (s Sets) RandMember(key string) SRANDMEMBERBuilder {
+	return SRandMember(key)
+}
+
+func (s Sets) Rem(key string, members ...string) SRANDMEMBERBuilder {
+	return SRem(key, members...)
+}
+
+func (s Sets) Scan(key string, cursor uint64) SSCANBuilder {
+	return SScan(key, cursor)
+}
+
+func (s Sets) Union(key ...string) SUNIONBuilder {
+	return SUnion(key...)
+}
+
+func (s Sets) UnionStore(dst string, key ...string) SUNIONSTOREBuilder {
+	return SUnionStore(dst, key...)
+}

@@ -482,3 +482,90 @@ func (builder RPUSHXBuilder) Build() (cmd Command) {
 	cmd.Params = builder.params
 	return
 }
+
+func L() List {
+	return List{}
+}
+
+type List struct {
+}
+
+func (l List) BLMove(src string, dst string) BLMOVEBuilder {
+	return BLMove(src, dst)
+}
+
+func (l List) BLMPop(timeout float64, numKeys int64) BLMPOPBuilder {
+	return BLMPop(timeout, numKeys)
+}
+
+func (l List) BLPop(key ...string) BLPOPBuilder {
+	return BLPop(key...)
+}
+
+func (l List) BRPop(key ...string) BRPOPBuilder {
+	return BRPop(key...)
+}
+
+func (l List) Index(key string, index int64) LINDEXBuilder {
+	return LIndex(key, index)
+}
+
+func (l List) Insert(key string) LINSERTBuilder {
+	return LInsert(key)
+}
+
+func (l List) Len(key string) LLENBuilder {
+	return LLen(key)
+}
+
+func (l List) Move(src string, dst string) LMOVEBuilder {
+	return LMove(src, dst)
+}
+
+func (l List) MPop(numKey int64) LMPOPBuilder {
+	return LMPop(numKey)
+}
+
+func (l List) Pop(key string) LPOPBuilder {
+	return LPop(key)
+}
+
+func (l List) Pos(key string, element string) LPOSBuilder {
+	return LPos(key, element)
+}
+
+func (l List) Push(key string, element ...string) LPUSHBuilder {
+	return LPush(key, element...)
+}
+
+func (l List) PushX(key string, element ...string) LPUSHXBuilder {
+	return LPushX(key, element...)
+}
+
+func (l List) Range(key string, start int64, stop int64) LRANGEBuilder {
+	return LRange(key, start, stop)
+}
+
+func (l List) Rem(key string, count int64, element string) LREMBuilder {
+	return LRem(key, count, element)
+}
+
+func (l List) Set(key string, index int64, element string) LSETBuilder {
+	return LSet(key, index, element)
+}
+
+func (l List) Trim(key string, start int64, stop int64) LTRIMBuilder {
+	return LTRIM(key, start, stop)
+}
+
+func (l List) RPop(key string) RPOPBuilder {
+	return RPop(key)
+}
+
+func (l List) RPush(key string, element ...string) RPUSHBuilder {
+	return RPush(key, element...)
+}
+
+func (l List) RPushX(key string, element ...string) RPUSHXBuilder {
+	return RPushX(key, element...)
+}
