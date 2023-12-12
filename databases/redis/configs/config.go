@@ -7,6 +7,44 @@ import (
 	"time"
 )
 
+type Option func(options *Options)
+
+func WithSendToReplicas(fn func(cmd rueidis.Completed) bool) Option {
+	return func(options *Options) {
+		options.SendToReplicas = fn
+	}
+}
+
+func WithAuthCredentials(fn func(rueidis.AuthCredentialsContext) (rueidis.AuthCredentials, error)) Option {
+	return func(options *Options) {
+		options.AuthCredentialsFn = fn
+	}
+}
+
+func WithDialer(dialer *net.Dialer) Option {
+	return func(options *Options) {
+		options.Dialer = dialer
+	}
+}
+
+func WithDialFn(fn func(string, *net.Dialer, *tls.Config) (conn net.Conn, err error)) Option {
+	return func(options *Options) {
+		options.DialFn = fn
+	}
+}
+
+func WithSentinelDialer(dialer *net.Dialer) Option {
+	return func(options *Options) {
+		options.SentinelDialer = dialer
+	}
+}
+
+func WithNewCacheStoreFn(fn rueidis.NewCacheStoreFn) Option {
+	return func(options *Options) {
+		options.NewCacheStoreFn = fn
+	}
+}
+
 type Options struct {
 	AuthCredentialsFn func(rueidis.AuthCredentialsContext) (rueidis.AuthCredentials, error)
 	Dialer            *net.Dialer
@@ -55,71 +93,80 @@ type Config struct {
 	SSL                   SSLConfig      `json:"ssl" yaml:"ssl"`
 }
 
-func (config *Config) Make(options Options) (client rueidis.Client, err error) {
-	opt := rueidis.ClientOption{}
+func (config *Config) AsOption(options Options) (option rueidis.ClientOption, err error) {
+	option = rueidis.ClientOption{}
 	if options.AuthCredentialsFn != nil {
-		opt.AuthCredentialsFn = options.AuthCredentialsFn
+		option.AuthCredentialsFn = options.AuthCredentialsFn
 	}
 	if options.Dialer != nil {
-		opt.Dialer = *options.Dialer
+		option.Dialer = *options.Dialer
 	}
 	if options.DialFn != nil {
-		opt.DialFn = options.DialFn
+		option.DialFn = options.DialFn
 	}
 	if options.SendToReplicas != nil && !config.ReplicaOnly {
-		opt.SendToReplicas = options.SendToReplicas
+		option.SendToReplicas = options.SendToReplicas
 	}
 	if options.NewCacheStoreFn != nil {
-		opt.NewCacheStoreFn = options.NewCacheStoreFn
+		option.NewCacheStoreFn = options.NewCacheStoreFn
 	}
 	if config.Sentinel.Enable {
-		opt.Sentinel.MasterSet = config.Sentinel.MasterSet
-		opt.Sentinel.ClientName = config.Sentinel.ClientName
-		opt.Sentinel.Username = config.Sentinel.Username
-		opt.Sentinel.Password = config.Sentinel.Password
+		option.Sentinel.MasterSet = config.Sentinel.MasterSet
+		option.Sentinel.ClientName = config.Sentinel.ClientName
+		option.Sentinel.Username = config.Sentinel.Username
+		option.Sentinel.Password = config.Sentinel.Password
 		if config.Sentinel.SSL.Enable {
 			tlsConfig, tlsErr := config.Sentinel.SSL.Config()
 			if tlsErr != nil {
 				err = tlsErr
 				return
 			}
-			opt.Sentinel.TLSConfig = tlsConfig
+			option.Sentinel.TLSConfig = tlsConfig
 		}
 		if options.SentinelDialer != nil {
-			opt.Sentinel.Dialer = *options.SentinelDialer
+			option.Sentinel.Dialer = *options.SentinelDialer
 		}
 	}
-	opt.InitAddress = config.InitAddress
-	opt.Username = config.Username
-	opt.Password = config.Password
-	opt.ClientName = config.ClientName
-	opt.ClientSetInfo = config.ClientSetInfo
-	opt.ClientTrackingOptions = config.ClientTrackingOptions
-	opt.SelectDB = config.DB
-	opt.CacheSizeEachConn = config.CacheSizeEachConn
-	opt.RingScaleEachConn = config.RingScaleEachConn
-	opt.ReadBufferEachConn = config.ReadBufferEachConn
-	opt.WriteBufferEachConn = config.WriteBufferEachConn
-	opt.BlockingPoolSize = config.BlockingPoolSize
-	opt.PipelineMultiplex = config.PipelineMultiplex
-	opt.ConnWriteTimeout = config.ConnWriteTimeout
-	opt.MaxFlushDelay = config.MaxFlushDelay
-	opt.ShuffleInit = config.ShuffleInit
-	opt.ClientNoTouch = config.ClientNoTouch
-	opt.DisableRetry = config.DisableRetry
-	opt.DisableCache = config.DisableRetry
-	opt.AlwaysRESP2 = config.AlwaysRESP2
-	opt.AlwaysPipelining = config.AlwaysPipelining
-	opt.ForceSingleClient = config.ForceSingleClient
-	opt.ReplicaOnly = config.ReplicaOnly
-	opt.ClientNoEvict = config.ClientNoEvict
+	option.InitAddress = config.InitAddress
+	option.Username = config.Username
+	option.Password = config.Password
+	option.ClientName = config.ClientName
+	option.ClientSetInfo = config.ClientSetInfo
+	option.ClientTrackingOptions = config.ClientTrackingOptions
+	option.SelectDB = config.DB
+	option.CacheSizeEachConn = config.CacheSizeEachConn
+	option.RingScaleEachConn = config.RingScaleEachConn
+	option.ReadBufferEachConn = config.ReadBufferEachConn
+	option.WriteBufferEachConn = config.WriteBufferEachConn
+	option.BlockingPoolSize = config.BlockingPoolSize
+	option.PipelineMultiplex = config.PipelineMultiplex
+	option.ConnWriteTimeout = config.ConnWriteTimeout
+	option.MaxFlushDelay = config.MaxFlushDelay
+	option.ShuffleInit = config.ShuffleInit
+	option.ClientNoTouch = config.ClientNoTouch
+	option.DisableRetry = config.DisableRetry
+	option.DisableCache = config.DisableRetry
+	option.AlwaysRESP2 = config.AlwaysRESP2
+	option.AlwaysPipelining = config.AlwaysPipelining
+	option.ForceSingleClient = config.ForceSingleClient
+	option.ReplicaOnly = config.ReplicaOnly
+	option.ClientNoEvict = config.ClientNoEvict
 	if config.SSL.Enable {
 		tlsConfig, tlsErr := config.SSL.Config()
 		if tlsErr != nil {
 			err = tlsErr
 			return
 		}
-		opt.TLSConfig = tlsConfig
+		option.TLSConfig = tlsConfig
+	}
+	return
+}
+
+func (config *Config) Make(options Options) (client rueidis.Client, err error) {
+	opt, optErr := config.AsOption(options)
+	if optErr != nil {
+		err = optErr
+		return
 	}
 	client, err = rueidis.NewClient(opt)
 	return
