@@ -20,4 +20,5 @@ func init() {
 	registerGeneric()
 	registerString()
 	registerHash()
+	registerList()
 }
