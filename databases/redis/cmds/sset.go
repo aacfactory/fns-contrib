@@ -469,10 +469,10 @@ func (b *ZMPOPBuilder) Completed(client rueidis.Client, params []string) (v ruei
 			continue
 		}
 		if param == "MIN" {
-			rv = rv.MethodByName("Max").Call([]reflect.Value{})[0]
+			rv = rv.MethodByName("Min").Call([]reflect.Value{})[0]
 			continue
 		}
-		if param == "MAZ" {
+		if param == "MAX" {
 			rv = rv.MethodByName("Max").Call([]reflect.Value{})[0]
 			continue
 		}
