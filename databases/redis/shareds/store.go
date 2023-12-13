@@ -94,9 +94,9 @@ func (store *Store) Incr(ctx context.Context, key []byte, delta int64) (v int64,
 	}
 	key = append(store.prefix, key...)
 	if delta > 0 {
-		err = store.client.Do(ctx, store.client.B().Incrby().Key(bytex.ToString(key)).Increment(delta).Build()).Error()
+		v, err = store.client.Do(ctx, store.client.B().Incrby().Key(bytex.ToString(key)).Increment(delta).Build()).AsInt64()
 	} else {
-		err = store.client.Do(ctx, store.client.B().Decrby().Key(bytex.ToString(key)).Decrement(delta*-1).Build()).Error()
+		v, err = store.client.Do(ctx, store.client.B().Decrby().Key(bytex.ToString(key)).Decrement(delta*-1).Build()).AsInt64()
 	}
 	if err != nil {
 		err = errors.Warning("shared: incr failed").WithMeta("store", "redis").WithCause(err)

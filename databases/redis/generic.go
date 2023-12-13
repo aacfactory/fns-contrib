@@ -305,12 +305,12 @@ func (builder SortBuilder) Get(pattern string) SortBuilder {
 }
 
 func (builder SortBuilder) Asc() SortBuilder {
-	builder.params = append(builder.params, fmt.Sprintf("ORDER:%s", "asc"))
+	builder.params = append(builder.params, fmt.Sprintf("ORDER:%s", "ASC"))
 	return builder
 }
 
 func (builder SortBuilder) Desc() SortBuilder {
-	builder.params = append(builder.params, fmt.Sprintf("ORDER:%s", "desc"))
+	builder.params = append(builder.params, fmt.Sprintf("ORDER:%s", "DESC"))
 	return builder
 }
 

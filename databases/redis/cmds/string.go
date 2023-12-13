@@ -319,9 +319,9 @@ func (b *LCSBuilder) Completed(client rueidis.Client, params []string) (v rueidi
 	}
 	// MINMATCHLEN int64
 	for _, param := range params {
-		v, has := strings.CutPrefix(param, "MINMATCHLEN:")
+		vv, has := strings.CutPrefix(param, "MINMATCHLEN:")
 		if has {
-			n, nErr := strconv.ParseInt(v, 10, 64)
+			n, nErr := strconv.ParseInt(vv, 10, 64)
 			if nErr != nil {
 				return
 			}
@@ -440,11 +440,11 @@ func (b *SetBuilder) Completed(client rueidis.Client, params []string) (v rueidi
 	for _, param := range params {
 		p, has := strings.CutPrefix(param, "EX:")
 		if has {
-			v, vErr := time.ParseDuration(p)
-			if vErr != nil {
+			vv, vvErr := time.ParseDuration(p)
+			if vvErr != nil {
 				return
 			}
-			rv = rv.MethodByName("Ex").Call([]reflect.Value{reflect.ValueOf(v)})[0]
+			rv = rv.MethodByName("Ex").Call([]reflect.Value{reflect.ValueOf(vv)})[0]
 			break
 		}
 	}
@@ -452,11 +452,11 @@ func (b *SetBuilder) Completed(client rueidis.Client, params []string) (v rueidi
 	for _, param := range params {
 		p, has := strings.CutPrefix(param, "PX:")
 		if has {
-			v, vErr := time.ParseDuration(p)
-			if vErr != nil {
+			vv, vvErr := time.ParseDuration(p)
+			if vvErr != nil {
 				return
 			}
-			rv = rv.MethodByName("Px").Call([]reflect.Value{reflect.ValueOf(v)})[0]
+			rv = rv.MethodByName("Px").Call([]reflect.Value{reflect.ValueOf(vv)})[0]
 			break
 		}
 	}
@@ -464,11 +464,11 @@ func (b *SetBuilder) Completed(client rueidis.Client, params []string) (v rueidi
 	for _, param := range params {
 		p, has := strings.CutPrefix(param, "EXAT:")
 		if has {
-			v, vErr := time.Parse(p, time.RFC3339)
-			if vErr != nil {
+			vv, vvErr := time.Parse(p, time.RFC3339)
+			if vvErr != nil {
 				return
 			}
-			rv = rv.MethodByName("Exat").Call([]reflect.Value{reflect.ValueOf(v)})[0]
+			rv = rv.MethodByName("Exat").Call([]reflect.Value{reflect.ValueOf(vv)})[0]
 			break
 		}
 	}
@@ -476,11 +476,11 @@ func (b *SetBuilder) Completed(client rueidis.Client, params []string) (v rueidi
 	for _, param := range params {
 		p, has := strings.CutPrefix(param, "PXAT:")
 		if has {
-			v, vErr := time.Parse(p, time.RFC3339)
-			if vErr != nil {
+			vv, vvErr := time.Parse(p, time.RFC3339)
+			if vvErr != nil {
 				return
 			}
-			rv = rv.MethodByName("Pxat").Call([]reflect.Value{reflect.ValueOf(v)})[0]
+			rv = rv.MethodByName("Pxat").Call([]reflect.Value{reflect.ValueOf(vv)})[0]
 			break
 		}
 	}

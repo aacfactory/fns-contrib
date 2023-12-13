@@ -65,7 +65,7 @@ func (handler *cacheableHandler) Handle(ctx services.Request) (v any, err error)
 		resp = handler.client.DoMultiCache(ctx, cacheables...)
 		break
 	}
-	results := make([]Result, commandsLen)
+	results := make([]result, commandsLen)
 	for i, redisResult := range resp {
 		results[i] = newResult(redisResult)
 	}

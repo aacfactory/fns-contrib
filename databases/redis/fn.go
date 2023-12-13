@@ -55,7 +55,7 @@ func (handler *commandHandler) Handle(ctx services.Request) (v any, err error) {
 		resp = handler.client.DoMulti(ctx, cc...)
 		break
 	}
-	results := make([]Result, commandsLen)
+	results := make([]result, commandsLen)
 	for i, redisResult := range resp {
 		results[i] = newResult(redisResult)
 	}

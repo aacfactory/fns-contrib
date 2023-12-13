@@ -105,6 +105,11 @@ func (svc *service) Construct(options services.Options) (err error) {
 		err = errors.Warning("redis: service construct failed").WithCause(err).WithMeta("service", svc.Name())
 		return
 	}
+	pingErr := svc.client.Do(context.TODO(), svc.client.B().Ping().Build()).Error()
+	if pingErr != nil {
+		err = errors.Warning("redis: service construct failed").WithCause(pingErr).WithMeta("service", svc.Name())
+		return
+	}
 	handler := &commandHandler{
 		client: svc.client,
 	}

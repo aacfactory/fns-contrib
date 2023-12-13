@@ -247,56 +247,32 @@ func (b *ScanBuilder) Completed(client rueidis.Client, params []string) (v rueid
 	if cursorErr != nil {
 		return
 	}
-	pattern := ""
-	if len(params) > 1 {
-		for _, param := range params {
-			match, has := strings.CutPrefix(param, "MATCH:")
-			if has {
-				pattern = match
-				break
-			}
+
+	rv := reflect.ValueOf(client.B().Scan().Cursor(cursor))
+	for _, param := range params {
+		match, hasMatch := strings.CutPrefix(param, "MATCH:")
+		if hasMatch {
+			rv = rv.MethodByName("Match").Call([]reflect.Value{reflect.ValueOf(match)})[0]
+			continue
 		}
-	}
-	count := int64(0)
-	if len(params) > 1 {
-		for _, param := range params {
-			cv, has := strings.CutPrefix(param, "COUNT:")
-			if has {
-				var countErr error
-				count, countErr = strconv.ParseInt(cv, 10, 64)
-				if countErr != nil {
-					return
-				}
-				break
+		count, hasCount := strings.CutPrefix(param, "COUNT:")
+		if hasCount {
+			vv, vvErr := strconv.ParseInt(count, 10, 64)
+			if vvErr != nil {
+				return
 			}
+			rv = rv.MethodByName("Count").Call([]reflect.Value{reflect.ValueOf(vv)})[0]
+			continue
 		}
-	}
-	typ := ""
-	if len(params) > 1 {
-		for _, param := range params {
-			t, has := strings.CutPrefix(param, "TYPE:")
-			if has {
-				typ = t
-				break
-			}
+		typ, hasType := strings.CutPrefix(param, "TYPE:")
+		if hasType {
+			rv = rv.MethodByName("Type").Call([]reflect.Value{reflect.ValueOf(typ)})[0]
+			continue
 		}
 	}
 
-	if pattern != "" && count > 0 && typ != "" {
-		v = client.B().Scan().Cursor(cursor).Match(pattern).Count(count).Type(typ).Build()
-	} else if pattern != "" && count > 0 && typ == "" {
-		v = client.B().Scan().Cursor(cursor).Match(pattern).Count(count).Build()
-	} else if pattern != "" && count == 0 && typ != "" {
-		v = client.B().Scan().Cursor(cursor).Match(pattern).Type(typ).Build()
-	} else if pattern == "" && count > 0 && typ != "" {
-		v = client.B().Scan().Cursor(cursor).Count(count).Type(typ).Build()
-	} else if pattern == "" && count > 0 && typ == "" {
-		v = client.B().Scan().Cursor(cursor).Count(count).Build()
-	} else if pattern == "" && count == 0 && typ != "" {
-		v = client.B().Scan().Cursor(cursor).Type(typ).Build()
-	} else {
-		v = client.B().Scan().Cursor(cursor).Build()
-	}
+	rv = rv.MethodByName("Build").Call([]reflect.Value{})[0]
+	v = rv.Interface().(rueidis.Completed)
 	ok = true
 	return
 }
@@ -460,7 +436,7 @@ func (b *SortRoBuilder) Completed(client rueidis.Client, params []string) (v rue
 	for _, param := range params {
 		ov, has := strings.CutPrefix(param, "ORDER:")
 		if has {
-			order = strings.ToLower(ov)
+			order = ov
 			break
 		}
 	}
@@ -481,9 +457,9 @@ func (b *SortRoBuilder) Completed(client rueidis.Client, params []string) (v rue
 	for _, get := range gets {
 		rv = rv.MethodByName("Get").Call([]reflect.Value{reflect.ValueOf(get)})[0]
 	}
-	if order == "asc" {
+	if order == "ASC" {
 		rv = rv.MethodByName("Asc").Call([]reflect.Value{})[0]
-	} else if order == "desc" {
+	} else if order == "DESC" {
 		rv = rv.MethodByName("Desc").Call([]reflect.Value{})[0]
 	}
 	if alpha {

@@ -45,16 +45,31 @@ type Result interface {
 	AsJson(dst any) (err error)
 }
 
-func newResult(raw rueidis.RedisResult) (r Result) {
+func newResult(raw rueidis.RedisResult) (r result) {
 	msg, msgErr := raw.ToMessage()
-	_, ok := rueidis.IsRedisErr(msgErr)
-	if !ok {
+	if msgErr != nil {
+		if rueidis.IsRedisNil(msgErr) {
+			r = result{
+				Msg: newMessage(msg),
+				Err: "",
+			}
+			return
+		}
+		_, ok := rueidis.IsRedisErr(msgErr)
+		if ok {
+			r = result{
+				Msg: newMessage(msg),
+				Err: "",
+			}
+			return
+		}
 		r = result{
 			Msg: newMessage(msg),
 			Err: raw.Error().Error(),
 		}
 		return
 	}
+
 	r = result{
 		Msg: newMessage(msg),
 		Err: "",
