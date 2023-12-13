@@ -86,7 +86,7 @@ func New(config configs.Config, ttl time.Duration, options ...configs.Option) (v
 		group:  singleflight.Group{},
 		client: ac,
 		ttl:    ttl,
-		prefix: []byte("fns/barrier_rds/"),
+		prefix: []byte("fns:barrier:"),
 	}
 	return
 }
@@ -111,7 +111,7 @@ func NewWithClient(client rueidis.Client, ttl time.Duration) (v barriers.Barrier
 		group:  singleflight.Group{},
 		client: ac,
 		ttl:    ttl,
-		prefix: []byte("fns/barrier_rds/"),
+		prefix: []byte("fns:barrier:"),
 	}
 	return
 }

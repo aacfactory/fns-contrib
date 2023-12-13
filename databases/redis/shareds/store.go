@@ -22,7 +22,7 @@ func NewStore(config configs.Config, options ...configs.Option) (store shareds.S
 	}
 	store = &Store{
 		client: client,
-		prefix: []byte("fns/shared/store_rds/"),
+		prefix: []byte("fns:shared:store_rds:"),
 		shared: false,
 	}
 	return
@@ -31,7 +31,7 @@ func NewStore(config configs.Config, options ...configs.Option) (store shareds.S
 func NewStoreWithClient(client rueidis.Client) (store shareds.Store, err error) {
 	store = &Store{
 		client: client,
-		prefix: []byte("fns/shared/store_rds/"),
+		prefix: []byte("fns:shared:store_rds:"),
 		shared: true,
 	}
 	return

@@ -19,7 +19,7 @@ import (
 
 const (
 	name   = "redis"
-	prefix = "fns/cluster/nodes/"
+	prefix = "fns:cluster:nodes:"
 )
 
 func init() {

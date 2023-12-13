@@ -47,7 +47,7 @@ func NewLockers(config configs.Config, options ...configs.Option) (lockers share
 	}
 	option := rueidislock.LockerOption{
 		ClientBuilder:  nil,
-		KeyPrefix:      "fns/shareds/lockers_rds/",
+		KeyPrefix:      "fns:shared:lockers_rds:",
 		ClientOption:   clientOption,
 		KeyValidity:    0,
 		ExtendInterval: 0,
@@ -77,7 +77,7 @@ func NewLockersWithClient(client rueidis.Client) (lockers shareds.Lockers, err e
 		ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
 			return client, nil
 		},
-		KeyPrefix:      "fns/shareds/lockers_rds/",
+		KeyPrefix:      "fns:shared:lockers_rds:",
 		KeyValidity:    0,
 		ExtendInterval: 0,
 		TryNextAfter:   0,
