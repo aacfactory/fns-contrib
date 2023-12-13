@@ -15,6 +15,7 @@ var (
 	commandFnName          = []byte("command")
 	cacheableFnName        = []byte("cacheable")
 	luaFnName              = []byte("lua")
+	exportsFnName          = []byte("export")
 	endpointNameContextKey = []byte("@fns:redis:endpoint:name")
 )
 
@@ -120,6 +121,10 @@ func (svc *service) Construct(options services.Options) (err error) {
 		handler:      handler,
 	})
 	svc.AddFunction(&luaHandler{
+		client: svc.client,
+	})
+	svc.AddFunction(&exportsFn{
+		id:     options.Id,
 		client: svc.client,
 	})
 	return
