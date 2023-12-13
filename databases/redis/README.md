@@ -1,6 +1,10 @@
 # REDIS
 
-One redis service for fns
+One redis service for fns.
+
+
+## Note
+redis version must be greater than 7.0.5
 
 ## Install
 

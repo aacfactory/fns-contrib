@@ -1,6 +1,7 @@
 package shareds
 
 import (
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis/configs"
 	"github.com/aacfactory/fns/commons/bytex"
@@ -16,6 +17,40 @@ func NewStore(config configs.Config, options ...configs.Option) (store shareds.S
 		option(&opt)
 	}
 	client, clientErr := config.Make(opt)
+	if clientErr != nil {
+		err = errors.Warning("redis: new shared store failed").WithCause(clientErr)
+		return
+	}
+	store = &Store{
+		client: client,
+		prefix: []byte("fns:shared:store_rds:"),
+		shared: false,
+	}
+	return
+}
+
+func StoreBuilder(options ...configs.Option) shareds.StoreBuilder {
+	opt := configs.Options{}
+	for _, option := range options {
+		option(&opt)
+	}
+	return &storeBuilder{
+		options: opt,
+	}
+}
+
+type storeBuilder struct {
+	options configs.Options
+}
+
+func (builder *storeBuilder) Build(ctx context.Context, config configures.Config) (store shareds.Store, err error) {
+	conf := configs.Config{}
+	configErr := config.As(&conf)
+	if configErr != nil {
+		err = errors.Warning("redis: new shared store failed").WithCause(configErr)
+		return
+	}
+	client, clientErr := conf.Make(builder.options)
 	if clientErr != nil {
 		err = errors.Warning("redis: new shared store failed").WithCause(clientErr)
 		return

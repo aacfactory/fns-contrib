@@ -23,6 +23,7 @@ func TestBarrier_Do(t *testing.T) {
 	}
 	key := []byte("some")
 	r, doErr := barrier.Do(context.TODO(), key, func() (result interface{}, err error) {
+		t.Log("do", time.Now())
 		result = []string{time.Now().Format(time.RFC3339)}
 		return
 	})
@@ -36,6 +37,7 @@ func TestBarrier_Do(t *testing.T) {
 		return
 	}
 	t.Log(now)
+	//barrier.Forget(context.TODO(), key)
 }
 
 func TestBarrier_DoFailed(t *testing.T) {

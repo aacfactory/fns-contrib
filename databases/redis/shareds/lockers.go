@@ -2,6 +2,7 @@ package shareds
 
 import (
 	"fmt"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis/configs"
 	"github.com/aacfactory/fns/commons/bytex"
@@ -47,7 +48,7 @@ func NewLockers(config configs.Config, options ...configs.Option) (lockers share
 	}
 	option := rueidislock.LockerOption{
 		ClientBuilder:  nil,
-		KeyPrefix:      "fns:shared:lockers_rds:",
+		KeyPrefix:      "fns:shared:lockers:",
 		ClientOption:   clientOption,
 		KeyValidity:    0,
 		ExtendInterval: 0,
@@ -77,7 +78,7 @@ func NewLockersWithClient(client rueidis.Client) (lockers shareds.Lockers, err e
 		ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
 			return client, nil
 		},
-		KeyPrefix:      "fns:shared:lockers_rds:",
+		KeyPrefix:      "fns:shared:lockers:",
 		KeyValidity:    0,
 		ExtendInterval: 0,
 		TryNextAfter:   0,
@@ -94,6 +95,57 @@ func NewLockersWithClient(client rueidis.Client) (lockers shareds.Lockers, err e
 	lockers = &Lockers{
 		raw:    rl,
 		shared: true,
+	}
+	return
+}
+
+func LockersBuilder(options ...configs.Option) shareds.LockersBuilder {
+	opt := configs.Options{}
+	for _, option := range options {
+		option(&opt)
+	}
+	return &lockersBuilder{
+		options: opt,
+	}
+}
+
+type lockersBuilder struct {
+	options configs.Options
+}
+
+func (builder *lockersBuilder) Build(ctx context.Context, config configures.Config) (lockers shareds.Lockers, err error) {
+	conf := configs.Config{}
+	configErr := config.As(&conf)
+	if configErr != nil {
+		err = errors.Warning("redis: new shared lockers failed").WithCause(configErr)
+		return
+	}
+	clientOption, clientOptionErr := conf.AsOption(builder.options)
+	if clientOptionErr != nil {
+		err = errors.Warning("redis: new shared lockers failed").WithCause(clientOptionErr)
+		return
+	}
+
+	option := rueidislock.LockerOption{
+		ClientBuilder:  nil,
+		KeyPrefix:      "fns:shared:lockers:",
+		ClientOption:   clientOption,
+		KeyValidity:    0,
+		ExtendInterval: 0,
+		TryNextAfter:   0,
+		KeyMajority:    0,
+		NoLoopTracking: true,
+		FallbackSETPX:  false,
+	}
+	rl, rlErr := rueidislock.NewLocker(option)
+	if rlErr != nil {
+		err = errors.Warning("redis: new shared lockers failed").WithCause(rlErr)
+		return
+	}
+
+	lockers = &Lockers{
+		raw:    rl,
+		shared: false,
 	}
 	return
 }

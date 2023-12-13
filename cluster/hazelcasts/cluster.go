@@ -1,11 +1,8 @@
-package clusters
+package hazelcasts
 
 import (
-	"fmt"
 	"github.com/aacfactory/errors"
-	rb "github.com/aacfactory/fns-contrib/databases/redis/barriers"
-	"github.com/aacfactory/fns-contrib/databases/redis/configs"
-	rs "github.com/aacfactory/fns-contrib/databases/redis/shareds"
+	"github.com/aacfactory/fns-contrib/cluster/hazelcasts/configs"
 	"github.com/aacfactory/fns/barriers"
 	"github.com/aacfactory/fns/clusters"
 	"github.com/aacfactory/fns/commons/bytex"
@@ -13,12 +10,12 @@ import (
 	"github.com/aacfactory/fns/shareds"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
-	"github.com/redis/rueidis"
+	"github.com/hazelcast/hazelcast-go-client"
 	"time"
 )
 
 const (
-	name   = "redis"
+	name   = "hazelcast"
 	prefix = "fns:cluster:nodes:"
 )
 
@@ -26,23 +23,14 @@ func init() {
 	clusters.RegisterCluster(name, &Cluster{})
 }
 
-var (
-	opt = configs.Options{}
-)
-
-func Setup(options ...configs.Option) {
-	for _, option := range options {
-		option(&opt)
-	}
-}
-
 type Cluster struct {
 	log      logs.Logger
-	client   rueidis.Client
+	client   *hazelcast.Client
 	shared   shareds.Shared
 	barrier  barriers.Barrier
 	node     clusters.Node
 	members  clusters.Nodes
+	nodes    *hazelcast.Map
 	nodeKey  string
 	ttl      time.Duration
 	interval time.Duration
@@ -53,31 +41,67 @@ type Cluster struct {
 
 func (cluster *Cluster) Construct(options clusters.ClusterOptions) (err error) {
 	cluster.log = options.Log.With("cluster", name)
-	config := Config{}
+	config := configs.Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
-		err = errors.Warning("cluster: construct failed").WithMeta("cluster", "redis").WithCause(configErr)
+		err = errors.Warning("hazelcast: construct failed").WithCause(configErr)
 		return
 	}
-	client, clientErr := config.Make(opt)
-	if clientErr != nil {
-		err = errors.Warning("cluster: construct failed").WithMeta("cluster", "redis").WithCause(clientErr)
+	conf, confErr := config.As()
+	if confErr != nil {
+		err = errors.Warning("hazelcast: construct failed").WithCause(confErr)
 		return
 	}
-	shared, sharedErr := rs.NewWithClient(client)
-	if sharedErr != nil {
-		err = errors.Warning("cluster: construct failed").WithMeta("cluster", "redis").WithCause(sharedErr)
-		return
-	}
-	barrier, barrierErr := rb.NewWithClient(client, config.Barrier.TTL)
-	if barrierErr != nil {
-		err = errors.Warning("cluster: construct failed").WithMeta("cluster", "redis").WithCause(barrierErr)
-		return
+	conf.Logger.CustomLogger = &log{
+		raw: cluster.log.With("hazelcast", "logger"),
 	}
 
+	client, clientErr := hazelcast.StartNewClientWithConfig(context.TODO(), conf)
+	if clientErr != nil {
+		err = errors.Warning("hazelcast: construct failed").WithCause(clientErr)
+		return
+	}
 	cluster.client = client
+	// shared
+	sharedConfig, shardConfigErr := config.SharedConfig()
+	if shardConfigErr != nil {
+		err = errors.Warning("hazelcast: construct failed").WithCause(shardConfigErr)
+		return
+	}
+	shared := extraShared
+	if shared == nil {
+		shared = NewShared(client)
+	}
+	sharedErr := shared.Construct(shareds.Options{
+		Log:    cluster.log.With("shared", "hazelcast"),
+		Config: sharedConfig,
+	})
+	if sharedErr != nil {
+		err = errors.Warning("hazelcast: construct failed").WithCause(sharedErr)
+		return
+	}
 	cluster.shared = shared
-	cluster.barrier = barrier
+	// barrier
+	if extraBarrier == nil {
+		barrier, barrierErr := NewBarrier(context.TODO(), client)
+		if barrierErr != nil {
+			err = errors.Warning("hazelcast: construct failed").WithCause(barrierErr)
+			return
+		}
+		cluster.barrier = barrier
+	} else {
+		barrierConfig, barrierConfigErr := config.BarrierConfig()
+		if barrierConfigErr != nil {
+			err = errors.Warning("hazelcast: construct failed").WithCause(barrierConfigErr)
+			return
+		}
+		barrier, barrierErr := extraBarrier.Build(context.TODO(), barrierConfig)
+		if barrierErr != nil {
+			err = errors.Warning("hazelcast: construct failed").WithCause(barrierErr)
+			return
+		}
+		cluster.barrier = barrier
+	}
 
 	cluster.node = clusters.Node{
 		Id:       options.Id,
@@ -87,6 +111,12 @@ func (cluster *Cluster) Construct(options clusters.ClusterOptions) (err error) {
 	}
 	cluster.nodeKey = prefix + cluster.node.Id
 	cluster.members = make(clusters.Nodes, 0, 1)
+
+	cluster.nodes, err = client.GetMap(context.TODO(), "fns:cluster:nodes")
+	if err != nil {
+		err = errors.Warning("hazelcast: construct failed").WithCause(err)
+		return
+	}
 
 	cluster.ttl = config.KeepAlive.GetTTL()
 	cluster.interval = config.KeepAlive.GetInterval()
@@ -104,19 +134,20 @@ func (cluster *Cluster) Join(ctx context.Context) (err error) {
 	if len(cluster.node.Services) > 0 {
 		nodeBytes, encodeErr := json.Marshal(cluster.node)
 		if encodeErr != nil {
-			err = errors.Warning("cluster: join failed").WithMeta("cluster", "redis").WithCause(encodeErr)
+			err = errors.Warning("cluster: join failed").WithMeta("cluster", name).WithCause(encodeErr)
 			return
 		}
-		completed := cluster.client.B().Set().Key(cluster.nodeKey).Value(string(nodeBytes)).Ex(cluster.ttl).Build()
-		setErr := cluster.client.Do(ctx, completed).Error()
+		setErr := cluster.nodes.SetWithTTL(ctx, cluster.nodeKey, string(nodeBytes), cluster.ttl)
 		if setErr != nil {
-			err = errors.Warning("cluster: join failed").WithMeta("cluster", "redis").WithCause(setErr)
+			err = errors.Warning("cluster: join failed").WithMeta("cluster", name).WithCause(setErr)
 			return
 		}
 		cluster.joined = true
 	}
 	cluster.closeCh = make(chan struct{}, 1)
+
 	go cluster.listen()
+
 	if cluster.log.DebugEnabled() {
 		cluster.log.Debug().With("action", "join").Message("cluster: join succeed")
 	}
@@ -125,13 +156,21 @@ func (cluster *Cluster) Join(ctx context.Context) (err error) {
 
 func (cluster *Cluster) Leave(ctx context.Context) (err error) {
 	close(cluster.closeCh)
+	errs := errors.MakeErrors()
 	if cluster.joined {
-		rmErr := cluster.client.Do(ctx, cluster.client.B().Del().Key(cluster.nodeKey).Build()).Error()
+		_, rmErr := cluster.nodes.Remove(ctx, cluster.nodeKey)
 		if rmErr != nil {
-			err = errors.Warning("cluster: leave failed").WithMeta("cluster", "redis").WithCause(rmErr)
+			errs.Append(rmErr)
 		}
 	}
-	cluster.client.Close()
+	shutdownErr := cluster.client.Shutdown(ctx)
+	if shutdownErr != nil {
+		errs.Append(shutdownErr)
+	}
+	if len(errs) > 0 {
+		err = errors.Warning("cluster: leave failed").WithMeta("cluster", name).WithCause(errs.Error())
+		return
+	}
 	return
 }
 
@@ -153,7 +192,6 @@ func (cluster *Cluster) Barrier() (barrier barriers.Barrier) {
 func (cluster *Cluster) listen() {
 	ctx := context.TODO()
 	stopped := false
-	ttl := int64(cluster.ttl.Seconds())
 	timer := time.NewTimer(cluster.interval)
 	for {
 		select {
@@ -163,41 +201,43 @@ func (cluster *Cluster) listen() {
 		case <-timer.C:
 			// expire
 			if cluster.joined {
-				expireErr := cluster.client.Do(ctx, cluster.client.B().Expire().Key(cluster.nodeKey).Seconds(ttl).Build()).Error()
+				expireErr := cluster.nodes.SetTTL(ctx, cluster.nodeKey, cluster.ttl)
 				if expireErr != nil {
 					if cluster.log.DebugEnabled() {
 						cluster.log.Debug().With("action", "keepalive").Message("cluster: keepalive failed")
 					}
 					if cluster.log.ErrorEnabled() {
-						cluster.log.Error().Cause(expireErr).With("action", "expire").Message("cluster: keepalive failed")
+						cluster.log.Error().Cause(expireErr).With("hazelcast", "setTTL").Message("cluster: keepalive failed")
 					}
 				} else {
 					if cluster.log.DebugEnabled() {
-						sec, ttlErr := cluster.client.Do(ctx, cluster.client.B().Ttl().Key(cluster.nodeKey).Build()).AsInt64()
-						if ttlErr != nil {
-							cluster.log.Debug().Cause(ttlErr).With("action", "keepalive").Message("cluster: get node ttl failed")
+						view, viewErr := cluster.nodes.GetEntryView(ctx, cluster.nodeKey)
+						if viewErr != nil {
+							cluster.log.Debug().Cause(viewErr).With("cluster", "keepalive").Message("cluster: get node ttl failed")
 						}
-						cluster.log.Debug().With("action", "keepalive").With("ttl", sec).Message("cluster: keepalive succeed")
+						if view != nil {
+							cluster.log.Debug().With("action", "keepalive").With("ttl", time.Duration(view.TTL)*time.Millisecond).Message("cluster: keepalive succeed")
+						}
 					}
 				}
 
 			}
 			// list
-			keys, keysErr := cluster.client.Do(ctx, cluster.client.B().Keys().Pattern(fmt.Sprintf("%s*", prefix)).Build()).AsStrSlice()
-			if keysErr != nil && cluster.log.ErrorEnabled() {
-				cluster.log.Error().Cause(keysErr).With("action", "keys").Message("cluster get nodes failed")
+			values, valuesErr := cluster.nodes.GetValues(ctx)
+			if valuesErr != nil {
+				cluster.log.Error().Cause(valuesErr).With("action", "values").Message("cluster get nodes failed")
 				break
 			}
+
 			news := make(clusters.Nodes, 0, 8)
-			if len(keys) > 0 {
-				values, valuesErr := cluster.client.Do(ctx, cluster.client.B().Mget().Key(keys...).Build()).AsStrSlice()
-				if valuesErr != nil {
-					cluster.log.Error().Cause(valuesErr).With("action", "mget").Message("cluster get nodes failed")
-					break
-				}
+			if len(values) > 0 {
 				for _, value := range values {
+					s, ok := value.(string)
+					if !ok {
+						continue
+					}
 					node := clusters.Node{}
-					decodeErr := json.Unmarshal(bytex.FromString(value), &node)
+					decodeErr := json.Unmarshal(bytex.FromString(s), &node)
 					if decodeErr != nil {
 						if cluster.log.ErrorEnabled() {
 							cluster.log.Error().Cause(decodeErr).With("action", "decode").Message("cluster get nodes failed")

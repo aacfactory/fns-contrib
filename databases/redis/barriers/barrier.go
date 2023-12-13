@@ -3,6 +3,7 @@ package barriers
 import (
 	cctx "context"
 	"fmt"
+	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis/configs"
 	"github.com/aacfactory/fns/barriers"
@@ -105,7 +106,7 @@ func NewWithClient(client rueidis.Client, ttl time.Duration) (v barriers.Barrier
 		return
 	}
 	if ttl < 1 {
-		ttl = 500 * time.Millisecond
+		ttl = 5 * time.Second
 	}
 	v = &Barrier{
 		group:  singleflight.Group{},
@@ -113,6 +114,52 @@ func NewWithClient(client rueidis.Client, ttl time.Duration) (v barriers.Barrier
 		ttl:    ttl,
 		prefix: []byte("fns:barrier:"),
 	}
+	return
+}
+
+func BarrierBuilder(options ...configs.Option) barriers.BarrierBuilder {
+	opt := configs.Options{}
+	for _, option := range options {
+		option(&opt)
+	}
+	return &barrierBuilder{
+		options: opt,
+	}
+}
+
+type barrierBuilder struct {
+	options configs.Options
+}
+
+func (builder *barrierBuilder) Build(ctx context.Context, config configures.Config) (barrier barriers.Barrier, err error) {
+	conf := configs.Config{}
+	configErr := config.As(&conf)
+	if configErr != nil {
+		err = errors.Warning("redis: new barrier failed").WithCause(configErr)
+		return
+	}
+
+	clientOption, clientOptionErr := conf.AsOption(builder.options)
+	if clientOptionErr != nil {
+		err = errors.Warning("redis: new barrier failed").WithCause(clientOptionErr)
+		return
+	}
+	ac, acErr := rueidisaside.NewClient(rueidisaside.ClientOption{
+		ClientBuilder: nil,
+		ClientOption:  clientOption,
+		ClientTTL:     0,
+	})
+	if acErr != nil {
+		err = errors.Warning("redis: new barrier failed").WithCause(acErr)
+		return
+	}
+	barrier = &Barrier{
+		group:  singleflight.Group{},
+		client: ac,
+		ttl:    5 * time.Second,
+		prefix: []byte("fns:barrier:"),
+	}
+
 	return
 }
 
