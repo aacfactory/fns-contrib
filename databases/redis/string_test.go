@@ -95,3 +95,35 @@ func TestDel(t *testing.T) {
 		return
 	}
 }
+
+func TestMGet(t *testing.T) {
+	setupErr := setup()
+	if setupErr != nil {
+		t.Error(fmt.Sprintf("%+v", setupErr))
+		return
+	}
+	defer tests.Teardown()
+	ctx := tests.TODO()
+	for i := 0; i < 3; i++ {
+		_, setErr := redis.Do(ctx, redis.Set(fmt.Sprintf("some_%d", i), time.Now().Format(time.RFC3339)).Ex(10*time.Second))
+		if setErr != nil {
+			t.Error(fmt.Sprintf("%+v", setErr))
+			return
+		}
+	}
+	r, gerErr := redis.Do(ctx, redis.MGet("some_0", "some_1", "some_2"))
+	if gerErr != nil {
+		t.Error(gerErr)
+		return
+	}
+	if r.IsNil() {
+		t.Log("nil")
+		return
+	}
+	ss, ssErr := r.AsStrSlice()
+	if ssErr != nil {
+		t.Error(ssErr)
+		return
+	}
+	t.Log(ss)
+}
