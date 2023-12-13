@@ -50,3 +50,27 @@ if sErr != nil {
 	return
 }
 ```
+
+## Cluster
+Register cluster
+```go
+imports (
+	_ "github.com/aacfactory/fns-contrib/databases/redis/clusters"
+)
+```
+Setup config
+```yaml
+cluster:
+  name: "redis"
+  option:
+    initAddress:
+      - "ip:port"
+    username: ""
+    password: ""
+    keepAlive:
+      ttl: "60s"
+      interval: "10s"
+    barrier:
+      ttl: "5s"
+```
+Note: it will use it owned barrier steadof common cluster barrier.
