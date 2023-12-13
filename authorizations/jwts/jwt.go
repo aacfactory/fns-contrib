@@ -2,7 +2,8 @@ package jwts
 
 import (
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/services/authorizations"
 	"github.com/aacfactory/json"
 	"github.com/golang-jwt/jwt/v4"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	Attr *json.Object `json:"attr"`
+	Attr map[string]json.RawMessage `json:"attr"`
 }
 
 type JWT struct {
@@ -21,31 +22,32 @@ type JWT struct {
 	audience []string
 }
 
-func (j *JWT) Sign(id string, userId service.RequestUserId, attr *json.Object, expirations time.Duration) (signed string, err error) {
-	if id == "" {
-		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("id is required"))
+func (j *JWT) Sign(tid string, account string, attributes authorizations.Attributes, expireAT time.Time) (signed string, err error) {
+	if tid == "" {
+		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("token id is required"))
 		return
 	}
-	if !userId.Exist() {
-		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("userId is required"))
+	if account == "" {
+		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("authorization account is required"))
 		return
 	}
-	if expirations < 1 {
+	if expireAT.IsZero() {
 		err = errors.Warning("jwt: sign failed").WithCause(errors.Warning("expirations is required"))
 		return
 	}
-	if attr == nil {
-		attr = json.NewObject()
+	attr := make(map[string]json.RawMessage)
+	for _, attribute := range attributes {
+		attr[bytex.ToString(attribute.Key)] = attribute.Value
 	}
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    j.issuer,
-			Subject:   userId.String(),
+			Subject:   account,
 			Audience:  j.audience,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expirations)),
+			ExpiresAt: jwt.NewNumericDate(expireAT),
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-8 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        id,
+			ID:        tid,
 		},
 		Attr: attr,
 	}
@@ -54,10 +56,10 @@ func (j *JWT) Sign(id string, userId service.RequestUserId, attr *json.Object, e
 	return
 }
 
-func (j *JWT) Parse(signed string) (id string, userId service.RequestUserId, attr *json.Object, valid bool, rc jwt.RegisteredClaims, err error) {
+func (j *JWT) Parse(signed string) (id string, account string, attributes authorizations.Attributes, valid bool, rc jwt.RegisteredClaims, err error) {
 	parsed, parseErr := jwt.ParseWithClaims(signed, &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{},
-		Attr:             json.NewObject(),
+		Attr:             make(map[string]json.RawMessage),
 	}, func(token *jwt.Token) (interface{}, error) {
 		return j.pubKey, nil
 	}, jwt.WithValidMethods([]string{j.method.Alg()}))
@@ -68,10 +70,12 @@ func (j *JWT) Parse(signed string) (id string, userId service.RequestUserId, att
 			return
 		}
 		id = claims.ID
-		userId = service.RequestUserId(claims.Subject)
-		attr = claims.Attr
-		if attr == nil {
-			attr = json.NewObject()
+		account = claims.Subject
+		for key, message := range claims.Attr {
+			attributes = append(attributes, authorizations.Attribute{
+				Key:   bytex.FromString(key),
+				Value: message,
+			})
 		}
 		valid = parsed.Valid
 		rc = claims.RegisteredClaims

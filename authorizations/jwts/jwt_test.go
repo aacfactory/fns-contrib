@@ -3,7 +3,7 @@ package jwts_test
 import (
 	"fmt"
 	"github.com/aacfactory/fns-contrib/authorizations/jwts"
-	"github.com/aacfactory/json"
+	"github.com/aacfactory/fns/services/authorizations"
 	"testing"
 	"time"
 )
@@ -22,7 +22,12 @@ func TestJWT(t *testing.T) {
 		t.Errorf("%+v", jwtErr)
 		return
 	}
-	signed, signErr := jwt.Sign("1", "user:0", json.NewObject(), 1*time.Second)
+	attr := make(authorizations.Attributes, 0, 1)
+	attr = append(attr, authorizations.Attribute{
+		Key:   []byte("a"),
+		Value: []byte("\"a\""),
+	})
+	signed, signErr := jwt.Sign("1", "user:0", attr, time.Now().Add(10*time.Hour))
 	if signErr != nil {
 		t.Errorf("%+v", signErr)
 		return
