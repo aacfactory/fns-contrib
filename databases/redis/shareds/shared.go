@@ -18,11 +18,35 @@ func Shared(options ...configs.Option) (v shareds.Shared) {
 	return
 }
 
+func NewWithClient(client rueidis.Client) (v shareds.Shared, err error) {
+
+	lockers, lockersErr := NewLockersWithClient(client)
+	if lockersErr != nil {
+		err = errors.Warning("shared: new failed").WithMeta("shareds", "redis").WithCause(lockersErr)
+		return
+	}
+	store, storeErr := NewStoreWithClient(client)
+	if storeErr != nil {
+		err = errors.Warning("shared: new failed").WithMeta("shareds", "redis").WithCause(storeErr)
+		return
+	}
+
+	v = &shared{
+		client:  client,
+		lockers: lockers,
+		store:   store,
+		shared:  true,
+	}
+
+	return
+}
+
 type shared struct {
 	options configs.Options
 	client  rueidis.Client
 	lockers shareds.Lockers
 	store   shareds.Store
+	shared  bool
 }
 
 func (s *shared) Construct(options shareds.Options) (err error) {
@@ -64,5 +88,8 @@ func (s *shared) Store() (store shareds.Store) {
 }
 
 func (s *shared) Close() {
+	if s.shared {
+		return
+	}
 	s.client.Close()
 }
