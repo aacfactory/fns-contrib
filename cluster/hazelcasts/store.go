@@ -10,7 +10,7 @@ import (
 )
 
 func NewStore(ctx context.Context, client *hazelcast.Client) (v shareds.Store, err error) {
-	value, valueErr := client.GetMap(ctx, "fns:shared:store")
+	value, valueErr := NewMaps(ctx, "fns:shared:store", client, 64)
 	if valueErr != nil {
 		err = errors.Warning("hazelcast: new shared store failed").WithCause(valueErr)
 		return
@@ -25,25 +25,21 @@ func NewStore(ctx context.Context, client *hazelcast.Client) (v shareds.Store, e
 
 type Store struct {
 	client           *hazelcast.Client
-	value            *hazelcast.Map
+	value            Maps
 	counterKeyPrefix []byte
 }
 
 func (store *Store) Get(ctx context.Context, key []byte) (value []byte, has bool, err error) {
-	v, getErr := store.value.Get(ctx, bytex.ToString(key))
-	if getErr != nil {
-		err = errors.Warning("hazelcast: shared store get failed").WithCause(getErr)
+	value, has, err = store.value.Get(ctx, key)
+	if err != nil {
+		err = errors.Warning("hazelcast: shared store get failed").WithCause(err)
 		return
 	}
-	if v == nil {
-		return
-	}
-	value, has = v.([]byte)
 	return
 }
 
 func (store *Store) Set(ctx context.Context, key []byte, value []byte) (err error) {
-	err = store.value.Set(ctx, bytex.ToString(key), value)
+	err = store.value.Set(ctx, key, value)
 	if err != nil {
 		err = errors.Warning("hazelcast: shared store set failed").WithCause(err)
 		return
@@ -52,7 +48,7 @@ func (store *Store) Set(ctx context.Context, key []byte, value []byte) (err erro
 }
 
 func (store *Store) SetWithTTL(ctx context.Context, key []byte, value []byte, ttl time.Duration) (err error) {
-	err = store.value.SetWithTTL(ctx, bytex.ToString(key), value, ttl)
+	err = store.value.SetWithTTL(ctx, key, value, ttl)
 	if err != nil {
 		err = errors.Warning("hazelcast: shared store set failed").WithCause(err)
 		return
@@ -97,7 +93,7 @@ func (store *Store) Incr(ctx context.Context, key []byte, delta int64) (v int64,
 }
 
 func (store *Store) Remove(ctx context.Context, key []byte) (err error) {
-	_, err = store.value.Remove(ctx, bytex.ToString(key))
+	err = store.value.Remove(ctx, key)
 	if err != nil {
 		err = errors.Warning("hazelcast: shared store remove failed").WithCause(err)
 		return
