@@ -25,7 +25,7 @@ func NewStore(ctx context.Context, client *hazelcast.Client) (v shareds.Store, e
 
 type Store struct {
 	client           *hazelcast.Client
-	value            Maps
+	value            *Maps
 	counterKeyPrefix []byte
 }
 

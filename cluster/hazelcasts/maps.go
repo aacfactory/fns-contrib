@@ -10,9 +10,13 @@ import (
 	"time"
 )
 
-func NewMaps(ctx context.Context, name string, client *hazelcast.Client, size int) (v Maps, err error) {
+func NewMaps(ctx context.Context, name string, client *hazelcast.Client, size int) (v *Maps, err error) {
 	if size < 1 {
 		size = 64
+	}
+	v = &Maps{
+		values: make([]*hazelcast.Map, size),
+		size:   uint64(size),
 	}
 	for i := 0; i < size; i++ {
 		key := fmt.Sprintf("%s:%d", name, i+1)
@@ -21,16 +25,19 @@ func NewMaps(ctx context.Context, name string, client *hazelcast.Client, size in
 			err = errors.Warning("hazelcast: new maps failed").WithCause(mErr)
 			return
 		}
-		v = append(v, m)
+		v.values[i] = m
 	}
 	return
 }
 
-type Maps []*hazelcast.Map
+type Maps struct {
+	values []*hazelcast.Map
+	size   uint64
+}
 
-func (mm Maps) Get(ctx context.Context, key []byte) (value []byte, has bool, err error) {
-	idx := xxhash.Sum64(key) % uint64(len(mm))
-	m := mm[idx]
+func (mm *Maps) Get(ctx context.Context, key []byte) (value []byte, has bool, err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
 	v, getErr := m.Get(ctx, bytex.ToString(key))
 	if getErr != nil {
 		err = getErr
@@ -43,23 +50,23 @@ func (mm Maps) Get(ctx context.Context, key []byte) (value []byte, has bool, err
 	return
 }
 
-func (mm Maps) Set(ctx context.Context, key []byte, value []byte) (err error) {
-	idx := xxhash.Sum64(key) % uint64(len(mm))
-	m := mm[idx]
+func (mm *Maps) Set(ctx context.Context, key []byte, value []byte) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
 	err = m.Set(ctx, bytex.ToString(key), value)
 	return
 }
 
-func (mm Maps) SetWithTTL(ctx context.Context, key []byte, value []byte, ttl time.Duration) (err error) {
-	idx := xxhash.Sum64(key) % uint64(len(mm))
-	m := mm[idx]
+func (mm *Maps) SetWithTTL(ctx context.Context, key []byte, value []byte, ttl time.Duration) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
 	err = m.SetWithTTL(ctx, bytex.ToString(key), value, ttl)
 	return
 }
 
-func (mm Maps) Remove(ctx context.Context, key []byte) (err error) {
-	idx := xxhash.Sum64(key) % uint64(len(mm))
-	m := mm[idx]
+func (mm *Maps) Remove(ctx context.Context, key []byte) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
 	err = m.Delete(ctx, bytex.ToString(key))
 	return
 }
