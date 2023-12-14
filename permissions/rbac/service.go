@@ -1,136 +1,57 @@
 package rbac
 
 import (
-	"context"
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
+	"github.com/aacfactory/fns/services"
 )
 
-const (
-	name     = "rbac"
-	saveFn   = "save"
-	removeFn = "remove"
-	getFn    = "getFn"
-	listFn   = "listFn"
-	bindFn   = "bind"
-	boundsFn = "bounds"
+var (
+	endpointName = []byte("rbac")
 )
 
-func Service(store Store) service.Service {
+func New(store Store) services.Service {
 	if store == nil {
 		panic(fmt.Sprintf("%+v", errors.Warning("rbac: store is required")))
 		return nil
 	}
-	return &service_{
-		Abstract: service.NewAbstract(name, true, convertStoreToComponent(store)),
+	return &service{
+		Abstract: services.NewAbstract(string(endpointName), true, store),
+		store:    store,
 	}
 }
 
-type service_ struct {
-	service.Abstract
+type service struct {
+	services.Abstract
 	store Store
 }
 
-func (svc *service_) Build(options service.Options) (err error) {
-	err = svc.Abstract.Build(options)
+func (svc *service) Construct(options services.Options) (err error) {
+	err = svc.Abstract.Construct(options)
 	if err != nil {
 		return
 	}
-	if svc.Components() == nil {
-		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: components is required"))
-		return
-	}
-	component, has := svc.Components()[storeComponentName]
-	if !has {
-		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: store components is required"))
-		return
-	}
-	store, ok := component.(*storeComponent)
-	if !ok {
-		err = errors.Warning("rbac: build failed").WithCause(errors.Warning("rbac: store is required"))
-		return
-	}
-	svc.store = store.store
-	return
-}
 
-func (svc *service_) Handle(ctx context.Context, fn string, argument service.Argument) (v interface{}, err errors.CodeError) {
-	switch fn {
-	case saveFn:
-		param := SaveRoleParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: save role failed").WithCause(paramErr)
-			break
-		}
-		err = svc.store.Save(ctx, param)
-		break
-	case removeFn:
-		param := ""
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: remove role failed").WithCause(paramErr)
-			break
-		}
-		role, has, getErr := svc.store.Get(ctx, param)
-		if getErr != nil {
-			err = errors.Warning("rbac: remove role failed").WithCause(getErr)
-			break
-		}
-		if !has {
-			err = ErrRoleNofFound
-			break
-		}
-		if role.Children != nil && len(role.Children) > 0 {
-			err = ErrCantRemoveHasChildrenRow
-			break
-		}
-		err = svc.store.Remove(ctx, param)
-		break
-	case getFn:
-		param := ""
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: get role failed").WithCause(paramErr)
-			break
-		}
-		has := false
-		v, has, err = svc.store.Get(ctx, param)
-		if err == nil && !has {
-			err = ErrRoleNofFound
-		}
-		break
-	case listFn:
-		param := make([]string, 0, 1)
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: list role failed").WithCause(paramErr)
-			break
-		}
-		v, err = svc.store.List(ctx, param)
-		break
-	case bindFn:
-		param := BindParam{}
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: user bind roles failed").WithCause(paramErr)
-			break
-		}
-		err = svc.store.Bind(ctx, param)
-		break
-	case boundsFn:
-		param := ""
-		paramErr := argument.As(&param)
-		if paramErr != nil {
-			err = errors.Warning("rbac: get user roles failed").WithCause(paramErr)
-			break
-		}
-		v, err = svc.store.Bounds(ctx, param)
-		break
-	default:
-		err = errors.Warning("rbac: fn was not found")
-		break
-	}
+	svc.AddFunction(&bindFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&unbindFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&boundsFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&getFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&listFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&saveFn{
+		store: svc.store,
+	})
+	svc.AddFunction(&removeFn{
+		store: svc.store,
+	})
 	return
 }

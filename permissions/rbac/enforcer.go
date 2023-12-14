@@ -1,10 +1,10 @@
 package rbac
 
 import (
-	"context"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/service"
-	"github.com/aacfactory/fns/service/builtin/permissions"
+	"github.com/aacfactory/fns/context"
+	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/fns/services/permissions"
 	"github.com/aacfactory/logs"
 )
 
@@ -21,33 +21,33 @@ func (e *enforcer) Name() (name string) {
 	return
 }
 
-func (e *enforcer) Build(options service.ComponentOptions) (err error) {
+func (e *enforcer) Construct(options services.Options) (err error) {
 	e.log = options.Log
 	return
 }
 
-func (e *enforcer) Close() {
+func (e *enforcer) Shutdown(_ context.Context) {
 	return
 }
 
-func (e *enforcer) Enforce(ctx context.Context, param permissions.EnforceParam) (ok bool, err errors.CodeError) {
-	if param.UserId == "" {
-		err = errors.Warning("rbac: enforce failed").WithCause(errors.Warning("user id is required"))
+func (e *enforcer) Enforce(ctx context.Context, param permissions.EnforceParam) (ok bool, err error) {
+	if !param.Account.Exist() {
+		err = errors.Warning("rbac: enforce failed").WithCause(errors.Warning("account is required"))
 		return
 	}
-	if param.Service == "" {
-		err = errors.Warning("rbac: enforce failed").WithCause(errors.Warning("service is required"))
+	if param.Endpoint == "" {
+		err = errors.Warning("rbac: enforce failed").WithCause(errors.Warning("endpoint is required"))
 		return
 	}
 	if param.Fn == "" {
 		err = errors.Warning("rbac: enforce failed").WithCause(errors.Warning("fn is required"))
 		return
 	}
-	roles, rolesErr := Bounds(ctx, param.UserId.String())
+	roles, rolesErr := Bounds(ctx, param.Account)
 	if rolesErr != nil {
 		err = errors.Warning("rbac: enforce failed").WithCause(rolesErr)
 		return
 	}
-	ok = roles.CheckPolicy(param.Service, param.Fn)
+	ok = roles.CheckPolicy(param.Endpoint, param.Fn)
 	return
 }
