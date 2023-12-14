@@ -70,3 +70,24 @@ func (mm *Maps) Remove(ctx context.Context, key []byte) (err error) {
 	err = m.Delete(ctx, bytex.ToString(key))
 	return
 }
+
+func (mm *Maps) LockWithLease(ctx context.Context, key []byte, ttl time.Duration) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
+	err = m.LockWithLease(ctx, key, ttl)
+	return
+}
+
+func (mm *Maps) SetTTL(ctx context.Context, key []byte, ttl time.Duration) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
+	err = m.SetTTL(ctx, bytex.ToString(key), ttl)
+	return
+}
+
+func (mm *Maps) Unlock(ctx context.Context, key []byte) (err error) {
+	idx := xxhash.Sum64(key) % mm.size
+	m := mm.values[idx]
+	err = m.Unlock(ctx, key)
+	return
+}

@@ -14,9 +14,9 @@ import (
 )
 
 func NewBarrier(ctx context.Context, client *hazelcast.Client) (v barriers.Barrier, err error) {
-	mm, getErr := client.GetMap(ctx, "fns:barrier")
-	if getErr != nil {
-		err = errors.Warning("hazelcast: new barrier failed").WithCause(getErr)
+	mm, mmErr := NewMaps(ctx, "fns:barrier", client, 64)
+	if mmErr != nil {
+		err = errors.Warning("hazelcast: new barrier failed").WithCause(mmErr)
 		return
 	}
 	ttl := 5 * time.Second
@@ -34,7 +34,7 @@ func NewBarrier(ctx context.Context, client *hazelcast.Client) (v barriers.Barri
 }
 
 type Barrier struct {
-	values   *hazelcast.Map
+	values   *Maps
 	ttl      time.Duration
 	interval time.Duration
 	loops    int
@@ -58,34 +58,28 @@ func (barrier *Barrier) Do(ctx context.Context, key []byte, fn func() (result in
 }
 
 func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (result interface{}, err error)) (r interface{}, err error) {
-	sk := bytex.ToString(key)
-	lockErr := barrier.values.LockWithLease(ctx, sk, barrier.ttl)
+	lockErr := barrier.values.LockWithLease(ctx, key, barrier.ttl)
 	if lockErr != nil {
 		err = errors.Warning("hazelcast: barrier failed").WithCause(lockErr)
 		return
 	}
 
-	value, getErr := barrier.values.Get(ctx, sk)
+	content, has, getErr := barrier.values.Get(ctx, key)
 	if getErr != nil {
-		_ = barrier.values.Unlock(ctx, sk)
+		_ = barrier.values.Unlock(ctx, key)
 		err = errors.Warning("hazelcast: barrier failed").WithCause(getErr)
 		return
 	}
-	var content []byte
-	has := value != nil
-	if has {
-		content, has = value.([]byte)
-	}
 	if !has {
 		bv := NewBarrierValue()
-		setErr := barrier.values.SetWithTTL(ctx, sk, bv.Bytes(), barrier.ttl)
+		setErr := barrier.values.SetWithTTL(ctx, key, bv.Bytes(), barrier.ttl)
 		if setErr != nil {
-			_ = barrier.values.Unlock(ctx, sk)
+			_ = barrier.values.Unlock(ctx, key)
 			err = errors.Warning("hazelcast: barrier failed").WithCause(setErr)
 			return
 		}
 	}
-	unlockErr := barrier.values.Unlock(ctx, sk)
+	unlockErr := barrier.values.Unlock(ctx, key)
 	if unlockErr != nil {
 		err = errors.Warning("hazelcast: barrier failed").WithCause(unlockErr)
 		return
@@ -120,7 +114,7 @@ func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (res
 				return
 			}
 		}
-		setErr := barrier.values.SetWithTTL(ctx, sk, bv.Bytes(), barrier.ttl)
+		setErr := barrier.values.SetWithTTL(ctx, key, bv.Bytes(), barrier.ttl)
 		if setErr != nil {
 			err = errors.Warning("hazelcast: barrier failed").WithCause(setErr)
 			return
@@ -135,9 +129,8 @@ func (barrier *Barrier) Forget(ctx context.Context, key []byte) {
 		key = []byte{'-'}
 	}
 	barrier.group.Forget(bytex.ToString(key))
-	sk := bytex.ToString(key)
 	//_, _ = barrier.values.Remove(ctx, sk)
-	_ = barrier.values.SetTTL(ctx, sk, 1*time.Second)
+	_ = barrier.values.SetTTL(ctx, key, 1*time.Second)
 	return
 }
 
