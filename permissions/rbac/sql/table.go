@@ -1,14 +1,15 @@
 package sql
 
 import (
-	"time"
+	"github.com/aacfactory/fns-contrib/databases/sql"
+	"github.com/aacfactory/fns-contrib/databases/sql/dac"
 )
 
 var (
-	_roleSchema = ""
-	_roleTable  = ""
-	_userSchema = ""
-	_userTable  = ""
+	roleSchemaName = ""
+	roleTableName  = ""
+	userSchemaName = ""
+	userTableName  = ""
 )
 
 type Policy struct {
@@ -16,49 +17,29 @@ type Policy struct {
 	Action string `json:"action"`
 }
 
-type RoleRows []*RoleRow
-
-func (rows RoleRows) Len() int {
-	return len(rows)
+type Role struct {
+	Id          string           `column:"ID,pk" json:"id" tree:"ParentId+Children"`
+	CreateBY    string           `column:"CREATE_BY,acb" json:"createBY"`
+	CreateAT    sql.NullDatetime `column:"CREATE_AT,act" json:"createAT"`
+	ModifyBY    string           `column:"MODIFY_BY,amb" json:"modifyBY"`
+	ModifyAT    sql.NullDatetime `column:"MODIFY_AT,amt" json:"modifyAT"`
+	Version     int64            `column:"VERSION,aol" json:"version"`
+	Name        string           `column:"NAME" json:"name"`
+	Description string           `column:"DESCRIPTION" json:"description"`
+	ParentId    string           `column:"PARENT_ID" json:"parentId"`
+	Policies    []Policy         `column:"POLICIES,json" json:"policies"`
 }
 
-func (rows RoleRows) Less(i, j int) bool {
-	return rows[i].Id < rows[j].Id
+func (row Role) TableInfo() dac.TableInfo {
+	return dac.Info(roleTableName, dac.Schema(roleSchemaName))
 }
 
-func (rows RoleRows) Swap(i, j int) {
-	rows[i], rows[j] = rows[j], rows[i]
-	return
+type UserRole struct {
+	Id      string   `column:"ID,pk" json:"id"`
+	RoleIds []string `column:"ROLE_IDS,json" json:"roleIds"`
+	Version int64    `column:"VERSION,aol" json:"version"`
 }
 
-type RoleRow struct {
-	Id          string    `col:"ID,pk" json:"id"`
-	CreateBY    string    `col:"CREATE_BY,acb" json:"createBY"`
-	CreateAT    time.Time `col:"CREATE_AT,act" json:"createAT"`
-	ModifyBY    string    `col:"MODIFY_BY,amb" json:"modifyBY"`
-	ModifyAT    time.Time `col:"MODIFY_AT,amt" json:"modifyAT"`
-	Version     int64     `col:"VERSION,aol" json:"version"`
-	Name        string    `col:"NAME" json:"name"`
-	Description string    `col:"DESCRIPTION" json:"description"`
-	ParentId    string    `col:"PARENT_ID" json:"parentId"`
-	Children    RoleRows  `col:"CHILDREN,tree,ID+PARENT_ID" json:"children"`
-	Policies    []*Policy `col:"POLICIES,json" json:"policies"`
-}
-
-func (t *RoleRow) TableName() (schema string, table string) {
-	schema = _roleSchema
-	table = _roleTable
-	return
-}
-
-type UserRoleRow struct {
-	Id      string   `col:"ID,pk" json:"id"`
-	RoleIds []string `col:"ROLE_IDS,json" json:"roleIds"`
-	Version int64    `col:"VERSION,aol" json:"version"`
-}
-
-func (t *UserRoleRow) TableName() (schema string, table string) {
-	schema = _userSchema
-	table = _userTable
-	return
+func (row UserRole) TableInfo() dac.TableInfo {
+	return dac.Info(userTableName, dac.Schema(userSchemaName))
 }

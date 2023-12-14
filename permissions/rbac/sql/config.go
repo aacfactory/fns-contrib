@@ -1,12 +1,21 @@
 package sql
 
+import "time"
+
 type Config struct {
-	Database  string `json:"database"`
-	RoleTable Table  `json:"roleTable"`
-	UserTable Table  `json:"userTable"`
+	Endpoint  string      `json:"endpoint"`
+	RoleTable TableConfig `json:"roleTable"`
+	UserTable TableConfig `json:"userTable"`
+	Cache     CacheConfig `json:"cache"`
 }
 
-type Table struct {
+type TableConfig struct {
 	Schema string `json:"schema" yaml:"schema"`
 	Table  string `json:"table" yaml:"table"`
+}
+
+type CacheConfig struct {
+	Disable      bool          `json:"disable"`
+	RolesTTL     time.Duration `json:"rolesTTL"`
+	UserRolesTTL time.Duration `json:"userRolesTTL"`
 }
