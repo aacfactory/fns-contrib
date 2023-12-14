@@ -1,8 +1,6 @@
 package kafka
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/context"
@@ -11,7 +9,6 @@ import (
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/segmentio/kafka-go/sasl/scram"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -124,37 +121,11 @@ func (svc *service) Construct(options services.Options) (err error) {
 		transport.SASL = auth
 	}
 	if config.Options.ClientTLS.Enabled {
-		clientTLS := &tls.Config{}
-		caPath := strings.TrimSpace(config.Options.ClientTLS.CA)
-		if caPath != "" {
-			caPEM, caErr := ioutil.ReadFile(caPath)
-			if caErr != nil {
-				err = errors.Warning("kafka: construct failed").WithCause(caErr)
-				return
-			}
-			rootCAs := x509.NewCertPool()
-			if !rootCAs.AppendCertsFromPEM(caPEM) {
-				err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("append root ca pool failed"))
-				return
-			}
-			clientTLS.RootCAs = rootCAs
-		}
-		certPath := strings.TrimSpace(config.Options.ClientTLS.Cert)
-		if certPath == "" {
-			err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("client cert file path is required"))
+		clientTLS, clientTLSErr := config.Options.ClientTLS.Config()
+		if clientTLSErr != nil {
+			err = errors.Warning("kafka: construct failed").WithCause(clientTLSErr)
 			return
 		}
-		keyPath := strings.TrimSpace(config.Options.ClientTLS.Key)
-		if keyPath == "" {
-			err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("client key file path is required"))
-			return
-		}
-		clientCertificate, clientCertificateErr := tls.LoadX509KeyPair(certPath, keyPath)
-		if clientCertificateErr != nil {
-			err = errors.Warning("kafka: construct failed").WithCause(clientCertificateErr)
-			return
-		}
-		clientTLS.Certificates = []tls.Certificate{clientCertificate}
 		dialer.TLS = clientTLS
 		transport.TLS = clientTLS
 	}
