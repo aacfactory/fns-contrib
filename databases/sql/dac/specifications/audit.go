@@ -4,6 +4,7 @@ import (
 	stdsql "database/sql"
 	"fmt"
 	"github.com/aacfactory/errors"
+	ssql "github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services/authorizations"
@@ -32,6 +33,13 @@ func setupAudit[T any](by *Column, at *Column, auth authorizations.Authorization
 				rat.Set(reflect.ValueOf(stdsql.NullTime{
 					Time:  time.Now(),
 					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(nullDatetimeType) {
+				rat.Set(reflect.ValueOf(ssql.NullDatetime{
+					NullTime: stdsql.NullTime{
+						Time:  time.Now(),
+						Valid: true,
+					},
 				}))
 			} else if at.Type.Value.ConvertibleTo(intType) {
 				rat.SetInt(time.Now().UnixMilli())
@@ -98,6 +106,13 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 				rat.Set(reflect.ValueOf(stdsql.NullTime{
 					Time:  time.Now(),
 					Valid: true,
+				}))
+			} else if at.Type.Value.ConvertibleTo(nullDatetimeType) {
+				rat.Set(reflect.ValueOf(ssql.NullDatetime{
+					NullTime: stdsql.NullTime{
+						Time:  time.Now(),
+						Valid: true,
+					},
 				}))
 			} else if at.Type.Value.ConvertibleTo(intType) {
 				rat.SetInt(time.Now().UnixMilli())
