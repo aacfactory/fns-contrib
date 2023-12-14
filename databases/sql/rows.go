@@ -331,7 +331,7 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 			}
 			*d = cv
 			break
-		case *NullTime:
+		case *NullDatetime:
 			cv, cvErr := column.Datetime()
 			if cvErr != nil {
 				err = errors.Warning("sql: scan failed").WithCause(cvErr).WithMeta("column", ct.Name)
@@ -346,7 +346,7 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 				err = errors.Warning("sql: scan failed").WithCause(cvErr).WithMeta("column", ct.Name)
 				return
 			}
-			d.Valid = true
+			d.Valid = !cv.IsZero()
 			d.Time = cv
 			break
 		case *times.Date:
@@ -357,6 +357,15 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 			}
 			*d = cv
 			break
+		case *NullDate:
+			cv, cvErr := column.Date()
+			if cvErr != nil {
+				err = errors.Warning("sql: scan failed").WithCause(cvErr).WithMeta("column", ct.Name)
+				return
+			}
+			d.Valid = !cv.IsZero()
+			d.Date = cv
+			break
 		case *times.Time:
 			cv, cvErr := column.Time()
 			if cvErr != nil {
@@ -364,6 +373,15 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 				return
 			}
 			*d = cv
+			break
+		case *NullTime:
+			cv, cvErr := column.Time()
+			if cvErr != nil {
+				err = errors.Warning("sql: scan failed").WithCause(cvErr).WithMeta("column", ct.Name)
+				return
+			}
+			d.Valid = !cv.IsZero()
+			d.Time = cv
 			break
 		case *[]byte:
 			cv, cvErr := column.Bytes()
