@@ -257,7 +257,7 @@ func (s *store) SaveRole(ctx context.Context, role rbac.Role) (err error) {
 }
 
 func (s *store) saveRole(ctx context.Context, role rbac.Role) (err error) {
-	row, has, getErr := dac.One[Role](ctx, dac.Conditions(dac.Eq("Id", role.Id)))
+	row, has, getErr := dac.One[Role](ctx, dac.Conditions(dac.Eq("Name", role.Name)))
 	if getErr != nil {
 		err = getErr
 		return
