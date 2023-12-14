@@ -35,6 +35,9 @@ func (writer *UseWriter) HandleBefore(ctx context.Context, params []string, hasF
 }
 
 func (writer *UseWriter) HandleAfter(ctx context.Context, params []string, hasFnParam bool, hasFnResult bool) (code gcg.Code, err error) {
+	stmt := gcg.Statements()
+	stmt.Tab().Token("mysql.Disuse(ctx)").Line()
+	code = stmt
 	return
 }
 

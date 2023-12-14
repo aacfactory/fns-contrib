@@ -66,10 +66,32 @@ func (store *Store) Incr(ctx context.Context, key []byte, delta int64) (v int64,
 		err = errors.Warning("hazelcast: shared store incr failed").WithCause(counterErr)
 		return
 	}
-	v, err = counter.IncrementAndGet(ctx)
-	if err != nil {
-		err = errors.Warning("hazelcast: shared store incr failed").WithCause(err)
+	if delta == 0 {
+		v, err = counter.Get(ctx)
+		if err != nil {
+			err = errors.Warning("hazelcast: shared store incr failed").WithCause(err)
+			return
+		}
 		return
+	}
+	incr := delta > 0
+	if incr {
+		for i := int64(0); i < delta; i++ {
+			v, err = counter.IncrementAndGet(ctx)
+			if err != nil {
+				err = errors.Warning("hazelcast: shared store incr failed").WithCause(err)
+				return
+			}
+		}
+	} else {
+		delta = delta * -1
+		for i := int64(0); i < delta; i++ {
+			v, err = counter.DecrementAndGet(ctx)
+			if err != nil {
+				err = errors.Warning("hazelcast: shared store incr failed").WithCause(err)
+				return
+			}
+		}
 	}
 	return
 }

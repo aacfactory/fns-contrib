@@ -196,6 +196,11 @@ func Use(ctx context.Context, endpointName []byte) context.Context {
 	return ctx
 }
 
+func Disuse(ctx context.Context) context.Context {
+	ctx.SetLocalValue(endpointNameContextKey, services.EmptyBytes)
+	return ctx
+}
+
 func used(ctx context.Context) []byte {
 	name, _ := context.LocalValue[[]byte](ctx, endpointNameContextKey)
 	return name
