@@ -7,7 +7,7 @@ go get github.com/aacfactory/fns-contrib/authorizations/jwts
 ```
 Use jwt
 ```go
-app.Deploy(authorizations.ServiceWithEncoder(jwts.New()))
+app.Deploy(authorizations.NewWithEncoder(jwts.New()))
 ```
 Setup config
 ```yaml
