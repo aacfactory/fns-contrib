@@ -275,8 +275,8 @@ func (n *NullByte) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
-func NewNullTime(t time.Time) NullTime {
-	return NullTime{
+func NewNullDatetime(t time.Time) NullDatetime {
+	return NullDatetime{
 		sql.NullTime{
 			Time:  t,
 			Valid: !t.IsZero(),
@@ -284,8 +284,109 @@ func NewNullTime(t time.Time) NullTime {
 	}
 }
 
-type NullTime struct {
+type NullDatetime struct {
 	sql.NullTime
+}
+
+func (n NullDatetime) MarshalJSON() (p []byte, err error) {
+	if n.Valid {
+		p, err = json.Marshal(n.Time)
+	}
+	return
+}
+
+func (n *NullDatetime) UnmarshalJSON(p []byte) error {
+	if len(p) == 0 {
+		n.Valid = false
+		return nil
+	}
+	err := json.Unmarshal(p, &n.Time)
+	if err != nil {
+		return err
+	}
+	n.Valid = true
+	return nil
+}
+
+func NewNullDate(v times.Date) NullDate {
+	return NullDate{
+		Valid: !v.IsZero(),
+		Date:  v,
+	}
+}
+
+type NullDate struct {
+	Valid bool
+	Date  times.Date
+}
+
+func (n *NullDate) Scan(src any) error {
+	if src == nil {
+		return nil
+	}
+	v := sql.NullTime{}
+	if err := v.Scan(src); err != nil {
+		return err
+	}
+	n.Valid = v.Valid
+	if n.Valid {
+		n.Date = times.DataOf(v.Time)
+	}
+	return nil
+}
+
+func (n NullDate) MarshalJSON() (p []byte, err error) {
+	if n.Valid {
+		p, err = json.Marshal(n.Date)
+	}
+	return
+}
+
+func (n *NullDate) UnmarshalJSON(p []byte) error {
+	if len(p) == 0 {
+		n.Valid = false
+		return nil
+	}
+	err := json.Unmarshal(p, &n.Date)
+	if err != nil {
+		return err
+	}
+	n.Valid = true
+	return nil
+}
+
+func (n NullDate) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Date.ToTime(), nil
+}
+
+func NewNullTime(v times.Time) NullTime {
+	return NullTime{
+		Valid: !v.IsZero(),
+		Time:  v,
+	}
+}
+
+type NullTime struct {
+	Valid bool
+	Time  times.Time
+}
+
+func (n *NullTime) Scan(src any) error {
+	if src == nil {
+		return nil
+	}
+	v := sql.NullTime{}
+	if err := v.Scan(src); err != nil {
+		return err
+	}
+	n.Valid = v.Valid
+	if n.Valid {
+		n.Time = times.TimeOf(v.Time)
+	}
+	return nil
 }
 
 func (n NullTime) MarshalJSON() (p []byte, err error) {
@@ -306,6 +407,13 @@ func (n *NullTime) UnmarshalJSON(p []byte) error {
 	}
 	n.Valid = true
 	return nil
+}
+
+func (n NullTime) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Time.ToTime(), nil
 }
 
 func NewNullJson[E any](e E) NullJson[E] {

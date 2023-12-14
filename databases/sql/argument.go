@@ -214,7 +214,7 @@ func NewArgument(v any) (argument Argument, err error) {
 		argument.Type = "time"
 		argument.Value, _ = json.Marshal(vv)
 		break
-	case NullTime:
+	case NullDatetime:
 		argument.Type = "datetime"
 		if vv.Valid {
 			argument.Value, _ = json.Marshal(vv.Time)
@@ -224,6 +224,22 @@ func NewArgument(v any) (argument Argument, err error) {
 		break
 	case sql.NullTime:
 		argument.Type = "datetime"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Time)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case NullDate:
+		argument.Type = "date"
+		if vv.Valid {
+			argument.Value, _ = json.Marshal(vv.Date)
+		} else {
+			argument.Nil = true
+		}
+		break
+	case NullTime:
+		argument.Type = "time"
 		if vv.Valid {
 			argument.Value, _ = json.Marshal(vv.Time)
 		} else {

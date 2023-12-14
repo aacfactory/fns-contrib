@@ -17,7 +17,7 @@ func TestNewArgument(t *testing.T) {
 		sql.NewNullBool(true),
 		sql.NewNullInt64(1),
 		sql.NewNullFloat64(13),
-		sql.NewNullTime(time.Now()),
+		sql.NewNullDatetime(time.Now()),
 		sql.NewNullJson[time.Time](time.Now()),
 	}
 

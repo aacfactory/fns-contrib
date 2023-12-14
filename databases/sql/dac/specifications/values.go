@@ -107,7 +107,7 @@ func NewBasicValueWriter(rt reflect.Type) (vw ValueWriter, ct ColumnTypeName, er
 			ct = DatetimeType
 			break
 		}
-		if rt.ConvertibleTo(nullTimeType) {
+		if rt.ConvertibleTo(nullTimeType) || rt.ConvertibleTo(nullDatetimeType) {
 			vw = &DatetimeValue{null: true}
 			ct = DatetimeType
 			break
@@ -117,8 +117,22 @@ func NewBasicValueWriter(rt reflect.Type) (vw ValueWriter, ct ColumnTypeName, er
 			ct = DateType
 			break
 		}
+		if rt.ConvertibleTo(nullTimesDateType) {
+			vw = &DateValue{
+				null: true,
+			}
+			ct = DateType
+			break
+		}
 		if rt.ConvertibleTo(timeType) {
 			vw = &TimeValue{}
+			ct = TimeType
+			break
+		}
+		if rt.ConvertibleTo(nullTimesTimeType) {
+			vw = &TimeValue{
+				null: true,
+			}
 			ct = TimeType
 			break
 		}
@@ -289,10 +303,19 @@ func (w *DatetimeValue) Write(value any, rv reflect.Value) (err error) {
 	t, ok := value.(time.Time)
 	if ok {
 		if w.null {
-			rv.Set(reflect.ValueOf(stdsql.NullTime{
-				Time:  t,
-				Valid: !t.IsZero(),
-			}).Convert(rv.Type()))
+			if rv.Type().ConvertibleTo(nullTimeType) {
+				rv.Set(reflect.ValueOf(stdsql.NullTime{
+					Time:  t,
+					Valid: !t.IsZero(),
+				}).Convert(rv.Type()))
+			} else if rv.Type().ConvertibleTo(nullDatetimeType) {
+				rv.Set(reflect.ValueOf(sql.NullDatetime{
+					NullTime: stdsql.NullTime{
+						Time:  t,
+						Valid: !t.IsZero(),
+					},
+				}).Convert(rv.Type()))
+			}
 		} else {
 			rv.Set(reflect.ValueOf(t).Convert(rv.Type()))
 		}
@@ -304,12 +327,20 @@ func (w *DatetimeValue) Write(value any, rv reflect.Value) (err error) {
 }
 
 type DateValue struct {
+	null bool
 }
 
 func (w *DateValue) Write(value any, rv reflect.Value) (err error) {
 	t, ok := value.(time.Time)
 	if ok {
-		rv.Set(reflect.ValueOf(times.DataOf(t)))
+		if w.null {
+			rv.Set(reflect.ValueOf(sql.NullDate{
+				Date:  times.DataOf(t),
+				Valid: !t.IsZero(),
+			}).Convert(rv.Type()))
+		} else {
+			rv.Set(reflect.ValueOf(times.DataOf(t)))
+		}
 		return
 	}
 	err = errors.Warning("sql: write value failed").
@@ -318,12 +349,20 @@ func (w *DateValue) Write(value any, rv reflect.Value) (err error) {
 }
 
 type TimeValue struct {
+	null bool
 }
 
 func (w *TimeValue) Write(value any, rv reflect.Value) (err error) {
 	t, ok := value.(time.Time)
 	if ok {
-		rv.Set(reflect.ValueOf(times.TimeOf(t)))
+		if w.null {
+			rv.Set(reflect.ValueOf(sql.NullTime{
+				Time:  times.TimeOf(t),
+				Valid: !t.IsZero(),
+			}).Convert(rv.Type()))
+		} else {
+			rv.Set(reflect.ValueOf(times.TimeOf(t)))
+		}
 		return
 	}
 	err = errors.Warning("sql: write value failed").
