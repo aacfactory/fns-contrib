@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func NewStore(ctx context.Context, client *hazelcast.Client) (v shareds.Store, err error) {
-	value, valueErr := NewMaps(ctx, "fns:shared:store", client, 64)
+func NewStore(ctx context.Context, client *hazelcast.Client, size int) (v shareds.Store, err error) {
+	value, valueErr := NewMaps(ctx, "fns:shared:store", client, size)
 	if valueErr != nil {
 		err = errors.Warning("hazelcast: new shared store failed").WithCause(valueErr)
 		return

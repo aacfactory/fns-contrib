@@ -83,7 +83,18 @@ func (cluster *Cluster) Construct(options clusters.ClusterOptions) (err error) {
 	cluster.shared = shared
 	// barrier
 	if extraBarrier == nil {
-		barrier, barrierErr := NewBarrier(context.TODO(), client)
+		barrierConfig, barrierConfigErr := config.BarrierConfig()
+		if barrierConfigErr != nil {
+			err = errors.Warning("hazelcast: construct failed").WithCause(barrierConfigErr)
+			return
+		}
+		bc := configs.BarrierConfig{}
+		bcErr := barrierConfig.As(&bc)
+		if bcErr != nil {
+			err = errors.Warning("hazelcast: construct failed").WithCause(bcErr)
+			return
+		}
+		barrier, barrierErr := NewBarrier(context.TODO(), client, bc.Size)
 		if barrierErr != nil {
 			err = errors.Warning("hazelcast: construct failed").WithCause(barrierErr)
 			return

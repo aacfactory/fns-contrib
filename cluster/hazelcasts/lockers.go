@@ -3,7 +3,6 @@ package hazelcasts
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/shareds"
 	"github.com/hazelcast/hazelcast-go-client"
@@ -11,16 +10,16 @@ import (
 )
 
 type Locker struct {
-	value *hazelcast.Map
-	key   string
+	value *Maps
+	key   []byte
 	ttl   time.Duration
 }
 
 func (locker *Locker) Lock(ctx context.Context) (err error) {
 	if locker.ttl == 0 {
-		err = locker.value.Lock(locker.value.NewLockContext(ctx), locker.key)
+		err = locker.value.Lock(ctx, locker.key)
 	} else {
-		err = locker.value.LockWithLease(locker.value.NewLockContext(ctx), locker.key, locker.ttl)
+		err = locker.value.LockWithLease(ctx, locker.key, locker.ttl)
 	}
 	if err != nil {
 		err = errors.Warning("hazelcast: lock failed").WithCause(err)
@@ -30,7 +29,7 @@ func (locker *Locker) Lock(ctx context.Context) (err error) {
 }
 
 func (locker *Locker) Unlock(ctx context.Context) (err error) {
-	err = locker.value.Unlock(locker.value.NewLockContext(ctx), locker.key)
+	err = locker.value.Unlock(ctx, locker.key)
 	if err != nil {
 		err = errors.Warning("hazelcast: unlock failed").WithCause(err)
 		return
@@ -38,8 +37,8 @@ func (locker *Locker) Unlock(ctx context.Context) (err error) {
 	return
 }
 
-func NewLockers(ctx context.Context, client *hazelcast.Client) (v shareds.Lockers, err error) {
-	value, valueErr := client.GetMap(ctx, "fns:shared:lockers")
+func NewLockers(ctx context.Context, client *hazelcast.Client, size int) (v shareds.Lockers, err error) {
+	value, valueErr := NewMaps(ctx, "fns:shared:lockers", client, size)
 	if valueErr != nil {
 		err = errors.Warning("hazelcast: new shared lockers failed").WithCause(valueErr)
 		return
@@ -51,7 +50,7 @@ func NewLockers(ctx context.Context, client *hazelcast.Client) (v shareds.Locker
 }
 
 type Lockers struct {
-	value *hazelcast.Map
+	value *Maps
 }
 
 func (lockers *Lockers) Acquire(_ context.Context, key []byte, ttl time.Duration) (locker shareds.Locker, err error) {
@@ -60,7 +59,7 @@ func (lockers *Lockers) Acquire(_ context.Context, key []byte, ttl time.Duration
 	}
 	locker = &Locker{
 		value: lockers.value,
-		key:   bytex.ToString(key),
+		key:   key,
 		ttl:   ttl,
 	}
 	return

@@ -77,3 +77,12 @@ func (config *KeepAliveConfig) GetInterval() time.Duration {
 	}
 	return config.Interval
 }
+
+type SharedConfig struct {
+	LockersSize int `json:"lockersSize"`
+	StoreSize   int `json:"storeSize"`
+}
+
+type BarrierConfig struct {
+	Size int `json:"size"`
+}

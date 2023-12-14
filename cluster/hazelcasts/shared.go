@@ -2,6 +2,8 @@ package hazelcasts
 
 import (
 	"github.com/aacfactory/configures"
+	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/cluster/hazelcasts/configs"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/shareds"
 	"github.com/hazelcast/hazelcast-go-client"
@@ -32,7 +34,13 @@ func (shared *Shared) Construct(options shareds.Options) (err error) {
 			return
 		}
 	} else {
-		shared.lockers, err = NewLockers(context.TODO(), shared.client)
+		config := configs.SharedConfig{}
+		configErr := options.Config.As(&config)
+		if configErr != nil {
+			err = errors.Warning("hazelcast: construct shared failed").WithCause(configErr)
+			return
+		}
+		shared.lockers, err = NewLockers(context.TODO(), shared.client, config.LockersSize)
 	}
 	if extraSharedStoreBuilder != nil {
 		node, has := options.Config.Node("store")
@@ -44,7 +52,13 @@ func (shared *Shared) Construct(options shareds.Options) (err error) {
 			return
 		}
 	} else {
-		shared.store, err = NewStore(context.TODO(), shared.client)
+		config := configs.SharedConfig{}
+		configErr := options.Config.As(&config)
+		if configErr != nil {
+			err = errors.Warning("hazelcast: construct shared failed").WithCause(configErr)
+			return
+		}
+		shared.store, err = NewStore(context.TODO(), shared.client, config.StoreSize)
 	}
 	return
 }

@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-func NewBarrier(ctx context.Context, client *hazelcast.Client) (v barriers.Barrier, err error) {
-	mm, mmErr := NewMaps(ctx, "fns:barrier", client, 64)
+func NewBarrier(ctx context.Context, client *hazelcast.Client, size int) (v barriers.Barrier, err error) {
+	mm, mmErr := NewMaps(ctx, "fns:barrier", client, size)
 	if mmErr != nil {
 		err = errors.Warning("hazelcast: new barrier failed").WithCause(mmErr)
 		return
 	}
-	ttl := 5 * time.Second
+	ttl := 2 * time.Second
 	interval := 50 * time.Millisecond
 	loops := int(ttl / interval)
 
@@ -57,22 +57,44 @@ func (barrier *Barrier) Do(ctx context.Context, key []byte, fn func() (result in
 	return
 }
 
+func (barrier *Barrier) getValue(ctx context.Context, key []byte) (v BarrierValue, err error) {
+	content, has, getErr := barrier.values.Get(ctx, key)
+	if getErr != nil {
+		err = errors.Warning("hazelcast: barrier get value failed").WithCause(getErr)
+		return
+	}
+	if !has {
+		v = NewBarrierValue()
+		return
+	}
+	v = content
+	return
+}
+
+func (barrier *Barrier) setValue(ctx context.Context, key []byte, value BarrierValue) (err error) {
+	err = barrier.values.SetWithTTL(ctx, key, value.Bytes(), barrier.ttl)
+	if err != nil {
+		err = errors.Warning("hazelcast: barrier set value failed").WithCause(err)
+		return
+	}
+	return
+}
+
 func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (result interface{}, err error)) (r interface{}, err error) {
+	ctx = barrier.values.NewLockContext(ctx, key)
 	lockErr := barrier.values.LockWithLease(ctx, key, barrier.ttl)
 	if lockErr != nil {
 		err = errors.Warning("hazelcast: barrier failed").WithCause(lockErr)
 		return
 	}
-
-	content, has, getErr := barrier.values.Get(ctx, key)
+	value, getErr := barrier.getValue(ctx, key)
 	if getErr != nil {
 		_ = barrier.values.Unlock(ctx, key)
 		err = errors.Warning("hazelcast: barrier failed").WithCause(getErr)
 		return
 	}
-	if !has {
-		bv := NewBarrierValue()
-		setErr := barrier.values.SetWithTTL(ctx, key, bv.Bytes(), barrier.ttl)
+	if value.IsInit() {
+		setErr := barrier.setValue(ctx, key, value.Executing())
 		if setErr != nil {
 			_ = barrier.values.Unlock(ctx, key)
 			err = errors.Warning("hazelcast: barrier failed").WithCause(setErr)
@@ -84,75 +106,87 @@ func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (res
 		err = errors.Warning("hazelcast: barrier failed").WithCause(unlockErr)
 		return
 	}
-
-	if has {
-		bv := BarrierValue(content)
-		exist := false
-		for i := 0; i < barrier.loops; i++ {
-			if exist = bv.Exist(); exist {
-				if bv.Forgot() {
-					exist = false
-					break
-				}
-				r, err = bv.Value()
-				break
-			}
-			time.Sleep(barrier.interval)
-		}
-		if !exist {
-			r, err = barrier.doRemote(ctx, key, fn)
-		}
-	} else {
-		bv := NewBarrierValue()
+	if value.IsInit() {
 		r, err = fn()
 		if err != nil {
-			bv = bv.Failed(err)
+			value = value.Failed(err)
 		} else {
-			bv, err = bv.Succeed(r)
+			value, err = value.Succeed(r)
 			if err != nil {
 				err = errors.Warning("hazelcast: barrier failed").WithCause(err)
 				return
 			}
 		}
-		setErr := barrier.values.SetWithTTL(ctx, key, bv.Bytes(), barrier.ttl)
+		setErr := barrier.setValue(ctx, key, value)
 		if setErr != nil {
 			err = errors.Warning("hazelcast: barrier failed").WithCause(setErr)
 			return
 		}
+		return
 	}
 
+	if value.Exist() && value.Finished() {
+		r, err = value.Value()
+	} else {
+		exist := false
+		for i := 0; i < barrier.loops; i++ {
+			value, getErr = barrier.getValue(ctx, key)
+			if getErr != nil {
+				err = errors.Warning("hazelcast: barrier failed").WithCause(getErr)
+				return
+			}
+			if !value.Exist() {
+				break
+			}
+			if value.IsExecuting() {
+				time.Sleep(barrier.interval)
+				continue
+			}
+			exist = true
+			break
+		}
+		if exist {
+			r, err = value.Value()
+			return
+		}
+		r, err = barrier.doRemote(ctx, key, fn)
+	}
 	return
 }
 
-func (barrier *Barrier) Forget(ctx context.Context, key []byte) {
+func (barrier *Barrier) Forget(_ context.Context, key []byte) {
 	if len(key) == 0 {
 		key = []byte{'-'}
 	}
 	barrier.group.Forget(bytex.ToString(key))
-	//_, _ = barrier.values.Remove(ctx, sk)
-	_ = barrier.values.SetTTL(ctx, key, 1*time.Second)
+	//_ = barrier.values.Remove(ctx, key)
 	return
 }
 
 func NewBarrierValue() BarrierValue {
-	p := make([]byte, 0, 1)
-	return append(p, 'X')
+	return []byte{'X'}
 }
 
 type BarrierValue []byte
+
+func (bv BarrierValue) IsInit() bool {
+	return len(bv) == 1 && bv[0] == 'X'
+}
 
 func (bv BarrierValue) Exist() bool {
 	return len(bv) > 1
 }
 
-func (bv BarrierValue) Forgot() bool {
-	return len(bv) > 1 && bv[0] == 'G' && bv[1] == 'G'
+func (bv BarrierValue) Executing() BarrierValue {
+	return append(bv, 'X')
 }
 
-func (bv BarrierValue) Forget() BarrierValue {
-	n := bv[:1]
-	n[0] = 'G'
-	return append(n, 'G')
+func (bv BarrierValue) IsExecuting() bool {
+	return len(bv) > 1 && bv[0] == 'X' && bv[1] == 'X'
+}
+
+func (bv BarrierValue) Finished() bool {
+	return len(bv) > 1 && bv[0] != 'X' && bv[1] != 'X'
 }
 
 func (bv BarrierValue) Value() (data []byte, err error) {
