@@ -365,7 +365,7 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			}
 			continue
 		}
-		if !response.Exist() {
+		if !response.Valid() {
 			writeErr := conn.WriteMessage(websocket.TextMessage, Succeed(nil).Encode())
 			if writeErr != nil {
 				break
