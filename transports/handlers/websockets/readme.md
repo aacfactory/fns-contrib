@@ -16,17 +16,17 @@ Setup config
 ```yaml
 transport:
   handlers:
-    - websockets:
-        maxConnections: 1024
-        handshakeTimeout: "1s"
-        readTimeout: "10s"
-        readBufferSize: "4MB"
-        writeTimeout: "60s"
-        writeBufferSize: "4MB"
-        enableCompression: false
-        maxRequestMessageSize: "4KB"
-        connectionTTL: "10m0s"
-        enableEcho: false
+    websockets:
+      maxConnections: 1024
+      handshakeTimeout: "1s"
+      readTimeout: "10s"
+      readBufferSize: "4MB"
+      writeTimeout: "60s"
+      writeBufferSize: "4MB"
+      enableCompression: false
+      maxRequestMessageSize: "4KB"
+      connectionTTL: "10m0s"
+      enableEcho: false
 ```
 
 Get connection id in function
