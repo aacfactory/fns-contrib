@@ -45,7 +45,7 @@ func (handler *Handler) Name() string {
 func (handler *Handler) Construct(options transports.MuxHandlerOptions) (err error) {
 	handler.log = options.Log
 	config := Config{}
-	configErr := options.Config.As(&Config{})
+	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning("fns: construct documents handler failed").WithCause(configErr)
 		return
@@ -74,6 +74,7 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 	} else {
 		if len(data) == 0 {
 			w.Succeed(services.Empty{})
+			return
 		}
 		var target documents.Document
 		has := false
