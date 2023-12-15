@@ -301,7 +301,7 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 		}
 		message, readErr := readMessage(reader, handler.maxRequestMessageSize)
 		if readErr != nil {
-			if readErr == ErrRequestMessageIsTooLarge {
+			if errors.Contains(readErr, ErrRequestMessageIsTooLarge) {
 				_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseMessageTooBig, ErrRequestMessageIsTooLarge.Error()), time.Now().Add(2*time.Second))
 			} else {
 				cause := readErr.Error()
