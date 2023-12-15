@@ -43,7 +43,7 @@ func (h *handler) Name() string {
 func (h *handler) Construct(options transports.MuxHandlerOptions) (err error) {
 	h.log = options.Log
 	config := Config{}
-	configErr := options.Config.As(&Config{})
+	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning("fns: construct pprof handler failed").WithCause(configErr)
 		return
