@@ -2,6 +2,7 @@ package websockets
 
 import (
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
@@ -14,23 +15,6 @@ const (
 	registrationComponentName = "registration"
 )
 
-func LoadRegistration(ctx context.Context) (r Registration, has bool) {
-	v, exist := services.LoadComponent[Registration](ctx, _endpointName, registrationComponentName)
-	if !exist {
-		return
-	}
-	r, has = v.(Registration)
-	return
-}
-
-type AbstractRegistration struct {
-	ids sync.Map
-}
-
-func (registration *AbstractRegistration) Name() (name string) {
-	return registrationComponentName
-}
-
 type Registration interface {
 	services.Component
 	Get(ctx context.Context, id []byte) (endpointId []byte, has bool, err error)
@@ -39,9 +23,13 @@ type Registration interface {
 }
 
 type defaultRegistration struct {
-	AbstractRegistration
+	ids    sync.Map
 	log    logs.Logger
 	prefix []byte
+}
+
+func (registration *defaultRegistration) Name() (name string) {
+	return registrationComponentName
 }
 
 func (registration *defaultRegistration) Construct(options services.Options) (err error) {
@@ -53,7 +41,7 @@ func (registration *defaultRegistration) Construct(options services.Options) (er
 func (registration *defaultRegistration) Shutdown(ctx context.Context) {
 	store := runtime.SharedStore(ctx)
 	registration.ids.Range(func(key, value any) bool {
-		id := key.([]byte)
+		id := key.(string)
 		_ = store.Remove(ctx, append(registration.prefix, id...))
 		return true
 	})
@@ -80,7 +68,7 @@ func (registration *defaultRegistration) Set(ctx context.Context, id []byte, end
 		err = errors.Warning("websockets: registration set failed").WithCause(err)
 		return
 	}
-	registration.ids.Store(id, struct{}{})
+	registration.ids.Store(bytex.ToString(id), struct{}{})
 	return
 }
 
@@ -91,6 +79,6 @@ func (registration *defaultRegistration) Remove(ctx context.Context, id []byte) 
 		err = errors.Warning("websockets: registration remove failed").WithCause(err)
 		return
 	}
-	registration.ids.Delete(id)
+	registration.ids.Delete(bytex.ToString(id))
 	return
 }

@@ -63,7 +63,7 @@ type SendParam struct {
 	Message      json.RawMessage `json:"message"`
 }
 
-func send(ctx context.Context, param SendParam) (err error) {
+func send(ctx context.Context, registration Registration, param SendParam) (err error) {
 	connId := bytex.FromString(param.ConnectionId)
 	if len(connId) == 0 {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(fmt.Errorf("connection id is reqiured"))
@@ -72,11 +72,6 @@ func send(ctx context.Context, param SendParam) (err error) {
 	message := param.Message
 	if len(message) == 0 {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(fmt.Errorf("message is reqiured"))
-		return
-	}
-	registration, hasRegistration := LoadRegistration(ctx)
-	if !hasRegistration {
-		err = errors.Warning("websockets: send message to connection failed").WithCause(fmt.Errorf("there is no registration in context"))
 		return
 	}
 
@@ -114,7 +109,24 @@ func send(ctx context.Context, param SendParam) (err error) {
 	return
 }
 
-func sendFn(ctx services.Request) (v interface{}, err error) {
+type sendFn struct {
+	conns        *Connections
+	registration Registration
+}
+
+func (fn *sendFn) Name() string {
+	return string(_sendFnName)
+}
+
+func (fn *sendFn) Internal() bool {
+	return true
+}
+
+func (fn *sendFn) Readonly() bool {
+	return false
+}
+
+func (fn *sendFn) Handle(ctx services.Request) (v any, err error) {
 	if !ctx.Param().Valid() {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(fmt.Errorf("param is required"))
 		return
@@ -124,6 +136,6 @@ func sendFn(ctx services.Request) (v interface{}, err error) {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(paramErr)
 		return
 	}
-	err = send(ctx, param)
+	err = send(ctx, fn.registration, param)
 	return
 }

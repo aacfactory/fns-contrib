@@ -27,6 +27,8 @@ transport:
       maxRequestMessageSize: "4KB"
       connectionTTL: "10m0s"
       enableEcho: false
+      originCheckPolicy:
+        mode: "pass"
 ```
 
 Get connection id in function

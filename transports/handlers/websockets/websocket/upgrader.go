@@ -205,7 +205,6 @@ func (u *Upgrader) Upgrade(w transports.ResponseWriter, r transports.Request, ha
 		} else {
 			_ = netConn.SetDeadline(time.Time{})
 		}
-
 		handler(ctx, c, r.Header())
 		if rw == nil {
 			writeBuf = writeBuf[0:0]

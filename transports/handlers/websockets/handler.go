@@ -29,14 +29,40 @@ var (
 	ErrTooMayConnections = errors.New(http.StatusTooManyRequests, "***TOO MANY CONNECTIONS***", "fns: too may connections, try again later.")
 )
 
-func NewWithRegistration(registration Registration, subs ...SubProtocolHandler) (handler transports.MuxHandler) {
+type Options struct {
+	subs         []SubProtocolHandler
+	registration Registration
+}
+
+type Option func(options *Options)
+
+func WithSubProtocolHandler(handler ...SubProtocolHandler) Option {
+	return func(options *Options) {
+		options.subs = append(options.subs, handler...)
+	}
+}
+
+func WithRegistration(registration Registration) Option {
+	return func(options *Options) {
+		options.registration = registration
+	}
+}
+
+func New(options ...Option) (handler transports.MuxHandler) {
+	opt := Options{
+		registration: &defaultRegistration{},
+		subs:         nil,
+	}
+	for _, option := range options {
+		option(&opt)
+	}
 	wh := &websocketHandler{
 		log:     nil,
 		subs:    make(map[string]SubProtocolHandler),
-		service: newService(registration),
+		service: newService(opt.registration),
 	}
-	if subs != nil && len(subs) > 0 {
-		for _, sub := range subs {
+	if opt.subs != nil && len(opt.subs) > 0 {
+		for _, sub := range opt.subs {
 			if sub == nil {
 				continue
 			}
@@ -50,10 +76,6 @@ func NewWithRegistration(registration Registration, subs ...SubProtocolHandler) 
 	}
 	handler = wh
 	return
-}
-
-func New(subs ...SubProtocolHandler) (handler transports.MuxHandler) {
-	return NewWithRegistration(&defaultRegistration{}, subs...)
 }
 
 type websocketHandler struct {
@@ -232,11 +254,16 @@ func (handler *websocketHandler) Handle(w transports.ResponseWriter, r transport
 
 func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket.Conn, header transports.Header) {
 	defer handler.connections.Add(-1)
-	conn.SetPingHandler(nil)
+	conn.SetPingHandler(func(appData []byte) error {
+		return conn.WriteControl(websocket.PongMessage, bytex.FromString("PONG"), time.Now().Add(2*time.Second))
+	})
 	conn.SetPongHandler(func(appData []byte) error {
-		return conn.WriteControl(websocket.PongMessage, bytex.FromString("pong"), time.Now().Add(2*time.Second))
+		return conn.WriteControl(websocket.PongMessage, bytex.FromString("PONG"), time.Now().Add(2*time.Second))
 	})
 	deviceId := header.Get(transports.DeviceIdHeaderName)
+	if len(deviceId) == 0 {
+		deviceId = conn.Id()
+	}
 	deviceIp := transports.DeviceIp(ctx)
 	protocol := header.Get([]byte("Sec-Websocket-Protocol"))
 	if len(protocol) > 0 {
@@ -295,6 +322,13 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 			}
 			break
 		}
+		if mt == websocket.PingMessage {
+			wErr := conn.WriteControl(websocket.PongMessage, bytex.FromString("PONG"), time.Now().Add(2*time.Second))
+			if wErr != nil {
+				break
+			}
+			continue
+		}
 		if mt == websocket.BinaryMessage {
 			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInvalidFramePayloadData, "binary message was unsupported"), time.Now().Add(2*time.Second))
 			break
@@ -318,7 +352,17 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 		}
 		// echo
 		if handler.enableEcho && bytes.Equal(message, []byte("echo")) {
-			_ = conn.WriteMessage(websocket.TextMessage, Succeed(time.Now().Format(time.RFC3339)).Encode())
+			wErr := conn.WriteMessage(websocket.TextMessage, Succeed(time.Now().Format(time.RFC3339)).Encode())
+			if wErr != nil {
+				break
+			}
+			continue
+		}
+		if bytes.Equal(message, []byte("PING")) {
+			wErr := conn.WriteMessage(websocket.TextMessage, []byte("PONG"))
+			if wErr != nil {
+				break
+			}
 			continue
 		}
 		// parse request
@@ -353,6 +397,7 @@ func (handler *websocketHandler) handle(ctx context.Context, conn *websocket.Con
 		eps := runtime.Endpoints(ctx)
 		reqCtx := context.Acquire(ctx)
 		transports.WithRequestHeader(reqCtx, request.Header)
+		WithConnection(ctx, conn)
 		response, handleErr := eps.Request(
 			reqCtx, bytex.FromString(request.Endpoint), bytex.FromString(request.Fn), request.Payload,
 			requestOptions...,

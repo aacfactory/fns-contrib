@@ -30,7 +30,7 @@ type OriginCheckPolicyConfig struct {
 
 func (config *OriginCheckPolicyConfig) Build() (fn func(r transports.Request) bool, err error) {
 	switch config.Mode {
-	case "non":
+	case "pass":
 		fn = func(r transports.Request) bool {
 			return true
 		}

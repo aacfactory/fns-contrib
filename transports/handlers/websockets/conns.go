@@ -2,6 +2,7 @@ package websockets
 
 import (
 	"github.com/aacfactory/fns-contrib/transports/handlers/websockets/websocket"
+	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services"
 	"sync"
@@ -51,7 +52,7 @@ func (conns *Connections) Shutdown(_ context.Context) {
 }
 
 func (conns *Connections) Get(id []byte) (conn *websocket.Conn, has bool) {
-	v, exist := conns.values.Load(id)
+	v, exist := conns.values.Load(mmhash.Sum64(id))
 	if !exist {
 		return
 	}
@@ -60,11 +61,11 @@ func (conns *Connections) Get(id []byte) (conn *websocket.Conn, has bool) {
 }
 
 func (conns *Connections) Set(conn *websocket.Conn) {
-	conns.values.Store(conn.Id(), conn)
+	conns.values.Store(mmhash.Sum64(conn.Id()), conn)
 	return
 }
 
 func (conns *Connections) Remove(id []byte) {
-	conns.values.Delete(id)
+	conns.values.Delete(mmhash.Sum64(id))
 	return
 }
