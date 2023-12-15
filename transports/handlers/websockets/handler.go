@@ -263,6 +263,7 @@ func (handler *websocketHandler) handleConn(ctx context.Context, conn *websocket
 	deviceId := header.Get(transports.DeviceIdHeaderName)
 	if len(deviceId) == 0 {
 		deviceId = conn.Id()
+		header.Set(transports.DeviceIdHeaderName, deviceId)
 	}
 	deviceIp := transports.DeviceIp(ctx)
 	protocol := header.Get([]byte("Sec-Websocket-Protocol"))
