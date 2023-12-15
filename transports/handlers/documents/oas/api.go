@@ -6,12 +6,12 @@ import (
 )
 
 type API struct {
-	Openapi    string           `json:"openapi,omitempty"`
-	Info       *Info            `json:"info,omitempty"`
-	Servers    []*Server        `json:"servers,omitempty"`
-	Paths      map[string]*Path `json:"paths,omitempty"`
-	Components *Components      `json:"components,omitempty"`
-	Tags       []*Tag           `json:"tags,omitempty"`
+	Openapi    string          `json:"openapi,omitempty"`
+	Info       Info            `json:"info,omitempty"`
+	Servers    []Server        `json:"servers,omitempty"`
+	Paths      map[string]Path `json:"paths,omitempty"`
+	Components Components      `json:"components,omitempty"`
+	Tags       []Tag           `json:"tags,omitempty"`
 }
 
 func (api *API) Merge(o *API) {
@@ -19,11 +19,9 @@ func (api *API) Merge(o *API) {
 		return
 	}
 	if api.Paths == nil {
-		api.Paths = make(map[string]*Path)
+		api.Paths = make(map[string]Path)
 	}
-	if api.Components == nil {
-		api.Components = &Components{}
-	}
+	api.Components = Components{}
 	if api.Components.Schemas == nil {
 		api.Components.Schemas = make(map[string]*Schema)
 	}
@@ -31,7 +29,7 @@ func (api *API) Merge(o *API) {
 		api.Components.Responses = make(map[string]*Response)
 	}
 	if api.Tags == nil {
-		api.Tags = make([]*Tag, 0, 1)
+		api.Tags = make([]Tag, 0, 1)
 	}
 	for name, path := range o.Paths {
 		_, has := api.Paths[name]
@@ -40,24 +38,22 @@ func (api *API) Merge(o *API) {
 		}
 		api.Paths[name] = path
 	}
-	if o.Components != nil {
-		if o.Components.Schemas != nil {
-			for name, schema := range o.Components.Schemas {
-				_, has := api.Components.Schemas[name]
-				if has {
-					continue
-				}
-				api.Components.Schemas[name] = schema
+	if o.Components.Schemas != nil {
+		for name, schema := range o.Components.Schemas {
+			_, has := api.Components.Schemas[name]
+			if has {
+				continue
 			}
+			api.Components.Schemas[name] = schema
 		}
-		if o.Components.Responses != nil {
-			for name, responses := range o.Components.Responses {
-				_, has := api.Components.Responses[name]
-				if has {
-					continue
-				}
-				api.Components.Responses[name] = responses
+	}
+	if o.Components.Responses != nil {
+		for name, responses := range o.Components.Responses {
+			_, has := api.Components.Responses[name]
+			if has {
+				continue
 			}
+			api.Components.Responses[name] = responses
 		}
 	}
 	if o.Tags != nil && len(o.Tags) > 0 {
@@ -81,15 +77,11 @@ func (api *API) Merge(o *API) {
 func (api *API) Encode() (p []byte, err error) {
 	obj := json.NewObject()
 	_ = obj.Put("openapi", api.Openapi)
-	if api.Info != nil {
-		_ = obj.Put("info", api.Info)
-	}
+	_ = obj.Put("info", api.Info)
 	if api.Servers != nil && len(api.Servers) > 0 {
 		array := json.NewArray()
 		for _, server := range api.Servers {
-			if server != nil {
-				_ = array.Add(server)
-			}
+			_ = array.Add(server)
 		}
 		if array.Len() > 0 {
 			_ = obj.PutRaw("servers", array.Raw())
@@ -115,60 +107,56 @@ func (api *API) Encode() (p []byte, err error) {
 			}
 		}
 	}
-	if api.Components != nil {
-		components := json.NewObject()
-		schemas := api.Components.Schemas
-		if schemas != nil && len(schemas) > 0 {
-			keys := make([]string, 0, 1)
-			for key := range schemas {
-				keys = append(keys, key)
+	components := json.NewObject()
+	schemas := api.Components.Schemas
+	if schemas != nil && len(schemas) > 0 {
+		keys := make([]string, 0, 1)
+		for key := range schemas {
+			keys = append(keys, key)
+		}
+		if len(keys) > 0 {
+			sort.Strings(keys)
+			schemasObj := json.NewObject()
+			for _, key := range keys {
+				schema, has := schemas[key]
+				if !has {
+					continue
+				}
+				_ = schemasObj.Put(key, schema)
 			}
-			if len(keys) > 0 {
-				sort.Strings(keys)
-				schemasObj := json.NewObject()
-				for _, key := range keys {
-					schema, has := schemas[key]
-					if !has {
-						continue
-					}
-					_ = schemasObj.Put(key, schema)
-				}
-				if !schemasObj.Empty() {
-					_ = components.PutRaw("schemas", schemasObj.Raw())
-				}
+			if !schemasObj.Empty() {
+				_ = components.PutRaw("schemas", schemasObj.Raw())
 			}
 		}
-		responses := api.Components.Responses
-		if responses != nil && len(responses) > 0 {
-			keys := make([]string, 0, 1)
-			for key := range responses {
-				keys = append(keys, key)
+	}
+	responses := api.Components.Responses
+	if responses != nil && len(responses) > 0 {
+		keys := make([]string, 0, 1)
+		for key := range responses {
+			keys = append(keys, key)
+		}
+		if len(keys) > 0 {
+			sort.Strings(keys)
+			responsesObj := json.NewObject()
+			for _, key := range keys {
+				response, has := responses[key]
+				if !has {
+					continue
+				}
+				_ = responsesObj.Put(key, response)
 			}
-			if len(keys) > 0 {
-				sort.Strings(keys)
-				responsesObj := json.NewObject()
-				for _, key := range keys {
-					response, has := responses[key]
-					if !has {
-						continue
-					}
-					_ = responsesObj.Put(key, response)
-				}
-				if !responsesObj.Empty() {
-					_ = components.PutRaw("responses", responsesObj.Raw())
-				}
+			if !responsesObj.Empty() {
+				_ = components.PutRaw("responses", responsesObj.Raw())
 			}
 		}
-		if !components.Empty() {
-			_ = obj.PutRaw("components", components.Raw())
-		}
+	}
+	if !components.Empty() {
+		_ = obj.PutRaw("components", components.Raw())
 	}
 	if api.Tags != nil && len(api.Tags) > 0 {
 		keys := make([]string, 0, 1)
 		for _, tag := range api.Tags {
-			if tag != nil {
-				keys = append(keys, tag.Name)
-			}
+			keys = append(keys, tag.Name)
 		}
 		if len(keys) > 0 {
 			sort.Strings(keys)

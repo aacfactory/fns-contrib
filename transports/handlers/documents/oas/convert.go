@@ -14,7 +14,7 @@ func Openapi(title string, description string, term string, openapiVersion strin
 	// oas
 	api = API{
 		Openapi: openapiVersion,
-		Info: &Info{
+		Info: Info{
 			Title:          title,
 			Description:    description,
 			TermsOfService: term,
@@ -22,13 +22,13 @@ func Openapi(title string, description string, term string, openapiVersion strin
 			License:        nil,
 			Version:        document.Version.String(),
 		},
-		Servers: []*Server{},
-		Paths:   make(map[string]*Path),
-		Components: &Components{
+		Servers: []Server{},
+		Paths:   make(map[string]Path),
+		Components: Components{
 			Schemas:   make(map[string]*Schema),
 			Responses: make(map[string]*Response),
 		},
-		Tags: make([]*Tag, 0, 1),
+		Tags: make([]Tag, 0, 1),
 	}
 	// schemas
 	codeErr := codeErrOpenapiSchema()
@@ -41,7 +41,7 @@ func Openapi(title string, description string, term string, openapiVersion strin
 	for status, response := range responseStatusOpenapi() {
 		api.Components.Responses[status] = response
 	}
-	api.Tags = append(api.Tags, &Tag{
+	api.Tags = append(api.Tags, Tag{
 		Name:        "builtin",
 		Description: "fns builtins",
 	})
@@ -52,11 +52,11 @@ func Openapi(title string, description string, term string, openapiVersion strin
 	endpoints := document.Endpoints
 	if endpoints != nil || len(endpoints) > 0 {
 		for _, endpoint := range endpoints {
-			if !endpoint.Defined() {
+			if !endpoint.Defined() || endpoint.Internal {
 				continue
 			}
 			// tags
-			api.Tags = append(api.Tags, &Tag{
+			api.Tags = append(api.Tags, Tag{
 				Name:        endpoint.Name,
 				Description: endpoint.Description,
 			})
@@ -69,6 +69,9 @@ func Openapi(title string, description string, term string, openapiVersion strin
 				}
 			}
 			for _, fn := range endpoint.Functions {
+				if fn.Internal {
+					continue
+				}
 				fnDescription := fn.Description
 				if fn.Errors != nil && len(fn.Errors) > 0 {
 					fnDescription = fnDescription + "\n----------\n"
@@ -88,14 +91,64 @@ func Openapi(title string, description string, term string, openapiVersion strin
 						}
 					}
 				}
-				path := &Path{
-					Post: &Operation{
+				path := Path{}
+				if fn.Readonly {
+					path.Get = &Operation{
 						OperationId: fmt.Sprintf("%s_%s", endpoint.Name, fn.Name),
 						Tags:        []string{endpoint.Name},
 						Summary:     fn.Title,
 						Description: fnDescription,
 						Deprecated:  fn.Deprecated,
-						Parameters: func() []*Parameter {
+						Parameters: func() []Parameter {
+							params := requestHeadersOpenapiParams()
+							if fn.Authorization {
+								params = append(params, requestAuthHeadersOpenapiParams()...)
+								return params
+							}
+							if fn.Param.Exist() {
+								for _, property := range fn.Param.Properties {
+									params = append(params, Parameter{
+										Name:        property.Element.Name,
+										In:          "query",
+										Description: property.Element.Description,
+										Required:    property.Element.Required,
+									})
+								}
+							}
+							return params
+						}(),
+						RequestBody: nil,
+						Responses: map[string]Response{
+							"200": {
+								Content: func() (c map[string]*MediaType) {
+									if !fn.Result.Exist() {
+										c = ApplicationJsonContent(RefSchema("github.com/aacfactory/fns/service.Empty"))
+										return
+									}
+									c = ApplicationJsonContent(ElementSchema(fn.Result))
+									return
+								}(),
+							},
+							"400": {Ref: "#/components/responses/400"},
+							"401": {Ref: "#/components/responses/401"},
+							"403": {Ref: "#/components/responses/403"},
+							"404": {Ref: "#/components/responses/404"},
+							"406": {Ref: "#/components/responses/406"},
+							"408": {Ref: "#/components/responses/408"},
+							"500": {Ref: "#/components/responses/500"},
+							"501": {Ref: "#/components/responses/501"},
+							"503": {Ref: "#/components/responses/503"},
+							"555": {Ref: "#/components/responses/555"},
+						},
+					}
+				} else {
+					path.Post = &Operation{
+						OperationId: fmt.Sprintf("%s_%s", endpoint.Name, fn.Name),
+						Tags:        []string{endpoint.Name},
+						Summary:     fn.Title,
+						Description: fnDescription,
+						Deprecated:  fn.Deprecated,
+						Parameters: func() []Parameter {
 							params := requestHeadersOpenapiParams()
 							if fn.Authorization {
 								params = append(params, requestAuthHeadersOpenapiParams()...)
@@ -136,7 +189,7 @@ func Openapi(title string, description string, term string, openapiVersion strin
 							"503": {Ref: "#/components/responses/503"},
 							"555": {Ref: "#/components/responses/555"},
 						},
-					},
+					}
 				}
 				api.Paths[fmt.Sprintf("/%s/%s", endpoint.Name, fn.Name)] = path
 			}
@@ -170,8 +223,15 @@ func codeErrOpenapiSchema() *Schema {
 				Type:  "string",
 			},
 			"meta": {
-				Title:                "Meta",
-				Type:                 "object",
+				Title: "Meta",
+				Type:  "array",
+				Items: &Schema{
+					Type: "object",
+					Properties: map[string]*Schema{
+						"key":   {Type: "string"},
+						"value": {Type: "string"},
+					},
+				},
 				AdditionalProperties: &Schema{Type: "string"},
 			},
 			"stacktrace": {
@@ -206,8 +266,8 @@ func emptyOpenapiSchema() *Schema {
 	}
 }
 
-func requestAuthHeadersOpenapiParams() []*Parameter {
-	return []*Parameter{
+func requestAuthHeadersOpenapiParams() []Parameter {
+	return []Parameter{
 		{
 			Name:        "Authorization",
 			In:          "header",
@@ -217,8 +277,8 @@ func requestAuthHeadersOpenapiParams() []*Parameter {
 	}
 }
 
-func requestHeadersOpenapiParams() []*Parameter {
-	return []*Parameter{
+func requestHeadersOpenapiParams() []Parameter {
+	return []Parameter{
 		{
 			Name:        "X-Fns-Device-Id",
 			In:          "header",
@@ -364,9 +424,9 @@ func responseStatusOpenapi() map[string]*Response {
 	}
 }
 
-func healthPath() (uri string, path *Path) {
+func healthPath() (uri string, path Path) {
 	uri = "/health"
-	path = &Path{
+	path = Path{
 		Get: &Operation{
 			OperationId: "application_health",
 			Tags:        []string{"builtin"},

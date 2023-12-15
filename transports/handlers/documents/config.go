@@ -6,6 +6,7 @@ type Config struct {
 }
 
 type OpenAPI struct {
+	Version     string `json:"version"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Term        string `json:"term"`

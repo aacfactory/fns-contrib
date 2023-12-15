@@ -89,7 +89,7 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 		if !has {
 			target = data.Latest()
 		}
-		api := oas.Openapi(handler.OpenAPI.Title, handler.OpenAPI.Description, handler.OpenAPI.Term, "", target)
+		api := oas.Openapi(handler.OpenAPI.Title, handler.OpenAPI.Description, handler.OpenAPI.Term, handler.OpenAPI.Version, target)
 		w.Succeed(api)
 	}
 }
@@ -100,12 +100,8 @@ func (handler *Handler) documents(r transports.Request) (v documents.Documents) 
 		dd := make(documents.Documents, 0, 1)
 		infos := eps.Info()
 		for _, info := range infos {
-			if info.Internal {
-				continue
-			}
-			ep := info.Document
-			if ep.Defined() {
-				dd = dd.AddEndpoint(info.Id, info.Version, ep)
+			if ep := info.Document; ep.Defined() {
+				dd = dd.Add(ep)
 			}
 		}
 		v = dd

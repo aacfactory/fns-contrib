@@ -11,7 +11,7 @@ type Operation struct {
 	Summary     string              `json:"summary,omitempty"`
 	Description string              `json:"description,omitempty"`
 	Deprecated  bool                `json:"deprecated,omitempty"`
-	Parameters  []*Parameter        `json:"parameters,omitempty"`
+	Parameters  []Parameter         `json:"parameters,omitempty"`
 	RequestBody *RequestBody        `json:"requestBody,omitempty"`
 	Responses   map[string]Response `json:"responses,omitempty"`
 }
