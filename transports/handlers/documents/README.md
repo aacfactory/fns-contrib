@@ -20,11 +20,19 @@ transport:
 ```
 
 ## URL
+View
+```
+/documents/view/index.html
+```
 Raw document
 ```
 /documents 
 ```
+Openapi view (latest)
+```
+/documents/openapi/index.html
+```
 Openapi document
 ```
-documents?openapi=latest
+/documents?openapi=latest
 ```

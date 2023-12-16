@@ -21,11 +21,17 @@ import (
 var (
 	_path                 = []byte("/documents")
 	_viewPathPrefix       = []byte("/documents/view/")
+	_oasViewPathPrefix    = []byte("/documents/openapi/")
 	_serversPath          = []byte("/documents/servers/")
 	openapiQueryParam     = []byte("openapi")
 	htmlContentType       = []byte("text/html")
+	jsContentType         = []byte("text/javascript")
+	cssContentType        = []byte("text/css")
 	viewDirPath           = []byte("view/")
+	oasDirPath            = []byte("openapi/")
 	viewIndexHtmlFilename = []byte("index.html")
+	jsSuffix              = []byte(".js")
+	cssSuffix             = []byte(".css")
 )
 
 const (
@@ -34,6 +40,9 @@ const (
 
 //go:embed view
 var view embed.FS
+
+//go:embed openapi
+var openapi embed.FS
 
 func New() transports.MuxHandler {
 	return &Handler{}
@@ -103,6 +112,10 @@ func (handler *Handler) Match(_ context.Context, method []byte, path []byte, _ t
 	if ok {
 		return
 	}
+	ok = bytes.Equal(method, transports.MethodGet) && bytes.Index(path, _oasViewPathPrefix) == 0
+	if ok {
+		return
+	}
 	return
 }
 
@@ -117,14 +130,46 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 		if !found || len(static) == 0 {
 			static = viewIndexHtmlFilename
 		}
+		contentType := htmlContentType
+		if _, foundJs := bytes.CutSuffix(static, jsSuffix); foundJs {
+			contentType = jsContentType
+		}
+		if _, foundCss := bytes.CutSuffix(static, cssSuffix); foundCss {
+			contentType = cssContentType
+		}
 		static = append(viewDirPath, static...)
 		p, readErr := view.ReadFile(bytex.ToString(static))
 		if readErr != nil {
 			s := fmt.Sprintf("%+v", errors.Warning(fmt.Sprintf("documents: read %s failed", bytex.ToString(static))).WithMeta("file", bytex.ToString(static)).WithCause(readErr))
 			s = strings.ReplaceAll(s, "\n", "<br>")
 			p = bytex.FromString(s)
+			contentType = htmlContentType
 		}
-		w.Header().Set(transports.ContentTypeHeaderName, htmlContentType)
+		w.Header().Set(transports.ContentTypeHeaderName, contentType)
+		_, _ = w.Write(p)
+		return
+	}
+	if bytes.Index(path, _oasViewPathPrefix) == 0 {
+		static, found := bytes.CutPrefix(path, _oasViewPathPrefix)
+		if !found || len(static) == 0 {
+			static = viewIndexHtmlFilename
+		}
+		contentType := htmlContentType
+		if _, foundJs := bytes.CutSuffix(static, jsSuffix); foundJs {
+			contentType = jsContentType
+		}
+		if _, foundCss := bytes.CutSuffix(static, cssSuffix); foundCss {
+			contentType = cssContentType
+		}
+		static = append(oasDirPath, static...)
+		p, readErr := openapi.ReadFile(bytex.ToString(static))
+		if readErr != nil {
+			s := fmt.Sprintf("%+v", errors.Warning(fmt.Sprintf("documents: read %s failed", bytex.ToString(static))).WithMeta("file", bytex.ToString(static)).WithCause(readErr))
+			s = strings.ReplaceAll(s, "\n", "<br>")
+			p = bytex.FromString(s)
+			contentType = htmlContentType
+		}
+		w.Header().Set(transports.ContentTypeHeaderName, contentType)
 		_, _ = w.Write(p)
 		return
 	}
