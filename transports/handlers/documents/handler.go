@@ -2,8 +2,11 @@ package documents
 
 import (
 	"bytes"
+	"embed"
+	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/handlers/documents/oas"
+	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
@@ -12,16 +15,24 @@ import (
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/logs"
 	"golang.org/x/sync/singleflight"
+	"strings"
 )
 
 var (
 	_path             = []byte("/documents")
+	_viewPathPrefix   = []byte("/documents/view/")
+	_serversPath      = []byte("/documents/servers/")
 	openapiQueryParam = []byte("openapi")
+	htmlContentType   = []byte("text/html")
+	viewDirPath       = []byte("view/")
 )
 
 const (
 	groupKey = "documents"
 )
+
+//go:embed view
+var view embed.FS
 
 func New() transports.MuxHandler {
 	return &Handler{}
@@ -34,7 +45,8 @@ func New() transports.MuxHandler {
 type Handler struct {
 	log     logs.Logger
 	enable  bool
-	OpenAPI OpenAPI
+	servers []Server
+	openAPI OpenAPI
 	group   singleflight.Group
 }
 
@@ -51,9 +63,25 @@ func (handler *Handler) Construct(options transports.MuxHandlerOptions) (err err
 		return
 	}
 	handler.enable = config.Enable
-	handler.OpenAPI = config.OpenAPI
-	if handler.OpenAPI.Title == "" {
-		handler.OpenAPI.Title = "FNS"
+	handler.servers = config.Servers
+	if handler.servers == nil {
+		handler.servers = make([]Server, 0, 1)
+	}
+	for i, server := range handler.servers {
+		ssl := server.SSL
+		exist, readErr := ssl.Read()
+		if readErr != nil {
+			err = errors.Warning("fns: construct documents handler failed").WithCause(readErr)
+			return
+		}
+		if exist {
+			server.SSL = ssl
+			handler.servers[i] = server
+		}
+	}
+	handler.openAPI = config.OpenAPI
+	if handler.openAPI.Title == "" {
+		handler.openAPI.Title = "FNS"
 	}
 	return
 }
@@ -63,10 +91,42 @@ func (handler *Handler) Match(_ context.Context, method []byte, path []byte, _ t
 		return
 	}
 	ok = bytes.Equal(method, transports.MethodGet) && bytes.Equal(_path, path)
+	if ok {
+		return
+	}
+	ok = bytes.Equal(method, transports.MethodGet) && bytes.Equal(_serversPath, path)
+	if ok {
+		return
+	}
+	ok = bytes.Equal(method, transports.MethodGet) && bytes.Index(path, _viewPathPrefix) == 0
+	if ok {
+		return
+	}
 	return
 }
 
 func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request) {
+	path := r.Path()
+	if bytes.Equal(_serversPath, path) {
+		w.Succeed(handler.servers)
+		return
+	}
+	if bytes.Index(path, _viewPathPrefix) == 0 {
+		static, found := bytes.CutPrefix(path, _viewPathPrefix)
+		if !found || len(static) == 0 {
+			static = []byte("index.html")
+		}
+		static = append(viewDirPath, static...)
+		p, readErr := view.ReadFile(bytex.ToString(static))
+		if readErr != nil {
+			s := fmt.Sprintf("%+v", errors.Warning(fmt.Sprintf("documents: read %s failed", bytex.ToString(static))).WithMeta("file", bytex.ToString(static)).WithCause(readErr))
+			s = strings.ReplaceAll(s, "\n", "<br>")
+			p = bytex.FromString(s)
+		}
+		w.Header().Set(transports.ContentTypeHeaderName, htmlContentType)
+		_, _ = w.Write(p)
+		return
+	}
 	openapiParam := r.Params().Get(openapiQueryParam)
 	data := handler.documents(r)
 	if len(openapiParam) == 0 {
@@ -90,7 +150,13 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 		if !has {
 			target = data.Latest()
 		}
-		api := oas.Openapi(handler.OpenAPI.Title, handler.OpenAPI.Description, handler.OpenAPI.Term, handler.OpenAPI.Version, target)
+		api := oas.Openapi(handler.openAPI.Title, handler.openAPI.Description, handler.openAPI.Term, handler.openAPI.Version, target)
+		for _, server := range handler.servers {
+			api.Servers = append(api.Servers, oas.Server{
+				Url:         server.URL,
+				Description: server.Name,
+			})
+		}
 		w.Succeed(api)
 	}
 }
