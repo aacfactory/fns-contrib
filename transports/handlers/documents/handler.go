@@ -19,12 +19,13 @@ import (
 )
 
 var (
-	_path             = []byte("/documents")
-	_viewPathPrefix   = []byte("/documents/view/")
-	_serversPath      = []byte("/documents/servers/")
-	openapiQueryParam = []byte("openapi")
-	htmlContentType   = []byte("text/html")
-	viewDirPath       = []byte("view/")
+	_path                 = []byte("/documents")
+	_viewPathPrefix       = []byte("/documents/view/")
+	_serversPath          = []byte("/documents/servers/")
+	openapiQueryParam     = []byte("openapi")
+	htmlContentType       = []byte("text/html")
+	viewDirPath           = []byte("view/")
+	viewIndexHtmlFilename = []byte("index.html")
 )
 
 const (
@@ -114,7 +115,7 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 	if bytes.Index(path, _viewPathPrefix) == 0 {
 		static, found := bytes.CutPrefix(path, _viewPathPrefix)
 		if !found || len(static) == 0 {
-			static = []byte("index.html")
+			static = viewIndexHtmlFilename
 		}
 		static = append(viewDirPath, static...)
 		p, readErr := view.ReadFile(bytex.ToString(static))
