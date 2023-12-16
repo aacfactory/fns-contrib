@@ -32,6 +32,7 @@ var (
 	viewIndexHtmlFilename = []byte("index.html")
 	jsSuffix              = []byte(".js")
 	cssSuffix             = []byte(".css")
+	maxAge                = []byte("max-age=64000")
 )
 
 const (
@@ -144,6 +145,8 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 			s = strings.ReplaceAll(s, "\n", "<br>")
 			p = bytex.FromString(s)
 			contentType = htmlContentType
+		} else {
+			w.Header().Set(transports.CacheControlHeaderName, maxAge)
 		}
 		w.Header().Set(transports.ContentTypeHeaderName, contentType)
 		_, _ = w.Write(p)
@@ -168,6 +171,8 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 			s = strings.ReplaceAll(s, "\n", "<br>")
 			p = bytex.FromString(s)
 			contentType = htmlContentType
+		} else {
+			w.Header().Set(transports.CacheControlHeaderName, maxAge)
 		}
 		w.Header().Set(transports.ContentTypeHeaderName, contentType)
 		_, _ = w.Write(p)
