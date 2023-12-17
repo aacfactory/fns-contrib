@@ -200,8 +200,48 @@ func (cluster *Cluster) Barrier() (barrier barriers.Barrier) {
 	return
 }
 
+func (cluster *Cluster) listNodes(ctx context.Context) (nodes clusters.Nodes) {
+	values, valuesErr := cluster.nodes.GetValues(ctx)
+	if valuesErr != nil {
+		cluster.log.Error().Cause(valuesErr).With("action", "values").Message("cluster get nodes failed")
+		return
+	}
+
+	nodes = make(clusters.Nodes, 0, 8)
+	if len(values) > 0 {
+		for _, value := range values {
+			s, ok := value.(string)
+			if !ok {
+				continue
+			}
+			node := clusters.Node{}
+			decodeErr := json.Unmarshal(bytex.FromString(s), &node)
+			if decodeErr != nil {
+				if cluster.log.ErrorEnabled() {
+					cluster.log.Error().Cause(decodeErr).With("action", "decode").Message("cluster get nodes failed")
+				}
+				continue
+			}
+			if node.Id == cluster.node.Id {
+				continue
+			}
+			nodes = nodes.Add(node)
+		}
+	}
+	return
+}
+
 func (cluster *Cluster) listen() {
 	ctx := context.TODO()
+	// first
+	nodes := cluster.listNodes(ctx)
+	events := nodes.Difference(cluster.members)
+	for _, event := range events {
+		cluster.events <- event
+	}
+	events = events[:0]
+	cluster.members = nodes
+	// loop
 	stopped := false
 	timer := time.NewTimer(cluster.interval)
 	for {
@@ -234,34 +274,8 @@ func (cluster *Cluster) listen() {
 
 			}
 			// list
-			values, valuesErr := cluster.nodes.GetValues(ctx)
-			if valuesErr != nil {
-				cluster.log.Error().Cause(valuesErr).With("action", "values").Message("cluster get nodes failed")
-				break
-			}
-
-			news := make(clusters.Nodes, 0, 8)
-			if len(values) > 0 {
-				for _, value := range values {
-					s, ok := value.(string)
-					if !ok {
-						continue
-					}
-					node := clusters.Node{}
-					decodeErr := json.Unmarshal(bytex.FromString(s), &node)
-					if decodeErr != nil {
-						if cluster.log.ErrorEnabled() {
-							cluster.log.Error().Cause(decodeErr).With("action", "decode").Message("cluster get nodes failed")
-						}
-						continue
-					}
-					if node.Id == cluster.node.Id {
-						continue
-					}
-					news = news.Add(node)
-				}
-			}
-			events := news.Difference(cluster.members)
+			news := cluster.listNodes(ctx)
+			events = news.Difference(cluster.members)
 			for _, event := range events {
 				cluster.events <- event
 			}

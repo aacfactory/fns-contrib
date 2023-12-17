@@ -150,8 +150,48 @@ func (cluster *Cluster) Barrier() (barrier barriers.Barrier) {
 	return
 }
 
+func (cluster *Cluster) listNodes(ctx context.Context) (nodes clusters.Nodes) {
+	keys, keysErr := cluster.client.Do(ctx, cluster.client.B().Keys().Pattern(fmt.Sprintf("%s*", prefix)).Build()).AsStrSlice()
+	if keysErr != nil && cluster.log.ErrorEnabled() {
+		cluster.log.Error().Cause(keysErr).With("action", "keys").Message("cluster get nodes failed")
+		return
+	}
+	nodes = make(clusters.Nodes, 0, 8)
+	if len(keys) > 0 {
+		values, valuesErr := cluster.client.Do(ctx, cluster.client.B().Mget().Key(keys...).Build()).AsStrSlice()
+		if valuesErr != nil {
+			cluster.log.Error().Cause(valuesErr).With("action", "mget").Message("cluster get nodes failed")
+			return
+		}
+		for _, value := range values {
+			node := clusters.Node{}
+			decodeErr := json.Unmarshal(bytex.FromString(value), &node)
+			if decodeErr != nil {
+				if cluster.log.ErrorEnabled() {
+					cluster.log.Error().Cause(decodeErr).With("action", "decode").Message("cluster get nodes failed")
+				}
+				continue
+			}
+			if node.Id == cluster.node.Id {
+				continue
+			}
+			nodes = nodes.Add(node)
+		}
+	}
+	return
+}
+
 func (cluster *Cluster) listen() {
 	ctx := context.TODO()
+	// first
+	nodes := cluster.listNodes(ctx)
+	events := nodes.Difference(cluster.members)
+	for _, event := range events {
+		cluster.events <- event
+	}
+	events = events[:0]
+	cluster.members = nodes
+	// loop
 	stopped := false
 	ttl := int64(cluster.ttl.Seconds())
 	timer := time.NewTimer(cluster.interval)
@@ -180,37 +220,10 @@ func (cluster *Cluster) listen() {
 						cluster.log.Debug().With("action", "keepalive").With("ttl", sec).Message("cluster: keepalive succeed")
 					}
 				}
-
 			}
 			// list
-			keys, keysErr := cluster.client.Do(ctx, cluster.client.B().Keys().Pattern(fmt.Sprintf("%s*", prefix)).Build()).AsStrSlice()
-			if keysErr != nil && cluster.log.ErrorEnabled() {
-				cluster.log.Error().Cause(keysErr).With("action", "keys").Message("cluster get nodes failed")
-				break
-			}
-			news := make(clusters.Nodes, 0, 8)
-			if len(keys) > 0 {
-				values, valuesErr := cluster.client.Do(ctx, cluster.client.B().Mget().Key(keys...).Build()).AsStrSlice()
-				if valuesErr != nil {
-					cluster.log.Error().Cause(valuesErr).With("action", "mget").Message("cluster get nodes failed")
-					break
-				}
-				for _, value := range values {
-					node := clusters.Node{}
-					decodeErr := json.Unmarshal(bytex.FromString(value), &node)
-					if decodeErr != nil {
-						if cluster.log.ErrorEnabled() {
-							cluster.log.Error().Cause(decodeErr).With("action", "decode").Message("cluster get nodes failed")
-						}
-						continue
-					}
-					if node.Id == cluster.node.Id {
-						continue
-					}
-					news = news.Add(node)
-				}
-			}
-			events := news.Difference(cluster.members)
+			news := cluster.listNodes(ctx)
+			events = news.Difference(cluster.members)
 			for _, event := range events {
 				cluster.events <- event
 			}
