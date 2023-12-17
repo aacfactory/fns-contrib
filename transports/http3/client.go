@@ -83,7 +83,7 @@ func (c *Client) Do(ctx context.Context, method []byte, path []byte, header tran
 	}
 	status = resp.StatusCode
 	responseHeader = standard.WrapHttpHeader(resp.Header)
-	responseBody = b.Bytes()
+	responseBody = bytex.FromString(b.String())
 	return
 }
 
