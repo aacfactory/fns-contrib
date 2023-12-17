@@ -4,9 +4,9 @@ go 1.21.0
 
 require (
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.2.1
-	github.com/aacfactory/fns-contrib/databases/sql v1.2.1
-	github.com/aacfactory/fns-contrib/permissions/rbac v1.2.1
+	github.com/aacfactory/fns v1.2.3
+	github.com/aacfactory/fns-contrib/databases/sql v1.2.3
+	github.com/aacfactory/fns-contrib/permissions/rbac v1.2.3
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 )
