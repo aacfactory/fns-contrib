@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func NewDialer(cliTLS *tls.Config, clientConfig *ClientConfig, enableDatagrams bool, quicConfig *quic.Config, additionalSettings map[uint64]uint64) (dialer *Dialer, err error) {
+func NewDialer(cliTLS *tls.Config, clientConfig ClientConfig, enableDatagrams bool, quicConfig *quic.Config, additionalSettings map[uint64]uint64) (dialer *Dialer, err error) {
 	maxResponseHeaderBytes, maxResponseHeaderBytesErr := clientConfig.MaxResponseHeaderByteSize()
 	if maxResponseHeaderBytesErr != nil {
 		err = maxResponseHeaderBytesErr

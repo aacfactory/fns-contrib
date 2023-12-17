@@ -5,15 +5,15 @@ go 1.21.0
 replace github.com/aacfactory/fns v1.1.0 => ../../../../fns
 
 require (
+	github.com/aacfactory/afssl v1.10.0
 	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.1.0
-	github.com/aacfactory/json v1.16.5
+	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	golang.org/x/sync v0.5.0
 )
 
 require (
-	github.com/aacfactory/afssl v1.10.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

@@ -121,8 +121,8 @@ func TestSTD(t *testing.T) {
 		MaxRequestHeaderSize: "",
 		AdditionalSettings:   nil,
 		Quic:                 nil,
-		Client:               nil,
-		Alternative: &http3.AlternativeConfig{
+		Client:               http3.ClientConfig{},
+		Alternative: http3.AlternativeConfig{
 			Name:    "fasthttp",
 			Options: nil,
 		},
@@ -176,7 +176,7 @@ func SSL() (srv *tls.Config, cli *tls.Config, err error) {
 }
 
 func Log() (log logs.Logger, err error) {
-	log, err = logs.New(logs.Name("http3"), logs.Color(true), logs.WithLevel(logs.DebugLevel))
+	log, err = logs.New(logs.WithLevel(logs.DebugLevel))
 	if err != nil {
 		err = errors.Warning("http3: create log failed").WithCause(err)
 		return

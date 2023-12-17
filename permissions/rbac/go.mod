@@ -13,7 +13,7 @@ require (
 require (
 	github.com/aacfactory/afssl v1.10.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/aacfactory/json v1.16.5 // indirect
+	github.com/aacfactory/json v1.16.6 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect

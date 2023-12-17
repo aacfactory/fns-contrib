@@ -157,7 +157,7 @@ func (s *store) Roles(ctx context.Context) (roles rbac.Roles, err error) {
 		return
 	}
 	roles = make(rbac.Roles, 0, 1)
-	err = r.TransformTo(&roles)
+	err = r.Unmarshal(&roles)
 	if err != nil {
 		err = errors.Warning("permissions: get roles failed").WithCause(err)
 		return

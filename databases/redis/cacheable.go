@@ -33,7 +33,7 @@ func (handler *cacheableHandler) Handle(ctx services.Request) (v any, err error)
 		return
 	}
 	commands := make(Cacheables, 0)
-	paramErr := ctx.Param().TransformTo(&commands)
+	paramErr := ctx.Param().Unmarshal(&commands)
 	if paramErr != nil {
 		err = errors.Warning("redis: parse param failed").WithCause(paramErr)
 		return
@@ -108,7 +108,7 @@ func DoMultiCache(ctx context.Context, commands ...IncompleteCommand) (v []Resul
 		return
 	}
 	r := make([]result, 0, 1)
-	err = response.TransformTo(&r)
+	err = response.Unmarshal(&r)
 	if err != nil {
 		return
 	}

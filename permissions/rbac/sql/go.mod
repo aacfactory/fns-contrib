@@ -13,7 +13,7 @@ require (
 	github.com/aacfactory/fns v1.1.3
 	github.com/aacfactory/fns-contrib/databases/sql v1.0.30
 	github.com/aacfactory/fns-contrib/permissions/rbac v1.0.30
-	github.com/aacfactory/json v1.16.5
+	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 )
 

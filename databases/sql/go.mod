@@ -6,11 +6,11 @@ replace github.com/aacfactory/fns v1.1.3 => ../../../fns
 
 require (
 	github.com/aacfactory/configures v1.12.1
-	github.com/aacfactory/errors v1.13.10
+	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.1.3
 	github.com/aacfactory/gcg v1.0.5
-	github.com/aacfactory/json v1.16.5
-	github.com/aacfactory/logs v1.13.10
+	github.com/aacfactory/json v1.16.6
+	github.com/aacfactory/logs v1.13.12
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.5.0

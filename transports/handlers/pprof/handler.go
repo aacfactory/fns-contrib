@@ -5,6 +5,7 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/transports"
+	"github.com/aacfactory/fns/transports/standard"
 	"github.com/aacfactory/logs"
 	"net/http/pprof"
 	rtp "runtime/pprof"
@@ -16,11 +17,11 @@ var (
 )
 
 var (
-	cmdline = transports.ConvertHttpHandlerFunc(pprof.Cmdline)
-	profile = transports.ConvertHttpHandlerFunc(pprof.Profile)
-	symbol  = transports.ConvertHttpHandlerFunc(pprof.Symbol)
-	trace   = transports.ConvertHttpHandlerFunc(pprof.Trace)
-	index   = transports.ConvertHttpHandlerFunc(pprof.Index)
+	cmdline = standard.ConvertHttpHandlerFunc(pprof.Cmdline)
+	profile = standard.ConvertHttpHandlerFunc(pprof.Profile)
+	symbol  = standard.ConvertHttpHandlerFunc(pprof.Symbol)
+	trace   = standard.ConvertHttpHandlerFunc(pprof.Trace)
+	index   = standard.ConvertHttpHandlerFunc(pprof.Index)
 )
 
 type Config struct {
@@ -71,7 +72,7 @@ func (h *handler) Handle(w transports.ResponseWriter, r transports.Request) {
 		for _, v := range rtp.Profiles() {
 			ppName := v.Name()
 			if bytes.HasPrefix(r.Path(), []byte("/debug/pprof/"+ppName)) {
-				namedHandler := transports.ConvertHttpHandlerFunc(pprof.Handler(ppName).ServeHTTP)
+				namedHandler := standard.ConvertHttpHandlerFunc(pprof.Handler(ppName).ServeHTTP)
 				namedHandler.Handle(w, r)
 				return
 			}

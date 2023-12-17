@@ -8,8 +8,9 @@ require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.1.3
-	github.com/aacfactory/json v1.16.5
+	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
+	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/hazelcast/hazelcast-go-client v1.4.1
 	golang.org/x/sync v0.5.0
 )
@@ -17,7 +18,6 @@ require (
 require (
 	github.com/aacfactory/afssl v1.10.0 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/goccy/go-yaml v1.11.2 // indirect
@@ -43,4 +43,5 @@ require (
 	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )

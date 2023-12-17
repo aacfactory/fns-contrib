@@ -21,8 +21,6 @@ var DefaultDialer = &Dialer{
 	HandshakeTimeout: 45 * time.Second,
 }
 
-var nilDialer = *DefaultDialer
-
 type Dialer struct {
 	NetDial           func(network, addr string) (net.Conn, error)
 	NetDialContext    func(ctx context.Context, network, addr string) (net.Conn, error)
@@ -44,7 +42,7 @@ func (d *Dialer) Dial(urlStr string, requestHeader http.Header) (*Conn, *http.Re
 
 func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (*Conn, *http.Response, error) {
 	if d == nil {
-		d = &nilDialer
+		*d = *DefaultDialer
 	}
 
 	challengeKey, err := generateChallengeKey()

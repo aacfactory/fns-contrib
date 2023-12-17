@@ -10,13 +10,13 @@ import (
 )
 
 type Config struct {
-	EnableDatagrams      bool               `json:"enableDatagrams"`
-	MaxRequestHeaderSize string             `json:"maxRequestHeaderSize"`
-	MaxRequestBodySize   string             `json:"maxRequestBodySize"`
-	AdditionalSettings   map[uint64]uint64  `json:"additionalSettings"`
-	Quic                 *QuicConfig        `json:"quic"`
-	Client               *ClientConfig      `json:"client"`
-	Alternative          *AlternativeConfig `json:"alternative"`
+	EnableDatagrams      bool              `json:"enableDatagrams"`
+	MaxRequestHeaderSize string            `json:"maxRequestHeaderSize"`
+	MaxRequestBodySize   string            `json:"maxRequestBodySize"`
+	AdditionalSettings   map[uint64]uint64 `json:"additionalSettings"`
+	Quic                 *QuicConfig       `json:"quic"`
+	Client               ClientConfig      `json:"client"`
+	Alternative          AlternativeConfig `json:"alternative"`
 }
 
 func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {
@@ -27,11 +27,7 @@ func (config *Config) QuicConfig() (quicConfig *quic.Config, err error) {
 	return
 }
 
-func (config *Config) ClientConfig() (clientConfig *ClientConfig) {
-	if config.Client == nil {
-		clientConfig = &ClientConfig{}
-		return
-	}
+func (config *Config) ClientConfig() (clientConfig ClientConfig) {
 	clientConfig = config.Client
 	return
 }

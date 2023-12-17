@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func newServer(port int, srvTLS *tls.Config, config *Config, quicConfig *quic.Config, handler transports.Handler) (srv *Server, err error) {
+func newServer(port int, srvTLS *tls.Config, config Config, quicConfig *quic.Config, handler transports.Handler) (srv *Server, err error) {
 	if srvTLS == nil {
 		err = errors.Warning("http3: build server failed").WithCause(errors.Warning("tls is required"))
 		return

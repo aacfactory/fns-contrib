@@ -65,8 +65,8 @@ func (tr *Transport) Construct(options transports.Options) (err error) {
 		err = errors.Warning("http3: transport construct failed").WithCause(optConfigErr).WithMeta("transport", transportName)
 		return
 	}
-	config := &Config{}
-	configErr := optConfig.As(config)
+	config := Config{}
+	configErr := optConfig.As(&config)
 	if configErr != nil {
 		err = errors.Warning("http3: transport construct failed").WithCause(configErr).WithMeta("transport", transportName)
 		return

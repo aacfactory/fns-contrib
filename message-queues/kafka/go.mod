@@ -7,7 +7,7 @@ replace github.com/aacfactory/fns v1.1.3 => ../../../fns
 require (
 	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.1.3
-	github.com/aacfactory/json v1.16.5
+	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/segmentio/kafka-go v0.4.32
 )
