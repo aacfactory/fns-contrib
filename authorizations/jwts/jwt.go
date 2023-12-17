@@ -5,7 +5,7 @@ import (
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/services/authorizations"
 	"github.com/aacfactory/json"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
 

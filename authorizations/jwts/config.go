@@ -3,7 +3,7 @@ package jwts
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"os"
 	"path/filepath"
 	"strings"
