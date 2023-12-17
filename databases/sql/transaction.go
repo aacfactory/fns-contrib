@@ -183,7 +183,7 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 	if param.Isolation == 0 {
 		param.Isolation = fn.isolation
 	}
-	value, beginErr := fn.db.Begin(r, databases.TransactionOptions{
+	value, beginErr := fn.db.Begin(context.TODO(), databases.TransactionOptions{
 		Isolation: param.Isolation,
 		Readonly:  param.Readonly,
 	})

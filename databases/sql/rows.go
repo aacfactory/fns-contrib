@@ -82,6 +82,7 @@ func (rows Rows) MarshalJSON() (p []byte, err error) {
 		scanners := mc.Next()
 		scanErr := rows.rows.Scan(scanners...)
 		if scanErr != nil {
+			_ = rows.rows.Close()
 			mc.Release()
 			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
 			return

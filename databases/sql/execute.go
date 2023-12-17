@@ -30,7 +30,7 @@ func Execute(ctx context.Context, query []byte, arguments ...interface{}) (resul
 				handleBegin = time.Now()
 			}
 		}
-		result, err = tx.Execute(ctx, query, arguments)
+		result, err = tx.Execute(context.TODO(), query, arguments)
 		if debug && log.DebugEnabled() {
 			latency := time.Now().Sub(handleBegin)
 			log.Debug().With("succeed", err == nil).With("latency", latency.String()).With("transaction", tx.Id).
@@ -120,7 +120,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 				useDebugLog(r)
 				handleBegin = time.Now()
 			}
-			result, executeErr := tx.Execute(r, bytex.FromString(param.Query), param.Arguments)
+			result, executeErr := tx.Execute(context.TODO(), bytex.FromString(param.Query), param.Arguments)
 			if fn.debug && fn.log.DebugEnabled() {
 				latency := time.Now().Sub(handleBegin)
 				fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).With("transaction", info.Id).
@@ -139,7 +139,7 @@ func (fn *executeFn) Handle(r services.Request) (v interface{}, err error) {
 		useDebugLog(r)
 		handleBegin = time.Now()
 	}
-	result, executeErr := fn.db.Execute(r, bytex.FromString(param.Query), param.Arguments)
+	result, executeErr := fn.db.Execute(context.TODO(), bytex.FromString(param.Query), param.Arguments)
 	if fn.debug && fn.log.DebugEnabled() {
 		latency := time.Now().Sub(handleBegin)
 		fn.log.Debug().With("succeed", executeErr == nil).With("latency", latency.String()).
