@@ -2,14 +2,12 @@ module github.com/aacfactory/fns-contrib/message-queues/kafka
 
 go 1.21.0
 
-replace github.com/aacfactory/fns v1.1.3 => ../../../fns
-
 require (
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.1.3
+	github.com/aacfactory/fns v1.2.1
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
-	github.com/segmentio/kafka-go v0.4.32
+	github.com/segmentio/kafka-go v0.4.47
 )
 
 require (
@@ -25,7 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/pierrec/lz4/v4 v4.1.14 // indirect
+	github.com/pierrec/lz4/v4 v4.1.19 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect
@@ -33,11 +31,13 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
-	github.com/xdg/stringprep v1.0.0 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/scram v1.1.2 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )
