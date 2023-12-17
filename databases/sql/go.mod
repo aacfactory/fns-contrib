@@ -2,12 +2,10 @@ module github.com/aacfactory/fns-contrib/databases/sql
 
 go 1.21.0
 
-replace github.com/aacfactory/fns v1.1.3 => ../../../fns
-
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.1.3
+	github.com/aacfactory/fns v1.2.0
 	github.com/aacfactory/gcg v1.0.5
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
@@ -39,4 +37,5 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/tools v0.16.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )
