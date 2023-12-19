@@ -5,35 +5,25 @@ go get github.com/aacfactory/fns-contrib/message-queues/kafka
 ```
 ## Usage
 ```go
-app.Deploy(kafka.New(kafka.WithReader(name, consumer)))
+app.Deploy(kafka.New(kafka.WithConsumeHandler(name, handleFn)))
 ```
 ## Config
 ```yaml
 kafka:
   brokers: 
-    - "192.168.0.1:9093"
-  options:
-    saslType: "plain"
-    username: "user"
-    password: "pass"
-    clientId: "clientId"
-    clientTLS:
-      ca: "path of ca.pem"
-      cert: "path of cert.pem"
-      key: "path of key.pem"
-  writer:
-    topicA:
-      compression: "snappy"
-      balancer: "round_robin"
-      requiredAck: "one"
-      batchSize: 100
-      async: false
-  reader:
+    - "192.168.0.1:9092"
+  producers:
+    enable: true
+    num: 4
+    partitioner:
+      name: "round_robin"
+  consumers:
     nameA:
-      groupId: ""
-      autoCommit: false
+      group: "groupId"
+      topics:
+        - "topicA"
 ```
 ## As proxy
 ```go
-publishErr := kafka.Publish(ctx, "topic", kafka.NewMessage(key, body))
+publishErr := kafka.Publish(ctx, kafka.NewMessage(topic, key, body))
 ```
