@@ -39,6 +39,10 @@ func (tr *Transport) Construct(options transports.Options) (err error) {
 	// log
 	log := options.Log.With("transport", transportName)
 	// tls
+	if options.Config.TLS == nil {
+		err = errors.Warning("http3: transport construct failed").WithCause(fmt.Errorf("tls is required")).WithMeta("transport", transportName)
+		return
+	}
 	tlsConfig, tlsConfigErr := options.Config.GetTLS()
 	if tlsConfigErr != nil {
 		err = errors.Warning("http3: transport construct failed").WithCause(tlsConfigErr).WithMeta("transport", transportName)

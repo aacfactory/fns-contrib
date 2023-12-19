@@ -1,11 +1,11 @@
-github.com/aacfactory/afssl v1.10.0 h1:kshlbGbkpL+j0cm2X4TlLfNFaILEW7s2MzIzL+ZZFwI=
-github.com/aacfactory/afssl v1.10.0/go.mod h1:DexdbKc91WSTHMclzZfy0YmYwjSz3GKqvUOh5DGCG1o=
+github.com/aacfactory/afssl v1.12.0 h1:kMaF0ox+mGAEmBTXALhw6C2EKu3sDASKRyi1TsYMRco=
+github.com/aacfactory/afssl v1.12.0/go.mod h1:mNXZh8KnQID7fzQqxGbaxjYCHuDWXLN7EoKjn6lyGDE=
 github.com/aacfactory/configures v1.12.1 h1:dt8EafWfEG1xTfZ1lO4UY56i5EieI4lkG+VzxMtLnTQ=
 github.com/aacfactory/configures v1.12.1/go.mod h1:Iw63k3WoJD8eb1HWE6cvkBTFXfoeCqutuj8vVnia1Kg=
 github.com/aacfactory/errors v1.13.11 h1:r7YtWEQg3/74ejsg/jnuPTkhUxiBjq+sLrrsTQKSavI=
 github.com/aacfactory/errors v1.13.11/go.mod h1:D63VqtkV+Yrz9st8R97h6mxaaI8bAVvkQMpQ0zsjNec=
-github.com/aacfactory/fns v1.2.3 h1:dTOawQvYuV2kRLQeInTA7fy5AOdSQZGb7mB8GlZMpgc=
-github.com/aacfactory/fns v1.2.3/go.mod h1:4KW3rxOvZOEJdXxOHnq4Vc06UZSY3+Ik4M/jMifNZW4=
+github.com/aacfactory/fns v1.2.10 h1:G6HICovzNXXtTKyuied9lUBWXyqKsNcapz96uFCzGsE=
+github.com/aacfactory/fns v1.2.10/go.mod h1:g+68sDbRsYJ1knvzZFn6De5jzJGZ4SkuidEBnWjMxAw=
 github.com/aacfactory/json v1.16.6 h1:SWAubiLJXx8/v8dNfzCs9G+JWF8bFlfcMh/5lovuoto=
 github.com/aacfactory/json v1.16.6/go.mod h1:1bRJNT+UXqPyDWtzSvnkKfe5aN3hRErWossAggLeRcc=
 github.com/aacfactory/logs v1.13.12 h1:9wtMk8YYxnPOGTzPMcORQpLQcotGp43+80gPSQHFiss=
@@ -105,8 +105,8 @@ github.com/yusufpapurcu/wmi v1.2.3 h1:E1ctvB7uKFMOJw3fdOW32DwGE9I7t++CRUEMKvFoFi
 github.com/yusufpapurcu/wmi v1.2.3/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 go.uber.org/goleak v1.1.10 h1:z+mqJhf6ss6BSfSM671tgKyZBFPTTJM+HLxnhPC3wu0=
 go.uber.org/goleak v1.1.10/go.mod h1:8a7PlsEVH3e/a/GLqe5IIrQx6GzcnRmZEufDUTk4A7A=
-golang.org/x/crypto v0.16.0 h1:mMMrFzRSCF0GvB7Ne27XVtVAaXLrPmgPC7/v0tkwHaY=
-golang.org/x/crypto v0.16.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
+golang.org/x/crypto v0.17.0 h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=
+golang.org/x/crypto v0.17.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
 golang.org/x/lint v0.0.0-20190930215403-16217165b5de h1:5hukYrvBGR8/eNkX5mdUezrA6JiaEZDtJb9Ei+1LlBs=
 golang.org/x/lint v0.0.0-20190930215403-16217165b5de/go.mod h1:6SW0HCj/g11FgYtHlgUYUwCkIfeOF89ocIRzGO/8vkc=
 golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=

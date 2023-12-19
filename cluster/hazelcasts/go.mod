@@ -3,9 +3,10 @@ module github.com/aacfactory/fns-contrib/cluster/hazelcasts
 go 1.21.0
 
 require (
+	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.2.3
+	github.com/aacfactory/fns v1.2.10
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/cespare/xxhash/v2 v2.2.0
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/aacfactory/afssl v1.10.0 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -38,7 +38,7 @@ require (
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect

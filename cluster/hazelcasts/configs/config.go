@@ -24,7 +24,7 @@ func (config *Config) As() (v hazelcast.Config, err error) {
 	v.Cluster.Security.Credentials.Username = config.Username
 	v.Cluster.Security.Credentials.Password = config.Password
 	if config.SSL.Enable {
-		tlsConfig, tlsErr := config.SSL.Config()
+		tlsConfig, tlsErr := config.SSL.Load()
 		if tlsErr != nil {
 			err = tlsErr
 			return
