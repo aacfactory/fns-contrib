@@ -30,7 +30,7 @@ func WithReader(name string, consumer Consumer) Option {
 	}
 }
 
-func New(options ...Option) services.Service {
+func New(options ...Option) services.Listenable {
 	opt := Options{
 		consumers: make(map[string]Consumer),
 	}
@@ -39,7 +39,10 @@ func New(options ...Option) services.Service {
 	}
 	return &service{
 		Abstract:  services.NewAbstract(string(endpointName), true),
+		writers:   make(map[string]*Writer),
 		consumers: opt.consumers,
+		readers:   make(map[string]*Reader),
+		cancel:    nil,
 	}
 }
 

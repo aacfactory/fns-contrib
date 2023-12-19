@@ -116,7 +116,7 @@ func (config *Config) AsOption(options Options) (option rueidis.ClientOption, er
 		option.Sentinel.Username = config.Sentinel.Username
 		option.Sentinel.Password = config.Sentinel.Password
 		if config.Sentinel.SSL.Enable {
-			tlsConfig, tlsErr := config.Sentinel.SSL.Config()
+			tlsConfig, tlsErr := config.Sentinel.SSL.Load()
 			if tlsErr != nil {
 				err = tlsErr
 				return
@@ -152,7 +152,7 @@ func (config *Config) AsOption(options Options) (option rueidis.ClientOption, er
 	option.ReplicaOnly = config.ReplicaOnly
 	option.ClientNoEvict = config.ClientNoEvict
 	if config.SSL.Enable {
-		tlsConfig, tlsErr := config.SSL.Config()
+		tlsConfig, tlsErr := config.SSL.Load()
 		if tlsErr != nil {
 			err = tlsErr
 			return

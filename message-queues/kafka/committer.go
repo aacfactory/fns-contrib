@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"github.com/segmentio/kafka-go"
+	"github.com/twmb/franz-go/pkg/kadm"
 )
 
 type MessageCommitter interface {
@@ -20,6 +21,9 @@ type ExplicitMessageCommitter struct {
 }
 
 func (committer *ExplicitMessageCommitter) Commit(ctx context.Context, msg kafka.Message) (err error) {
+	var adm *kadm.Client = nil
+	adm.CommitOffsets()
+
 	err = committer.reader.CommitMessages(ctx, msg)
 	return
 }

@@ -83,7 +83,6 @@ func (w *Writer) Write(ctx context.Context, messages []WriteMessage) (err error)
 			return
 		}
 		mm = append(mm, kafka.Message{
-			Topic:         w.topic,
 			Partition:     0,
 			Offset:        message.Offset,
 			HighWaterMark: 0,

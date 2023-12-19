@@ -5,27 +5,12 @@ import (
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/logs"
 	"github.com/segmentio/kafka-go"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"time"
 )
 
-type Consumer interface {
-	Handle(ctx context.Context, message Message)
-}
-
-type Message interface {
-	Topic() (topic string)
-	Key() (key []byte)
-	Headers() (headers Headers)
-	Body() (body []byte)
-	Partition() (no int)
-	Offset() (offset int64)
-	HighWaterMark() (v int64)
-	Time() (v time.Time)
-	Commit(ctx context.Context) (err error)
-}
-
 type consumeMessage struct {
-	raw       kafka.Message
+	raw       kgo.Record
 	committer MessageCommitter
 }
 
@@ -55,7 +40,7 @@ func (msg consumeMessage) Body() (body []byte) {
 	return
 }
 
-func (msg consumeMessage) Partition() (no int) {
+func (msg consumeMessage) Partition() (no int32) {
 	no = msg.raw.Partition
 	return
 }
@@ -65,13 +50,8 @@ func (msg consumeMessage) Offset() (offset int64) {
 	return
 }
 
-func (msg consumeMessage) HighWaterMark() (v int64) {
-	v = msg.raw.HighWaterMark
-	return
-}
-
 func (msg consumeMessage) Time() (v time.Time) {
-	v = msg.raw.Time
+	v = msg.raw.Timestamp
 	return
 }
 
@@ -88,7 +68,7 @@ func NewReader(brokers []string, dialer *kafka.Dialer, log logs.Logger, config R
 	}
 	raw := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:                brokers,
-		GroupID:                "consumer-group-id",
+		GroupID:                config.GroupId,
 		GroupTopics:            config.Topics,
 		Topic:                  topic,
 		Partition:              config.Partition,
@@ -133,7 +113,7 @@ func NewReader(brokers []string, dialer *kafka.Dialer, log logs.Logger, config R
 	r = &Reader{
 		log:       log,
 		raw:       raw,
-		group:     group,
+		group:     true,
 		committer: committer,
 		consumer:  consumer,
 	}
