@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"crypto/tls"
 	"github.com/aacfactory/fns-contrib/databases/postgres/dialect"
 	"github.com/aacfactory/fns-contrib/databases/sql"
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
@@ -14,6 +15,12 @@ func WithName(name string) sql.Option {
 
 func WithDatabase(db databases.Database) sql.Option {
 	return sql.WithDatabase(db)
+}
+
+type RegisterTLSFunc func(config *tls.Config) (err error)
+
+func WithTLS(fn RegisterTLSFunc) sql.Option {
+	return sql.WithTLS(sql.RegisterTLSFunc(fn))
 }
 
 func New(options ...sql.Option) services.Service {
