@@ -9,7 +9,6 @@ require (
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/quic-go/quic-go v0.40.1
-	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.5.0
 )
 
@@ -35,6 +34,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
