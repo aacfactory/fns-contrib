@@ -6,7 +6,7 @@ require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.2.10
+	github.com/aacfactory/fns v1.2.11
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/redis/rueidis v1.0.25
