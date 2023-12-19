@@ -8,7 +8,6 @@ import (
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/fns/transports/standard"
 	"github.com/quic-go/quic-go/http3"
-	"github.com/valyala/bytebufferpool"
 	"io"
 	"net/http"
 	"time"
@@ -67,11 +66,12 @@ func (c *Client) Do(ctx context.Context, method []byte, path []byte, header tran
 	}
 	buf := bytex.Acquire4KBuffer()
 	defer bytex.Release4KBuffer(buf)
-	b := bytebufferpool.Get()
-	defer bytebufferpool.Put(b)
+	responseBody = make([]byte, 0, 1024)
 	for {
 		n, readErr := resp.Body.Read(buf)
-		_, _ = b.Write(buf[0:n])
+		if n > 0 {
+			body = append(body, buf[0:n]...)
+		}
 		if readErr != nil {
 			if readErr == io.EOF {
 				break
@@ -83,7 +83,6 @@ func (c *Client) Do(ctx context.Context, method []byte, path []byte, header tran
 	}
 	status = resp.StatusCode
 	responseHeader = standard.WrapHttpHeader(resp.Header)
-	responseBody = bytex.FromString(b.String())
 	return
 }
 

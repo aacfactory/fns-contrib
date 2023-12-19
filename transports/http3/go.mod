@@ -3,9 +3,9 @@ module github.com/aacfactory/fns-contrib/transports/http3
 go 1.21.0
 
 require (
-	github.com/aacfactory/afssl v1.10.0
+	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.2.3
+	github.com/aacfactory/fns v1.2.11
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/quic-go/quic-go v0.40.1
@@ -39,7 +39,7 @@ require (
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
