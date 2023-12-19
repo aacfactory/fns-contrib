@@ -3,15 +3,13 @@ package websockets
 import "sync"
 
 var (
-	bufPool = sync.Pool{New: func() any {
-		return make([]byte, 4096)
-	}}
+	bufPool = sync.Pool{}
 )
 
 func acquireBuf() []byte {
 	x := bufPool.Get()
 	if x == nil {
-		return make([]byte, 4096)
+		return make([]byte, 1024)
 	}
 	return x.([]byte)
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
-	"github.com/valyala/bytebufferpool"
 	"io"
 	"sync"
 )
@@ -126,12 +125,11 @@ var (
 )
 
 func readMessage(reader io.Reader, maxLimiter int64) (p []byte, err error) {
-	b := bytebufferpool.Get()
 	buf := acquireBuf()
 	for {
 		n, readErr := reader.Read(buf)
 		if n > 0 {
-			_, _ = b.Write(buf[0:n])
+			p = append(p, buf[0:n]...)
 		}
 		if readErr != nil {
 			if readErr == io.EOF {
@@ -140,18 +138,14 @@ func readMessage(reader io.Reader, maxLimiter int64) (p []byte, err error) {
 			err = errors.Warning("websockets: read message failed").WithCause(readErr)
 			break
 		}
-		if int64(b.Len()) > maxLimiter {
+		if int64(len(p)) > maxLimiter {
 			err = ErrRequestMessageIsTooLarge
 			break
 		}
 	}
+	releaseBuf(buf)
 	if err != nil {
-		releaseBuf(buf[:])
-		bytebufferpool.Put(b)
 		return
 	}
-	p = b.Bytes()
-	releaseBuf(buf[:])
-	bytebufferpool.Put(b)
 	return
 }

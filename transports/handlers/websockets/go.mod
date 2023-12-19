@@ -9,7 +9,6 @@ require (
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/klauspost/compress v1.17.4
-	github.com/valyala/bytebufferpool v1.0.0
 )
 
 require (
@@ -29,6 +28,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
