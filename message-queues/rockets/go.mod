@@ -3,12 +3,12 @@ module github.com/aacfactory/fns-contrib/message-queues/rockets
 go 1.21.0
 
 require (
-	github.com/aacfactory/fns v1.2.3
+	github.com/aacfactory/fns v1.2.11
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 )
 
 require (
-	github.com/aacfactory/afssl v1.10.0 // indirect
+	github.com/aacfactory/afssl v1.12.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/aacfactory/errors v1.13.11 // indirect
 	github.com/aacfactory/json v1.16.6 // indirect
@@ -37,7 +37,7 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/atomic v1.5.1 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
