@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"crypto/tls"
 	stdsql "database/sql"
 	"fmt"
 	"github.com/aacfactory/configures"
@@ -42,10 +43,19 @@ func WithDatabase(db databases.Database) Option {
 	}
 }
 
+type RegisterTLSFunc func(config *tls.Config) (err error)
+
+func WithTLS(fn RegisterTLSFunc) Option {
+	return func(options *Options) {
+		options.registerTLSFunc = fn
+	}
+}
+
 type Options struct {
-	name    string
-	dialect string
-	db      databases.Database
+	name            string
+	dialect         string
+	db              databases.Database
+	registerTLSFunc RegisterTLSFunc
 }
 
 type Option func(options *Options)
@@ -59,21 +69,23 @@ func New(options ...Option) (v services.Service) {
 		option(&opt)
 	}
 	v = &service{
-		Abstract: services.NewAbstract(opt.name, true),
-		db:       nil,
-		group:    nil,
-		dialect:  opt.dialect,
+		Abstract:        services.NewAbstract(opt.name, true),
+		registerTLSFunc: opt.registerTLSFunc,
+		db:              nil,
+		group:           nil,
+		dialect:         opt.dialect,
 	}
 	return
 }
 
 type service struct {
 	services.Abstract
-	db        databases.Database
-	group     *transactions.Group
-	isolation databases.Isolation
-	dialect   string
-	debug     bool
+	db              databases.Database
+	registerTLSFunc RegisterTLSFunc
+	group           *transactions.Group
+	isolation       databases.Isolation
+	dialect         string
+	debug           bool
 }
 
 func (svc *service) Construct(options services.Options) (err error) {
@@ -87,6 +99,21 @@ func (svc *service) Construct(options services.Options) (err error) {
 		err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(configErr)
 		return
 	}
+	if config.SSL.Enable {
+		tlsConfig, tlsErr := config.SSL.Load()
+		if tlsErr != nil {
+			err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(tlsErr)
+			return
+		}
+		if svc.registerTLSFunc != nil {
+			err = svc.registerTLSFunc(tlsConfig)
+			if err != nil {
+				err = errors.Warning(fmt.Sprintf("fns: %s construct failed", svc.Name())).WithMeta("service", svc.Name()).WithCause(err)
+				return
+			}
+		}
+	}
+
 	if config.Options == nil {
 		config.Options = []byte{'{', '}'}
 	}

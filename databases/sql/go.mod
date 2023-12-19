@@ -3,9 +3,10 @@ module github.com/aacfactory/fns-contrib/databases/sql
 go 1.21.0
 
 require (
+	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
-	github.com/aacfactory/fns v1.2.3
+	github.com/aacfactory/fns v1.2.10
 	github.com/aacfactory/gcg v1.0.5
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
@@ -15,7 +16,6 @@ require (
 )
 
 require (
-	github.com/aacfactory/afssl v1.10.0 // indirect
 	github.com/aacfactory/cases v1.1.0 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -32,7 +32,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
