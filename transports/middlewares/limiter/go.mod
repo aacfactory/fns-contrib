@@ -3,8 +3,10 @@ module github.com/aacfactory/fns-contrib/transports/middlewares/limiter
 go 1.21.0
 
 require (
+	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.2.11
+	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.7
 	golang.org/x/sync v0.5.0
@@ -13,8 +15,6 @@ require (
 
 require (
 	github.com/aacfactory/afssl v1.12.0 // indirect
-	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/aacfactory/json v1.16.6 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/goccy/go-yaml v1.11.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
