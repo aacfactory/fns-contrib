@@ -3,16 +3,9 @@ package kafka
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/message-queues/kafka/configs"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services"
-	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/sasl"
-	"github.com/segmentio/kafka-go/sasl/plain"
-	"github.com/segmentio/kafka-go/sasl/scram"
-	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/twmb/franz-go/pkg/kversion"
-	"net"
-	"strings"
 	"time"
 )
 
@@ -21,39 +14,46 @@ var (
 )
 
 type Options struct {
-	consumers map[string]Consumer
+	consumeHandlers   map[string]ConsumeHandler
+	consumeErrHandler ConsumeErrorHandler
 }
 
 type Option func(options *Options)
 
-func WithReader(name string, consumer Consumer) Option {
+func WithConsumeHandler(name string, handler ConsumeHandler) Option {
 	return func(options *Options) {
-		options.consumers[name] = consumer
+		options.consumeHandlers[name] = handler
+	}
+}
+
+func WithConsumeErrorHandler(handler ConsumeErrorHandler) Option {
+	return func(options *Options) {
+		options.consumeErrHandler = handler
 	}
 }
 
 func New(options ...Option) services.Listenable {
 	opt := Options{
-		consumers: make(map[string]Consumer),
+		consumeHandlers: make(map[string]ConsumeHandler),
 	}
 	for _, option := range options {
 		option(&opt)
 	}
 	return &service{
-		Abstract:  services.NewAbstract(string(endpointName), true),
-		writers:   make(map[string]*Writer),
-		consumers: opt.consumers,
-		readers:   make(map[string]*Reader),
-		cancel:    nil,
+		Abstract:          services.NewAbstract(string(endpointName), true),
+		consumeHandlers:   opt.consumeHandlers,
+		consumeErrHandler: opt.consumeErrHandler,
+		producer:          nil,
+		consumers:         make(map[string]Consumer),
 	}
 }
 
 type service struct {
 	services.Abstract
-	writers   map[string]*Writer
-	consumers map[string]Consumer
-	readers   map[string]*Reader
-	cancel    context.CancelFunc
+	consumeHandlers   map[string]ConsumeHandler
+	consumeErrHandler ConsumeErrorHandler
+	producer          *Producer
+	consumers         map[string]Consumer
 }
 
 func (svc *service) Construct(options services.Options) (err error) {
@@ -62,136 +62,102 @@ func (svc *service) Construct(options services.Options) (err error) {
 		err = errors.Warning("kafka: construct failed").WithCause(err)
 		return
 	}
-	config := Config{}
+	config := configs.Config{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning("kafka: construct failed").WithCause(configErr)
 		return
 	}
-	brokers := config.Brokers
-	if brokers == nil || len(brokers) == 0 {
-		err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("brokers is required"))
+	opts, optsErr := config.Options(options.Id, options.Version, svc.Log())
+	if optsErr != nil {
+		err = errors.Warning("kafka: construct failed").WithCause(optsErr)
 		return
 	}
+	if config.Producers.Enable {
+		producerOpts, producerOptsErr := config.Producers.Options()
+		if producerOptsErr != nil {
+			err = errors.Warning("kafka: construct failed").WithCause(producerOptsErr)
+			return
+		}
+		producerOpts = append(opts, producerOpts...)
+		svc.producer, err = NewProducer(svc.Log().With("component", "producer"), config.Producers.Num, producerOpts)
+		if err != nil {
+			err = errors.Warning("kafka: construct failed").WithCause(err)
+			return
+		}
+	}
+	if config.Consumers != nil {
+		for name, consumerConfig := range config.Consumers {
+			handler, has := svc.consumeHandlers[name]
+			if !has {
+				err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("%s consumer hander is not found", name))
+				return
+			}
+			consumerOpts, consumerOptsErr := consumerConfig.Options()
+			if consumerOptsErr != nil {
+				err = errors.Warning("kafka: construct failed").WithCause(consumerOptsErr)
+				return
+			}
+			consumerOpts = append(opts, consumerOpts...)
+			consumerLog := svc.Log().With("component", "consumer").With("consumer", name)
+			consumer, consumerErr := NewGroupConsumer(consumerLog, consumerConfig.MaxPollRecords, consumerConfig.PartitionBuffer, consumerOpts, handler, svc.consumeErrHandler)
+			if consumerErr != nil {
+				err = errors.Warning("kafka: construct failed").WithCause(consumerErr).WithMeta("consumer", name)
+				return
+			}
+			svc.consumers[name] = consumer
+		}
+	}
 
-	kgo.NewClient(
-		kgo.BrokerMaxWriteBytes()
-		kgo.AllowAutoTopicCreation(),
-		kgo.SASL(sasl.Metadata{})
-		)
-	dialer := &kafka.Dialer{
-		Timeout:   10 * time.Second,
-		DualStack: true,
-	}
-	transport := &kafka.Transport{
-		Dial: (&net.Dialer{
-			Timeout: 3 * time.Second,
-		}).DialContext,
-	}
-	username := strings.TrimSpace(config.Options.Username)
-	if username != "" {
-		password := strings.TrimSpace(config.Options.Password)
-		if password == "" {
-			err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("password is required"))
-			return
-		}
-		saslType := strings.ToLower(strings.TrimSpace(config.Options.SASLType))
-		if saslType == "" {
-			saslType = "plain"
-		}
-		var auth sasl.Mechanism
-		switch saslType {
-		case "plain":
-			auth = plain.Mechanism{
-				Username: username,
-				Password: password,
-			}
-		case "scram":
-			algo := strings.ToUpper(strings.TrimSpace(config.Options.Algo))
-			var algorithm scram.Algorithm
-			switch algo {
-			case "SHA512":
-				algorithm = scram.SHA512
-			case "SHA256":
-				algorithm = scram.SHA256
-			default:
-				err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("algo is required"))
-				return
-			}
-			var authErr error
-			auth, authErr = scram.Mechanism(algorithm, username, password)
-			if authErr != nil {
-				err = errors.Warning("kafka: construct failed").WithCause(authErr)
-				return
-			}
-		default:
-			err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("sasl type is invalid, plain and scram are supported"))
-			return
-		}
-		dialer.SASLMechanism = auth
-		transport.SASL = auth
-	}
-	if config.Options.ClientTLS.Enabled {
-		clientTLS, clientTLSErr := config.Options.ClientTLS.Config()
-		if clientTLSErr != nil {
-			err = errors.Warning("kafka: construct failed").WithCause(clientTLSErr)
-			return
-		}
-		dialer.TLS = clientTLS
-		transport.TLS = clientTLS
-	}
-	if config.Options.DualStack {
-		dialer.DualStack = true
-	}
-	if config.Options.TimeoutSeconds > 0 {
-		dialer.Timeout = time.Duration(config.Options.TimeoutSeconds) * time.Second
-	}
-	clientId := strings.TrimSpace(config.Options.ClientId)
-	if clientId != "" {
-		dialer.ClientID = clientId
-		transport.ClientID = clientId
-	}
-	for topic, writerConfig := range config.Writer {
-		svc.writers[topic] = NewWriter(config.Brokers, topic, transport, svc.Log(), writerConfig)
-	}
-	for name, consumer := range svc.consumers {
-		readerConfig, has := config.Reader[name]
-		if !has {
-			err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("%s consumer has no config", name))
-			return
-		}
-		reader := NewReader(config.Brokers, dialer, svc.Log(), readerConfig, consumer)
-		svc.readers[name] = reader
-	}
 	svc.addFns()
 	return
 }
 
 func (svc *service) Listen(ctx context.Context) (err error) {
-	if svc.readers == nil || len(svc.readers) == 0 {
+	if svc.consumers == nil || len(svc.consumers) == 0 {
 		return
 	}
-	ctx, svc.cancel = context.WithCancel(ctx)
-	for _, reader := range svc.readers {
-		go func(ctx context.Context, reader *Reader) {
-			reader.ReadMessage(ctx)
-		}(ctx, reader)
+	for _, consumer := range svc.consumers {
+		errCn := make(chan error, 1)
+		go func(ctx context.Context, consumer Consumer, errCh chan error) {
+			lnErr := consumer.Listen(ctx)
+			if lnErr != nil {
+				errCn <- lnErr
+			}
+		}(ctx, consumer, errCn)
+		select {
+		case <-ctx.Done():
+			break
+		case err = <-errCn:
+			break
+		case <-time.After(3 * time.Second):
+			break
+		}
+		if err != nil {
+			break
+		}
+	}
+	if err != nil {
+		svc.Shutdown(ctx)
 	}
 	return
 }
 
-func (svc *service) Shutdown(_ context.Context) {
-	if svc.cancel != nil {
-		svc.cancel()
+func (svc *service) Shutdown(ctx context.Context) {
+	if svc.producer != nil {
+		svc.producer.Shutdown(ctx)
 	}
-	for _, writer := range svc.writers {
-		_ = writer.raw.Close()
+	if svc.consumers != nil {
+		for _, consumer := range svc.consumers {
+			consumer.Shutdown(ctx)
+		}
+		return
 	}
 	return
 }
 
 func (svc *service) addFns() {
 	svc.AddFunction(&publishFn{
-		writers: svc.writers,
+		producer: svc.producer,
 	})
 }

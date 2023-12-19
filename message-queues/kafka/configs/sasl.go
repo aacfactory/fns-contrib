@@ -7,7 +7,9 @@ import (
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
+	"github.com/twmb/franz-go/pkg/sasl"
 	"github.com/twmb/franz-go/pkg/sasl/plain"
+	"github.com/twmb/franz-go/pkg/sasl/scram"
 	"strings"
 )
 
@@ -32,6 +34,9 @@ func (config *SASLConfig) Config(log logs.Logger) (v Mechanism, err error) {
 	switch name {
 	case "plain":
 		v = &PlainSASL{}
+		break
+	case "scram":
+		v = &ScramSASL{}
 		break
 	default:
 		r, has := mechanisms[name]
@@ -66,6 +71,38 @@ type Mechanism interface {
 	Name() string
 	Construct(options MechanismOptions) (err error)
 	Authenticate(ctx context.Context, host string) (Session, []byte, error)
+	Shutdown()
+}
+
+type kafkaMechanism struct {
+	raw Mechanism
+}
+
+func (m *kafkaMechanism) Name() string {
+	return m.raw.Name()
+}
+
+func (m *kafkaMechanism) Authenticate(ctx context.Context, host string) (sasl.Session, []byte, error) {
+	s, p, err := m.raw.Authenticate(ctx, host)
+	if err != nil {
+		return nil, nil, err
+	}
+	var sess sasl.Session
+	if s != nil {
+		sess = sasl.Session(s)
+	}
+	return sess, p, nil
+}
+
+func (m *kafkaMechanism) Close() {
+	m.raw.Shutdown()
+}
+
+func convert(mechanism Mechanism) (v sasl.Mechanism) {
+	v = &kafkaMechanism{
+		raw: mechanism,
+	}
+	return
 }
 
 var (
@@ -86,26 +123,78 @@ type PlainSASLConfig struct {
 }
 
 type PlainSASL struct {
-	raw plain.Auth
+	raw sasl.Mechanism
 }
 
-func (plain *PlainSASL) Name() string {
+func (s *PlainSASL) Name() string {
 	return "plain"
 }
 
-func (plain *PlainSASL) Construct(options MechanismOptions) (err error) {
+func (s *PlainSASL) Construct(options MechanismOptions) (err error) {
 	config := PlainSASLConfig{}
 	configErr := options.Config.As(&config)
 	if configErr != nil {
 		err = errors.Warning("kafka: construct plain sasl failed").WithCause(configErr)
 		return
 	}
-	plain.raw.Zid = config.Zid
-	plain.raw.User = config.Username
-	plain.raw.Pass = config.Password
+	auth := plain.Auth{}
+	auth.Zid = config.Zid
+	auth.User = config.Username
+	auth.Pass = config.Password
+	s.raw = auth.AsMechanism()
 	return
 }
 
-func (plain *PlainSASL) Authenticate(ctx context.Context, host string) (Session, []byte, error) {
-	return plain.raw.AsMechanism().Authenticate(ctx, host)
+func (s *PlainSASL) Authenticate(ctx context.Context, host string) (Session, []byte, error) {
+	return s.raw.Authenticate(ctx, host)
+}
+
+func (s *PlainSASL) Shutdown() {
+}
+
+type ScramSASLConfig struct {
+	Zid      string `json:"zid"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Algo     string `json:"algo"`
+}
+
+type ScramSASL struct {
+	raw sasl.Mechanism
+}
+
+func (s *ScramSASL) Name() string {
+	return "plain"
+}
+
+func (s *ScramSASL) Construct(options MechanismOptions) (err error) {
+	config := ScramSASLConfig{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.Warning("kafka: construct scram sasl failed").WithCause(configErr)
+		return
+	}
+	auth := scram.Auth{}
+	auth.Zid = config.Zid
+	auth.User = config.Username
+	auth.Pass = config.Password
+	switch strings.TrimSpace(strings.ToUpper(config.Algo)) {
+	case "SHA512":
+		s.raw = auth.AsSha256Mechanism()
+		break
+	case "SHA256":
+		s.raw = auth.AsSha256Mechanism()
+		break
+	default:
+		err = errors.Warning("kafka: construct scram sasl failed").WithCause(fmt.Errorf("invalid algo"))
+		return
+	}
+	return
+}
+
+func (s *ScramSASL) Authenticate(ctx context.Context, host string) (Session, []byte, error) {
+	return s.raw.Authenticate(ctx, host)
+}
+
+func (s *ScramSASL) Shutdown() {
 }

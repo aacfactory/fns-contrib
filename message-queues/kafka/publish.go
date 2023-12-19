@@ -6,46 +6,86 @@ import (
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
-	"time"
 )
 
 var (
 	publishFnName = []byte("publish")
 )
 
-func NewMessage(key []byte, body []byte) WriteMessage {
-	return WriteMessage{
+type ProducerMessage struct {
+	Topic   string  `json:"topic"`
+	Key     []byte  `json:"key"`
+	Body    []byte  `json:"body"`
+	Headers Headers `json:"headers"`
+}
+
+func (msg ProducerMessage) AddHeader(key string, value []byte) ProducerMessage {
+	msg.Headers = append(msg.Headers, Header{
+		Key:   key,
+		Value: value,
+	})
+	return msg
+}
+
+func (msg ProducerMessage) Validate() (err error) {
+	if msg.Topic == "" || len(msg.Key) == 0 || len(msg.Body) == 0 {
+		err = errors.Warning("kafka: invalid message")
+	}
+	return
+}
+
+func NewMessage(topic string, key []byte, body []byte) ProducerMessage {
+	return ProducerMessage{
+		Topic:   topic,
 		Key:     key,
 		Body:    body,
 		Headers: nil,
-		Offset:  0,
-		Time:    time.Time{},
 	}
 }
 
-func Publish(ctx context.Context, topic string, message ...WriteMessage) (err error) {
-	if topic == "" {
-		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("topic is required"))
-		return
-	}
+func Publish(ctx context.Context, message ...ProducerMessage) (err error) {
 	if len(message) == 0 {
 		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("message is required"))
 		return
 	}
+	for _, msg := range message {
+		err = msg.Validate()
+		if err != nil {
+			return
+		}
+	}
 	_, err = runtime.Endpoints(ctx).Request(ctx, endpointName, publishFnName, publishParam{
-		Topic:    topic,
+		Async:    false,
+		Messages: message,
+	})
+	return
+}
+
+func PublishAsync(ctx context.Context, message ...ProducerMessage) (err error) {
+	if len(message) == 0 {
+		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("message is required"))
+		return
+	}
+	for _, msg := range message {
+		err = msg.Validate()
+		if err != nil {
+			return
+		}
+	}
+	_, err = runtime.Endpoints(ctx).Request(ctx, endpointName, publishFnName, publishParam{
+		Async:    true,
 		Messages: message,
 	})
 	return
 }
 
 type publishParam struct {
-	Topic    string         `json:"topic"`
-	Messages []WriteMessage `json:"messages"`
+	Messages []ProducerMessage `json:"messages"`
+	Async    bool              `json:"async"`
 }
 
 type publishFn struct {
-	writers map[string]*Writer
+	producer *Producer
 }
 
 func (fn *publishFn) Name() string {
@@ -61,20 +101,16 @@ func (fn *publishFn) Readonly() bool {
 }
 
 func (fn *publishFn) Handle(ctx services.Request) (v any, err error) {
+	if fn.producer == nil {
+		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("no producer"))
+		return
+	}
 	param, paramErr := services.ValueOfParam[publishParam](ctx.Param())
 	if paramErr != nil {
 		err = errors.Warning("kafka: publish failed").WithCause(paramErr)
 		return
 	}
-	if param.Topic == "" || len(param.Messages) == 0 {
-		return
-	}
-	w, has := fn.writers[param.Topic]
-	if !has {
-		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("there is no %s topic writer", param.Topic))
-		return
-	}
-	err = w.Write(ctx, param.Messages)
+	err = fn.producer.Publish(ctx, param.Messages, param.Async)
 	if err != nil {
 		err = errors.Warning("kafka: publish failed").WithCause(err)
 		return

@@ -4,6 +4,7 @@ import (
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/message-queues/kafka/configs"
+	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/logs"
 	"github.com/twmb/franz-go/pkg/kadm"
@@ -44,8 +45,10 @@ func (offsets Offsets) kOffsets() (v map[string]map[int32]kgo.Offset) {
 }
 
 type OffsetManagerOptions struct {
-	Log    logs.Logger
-	Config configures.Config
+	Id      string
+	Version versions.Version
+	Log     logs.Logger
+	Config  configures.Config
 }
 
 type OffsetManager interface {
@@ -77,7 +80,7 @@ func (manager *DefaultOffsetManager) Construct(options OffsetManagerOptions) (er
 		err = errors.Warning("kafka: offset manager construct failed").WithMeta("offset", manager.Name()).WithCause(configErr)
 		return
 	}
-	client, clientErr := config.NewClient()
+	client, clientErr := config.NewClient(options.Id, options.Version, manager.log)
 	if clientErr != nil {
 		err = errors.Warning("kafka: offset manager construct failed").WithMeta("offset", manager.Name()).WithCause(clientErr)
 		return

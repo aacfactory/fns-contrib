@@ -1,7 +1,9 @@
 package kafka_test
 
 import (
+	"fmt"
 	"github.com/aacfactory/fns-contrib/message-queues/kafka"
+	kconfigs "github.com/aacfactory/fns-contrib/message-queues/kafka/configs"
 	"github.com/aacfactory/fns/configs"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/tests"
@@ -10,28 +12,26 @@ import (
 	"time"
 )
 
-func instance(t *testing.T) (err error) {
+func instance() (err error) {
 	config := configs.New()
 	config.AddService(
 		"kafka",
-		kafka.Config{
-			Brokers: []string{"127.0.0.1:9092"},
-			Options: kafka.OptionsConfig{},
-			Writer: map[string]kafka.WriterConfig{
-				"test": {},
+		kconfigs.Config{
+			Generic: kconfigs.Generic{
+				Brokers: []string{"127.0.0.1:9092"},
 			},
-			Reader: map[string]kafka.ReaderConfig{
-				"reader": {
-					GroupId:        "reader1",
-					Topics:         []string{"test"},
-					AutoCommit:     true,
-					IsolationLevel: "uncommitted",
-					MaxBytes:       10e6,
+			Producers: kconfigs.ProducerConfig{
+				Enable: true,
+			},
+			Consumers: map[string]kconfigs.ConsumerConfig{
+				"r1": {
+					Group:  "g1",
+					Topics: []string{"test"},
 				},
 			},
 		},
 	)
-	service := kafka.New(kafka.WithReader("reader", &Reader{t: t}))
+	service := kafka.New(kafka.WithConsumeHandler("r1", handler), kafka.WithConsumeErrorHandler(errHandler))
 	err = tests.Setup(service, tests.WithConfig(config))
 	if err == nil {
 		ctx := tests.TODO()
@@ -41,7 +41,7 @@ func instance(t *testing.T) (err error) {
 }
 
 func TestKafka_New(t *testing.T) {
-	setupErr := instance(t)
+	setupErr := instance()
 	if setupErr != nil {
 		t.Errorf("%+v", setupErr)
 		return
@@ -49,25 +49,27 @@ func TestKafka_New(t *testing.T) {
 	defer tests.Teardown()
 	ctx := tests.TODO()
 	for i := 0; i < 10; i++ {
-		pubErr := kafka.Publish(ctx, "test", kafka.NewMessage([]byte(strconv.Itoa(i)), []byte(time.Now().Format(time.RFC3339))))
+		pubErr := kafka.Publish(ctx, kafka.NewMessage("test", []byte(strconv.Itoa(i)), []byte(time.Now().Format(time.RFC3339))))
 		if pubErr != nil {
 			t.Errorf("%+v", pubErr)
 			return
 		}
 	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(60 * time.Second)
 }
 
-type Reader struct {
-	t *testing.T
-}
-
-func (r *Reader) Handle(ctx context.Context, message kafka.Message) {
-	r.t.Log("consume:", message.Topic(), string(message.Key()), string(message.Body()), message.Time().String())
-	_ = message.Commit(ctx)
+func handler(ctx context.Context, value []byte, meta kafka.Meta) (err error) {
+	fmt.Println(
+		"topic:", meta.Topic,
+		"key:", string(meta.Key),
+		"offset:", meta.Offset,
+		"part:", meta.Partition,
+		"value:", string(value),
+	)
 	return
 }
 
-func TestNewReader(t *testing.T) {
-
+func errHandler(topic string, partition int32, cause error) {
+	fmt.Println("err:", topic, partition, fmt.Sprintf("%+v", cause))
+	return
 }
