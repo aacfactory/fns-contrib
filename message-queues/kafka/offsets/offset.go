@@ -1,8 +1,9 @@
-package kafka
+package offsets
 
 import (
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns-contrib/message-queues/kafka/configs"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/logs"
 	"github.com/twmb/franz-go/pkg/kadm"
@@ -56,8 +57,7 @@ type OffsetManager interface {
 }
 
 type DefaultOffsetManagerConfig struct {
-	Brokers []string `json:"brokers"`
-	Id      string   `json:"id"`
+	configs.Generic
 }
 
 type DefaultOffsetManager struct {
@@ -70,8 +70,19 @@ func (manager *DefaultOffsetManager) Name() string {
 }
 
 func (manager *DefaultOffsetManager) Construct(options OffsetManagerOptions) (err error) {
-	kgo.NewClient()
-	kadm.NewClient(kgo.ConsumePartitions())
+	manager.log = options.Log
+	config := DefaultOffsetManagerConfig{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.Warning("kafka: offset manager construct failed").WithMeta("offset", manager.Name()).WithCause(configErr)
+		return
+	}
+	client, clientErr := config.NewClient()
+	if clientErr != nil {
+		err = errors.Warning("kafka: offset manager construct failed").WithMeta("offset", manager.Name()).WithCause(clientErr)
+		return
+	}
+	manager.admin = kadm.NewClient(client)
 	return
 }
 

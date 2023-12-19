@@ -9,6 +9,8 @@ import (
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/segmentio/kafka-go/sasl/scram"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kversion"
 	"net"
 	"strings"
 	"time"
@@ -71,6 +73,12 @@ func (svc *service) Construct(options services.Options) (err error) {
 		err = errors.Warning("kafka: construct failed").WithCause(fmt.Errorf("brokers is required"))
 		return
 	}
+
+	kgo.NewClient(
+		kgo.BrokerMaxWriteBytes()
+		kgo.AllowAutoTopicCreation(),
+		kgo.SASL(sasl.Metadata{})
+		)
 	dialer := &kafka.Dialer{
 		Timeout:   10 * time.Second,
 		DualStack: true,
