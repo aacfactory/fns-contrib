@@ -276,11 +276,11 @@ func newMessage(raw rueidis.RedisMessage) (v message) {
 }
 
 type message struct {
-	Type     int       `json:"type"`
-	Content  string    `json:"content"`
-	Values   []message `json:"values"`
-	Deadline string    `json:"deadline"`
-	CacheHit bool      `json:"cacheHit"`
+	Type     int       `json:"type" avro:"type"`
+	Content  string    `json:"content" avro:"content"`
+	Values   []message `json:"values" avro:"values"`
+	Deadline string    `json:"deadline" avro:"deadline"`
+	CacheHit bool      `json:"cacheHit" avro:"cacheHit"`
 }
 
 func (m message) Expired() (ok bool) {

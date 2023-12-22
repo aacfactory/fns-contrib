@@ -7,9 +7,9 @@ import (
 )
 
 type Command struct {
-	Name   string        `json:"name"`
-	Params []string      `json:"params"`
-	TTL    time.Duration `json:"ttl"`
+	Name   string        `json:"name" avro:"name"`
+	Params []string      `json:"params" avro:"params"`
+	TTL    time.Duration `json:"ttl" avro:"ttl"`
 }
 
 type IncompleteCommand interface {

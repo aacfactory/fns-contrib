@@ -78,8 +78,8 @@ func newResult(raw rueidis.RedisResult) (r result) {
 }
 
 type result struct {
-	Msg message `json:"msg"`
-	Err string  `json:"err"`
+	Msg message `json:"msg" avro:"msg"`
+	Err string  `json:"err" avro:"err"`
 }
 
 func (r result) Expired() (ok bool) {

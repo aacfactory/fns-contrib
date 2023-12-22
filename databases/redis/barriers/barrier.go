@@ -3,14 +3,15 @@ package barriers
 import (
 	cctx "context"
 	"fmt"
+	"github.com/aacfactory/avro"
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/redis/configs"
 	"github.com/aacfactory/fns/barriers"
+	"github.com/aacfactory/fns/commons/avros"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/objects"
 	"github.com/aacfactory/fns/context"
-	"github.com/aacfactory/json"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidisaside"
 	"golang.org/x/sync/singleflight"
@@ -22,7 +23,7 @@ func succeed(v any) (r Result, err error) {
 		r = []byte{'S', 'N'}
 		return
 	}
-	p, encodeErr := json.Marshal(v)
+	p, encodeErr := avro.Marshal(v)
 	if encodeErr != nil {
 		err = errors.Warning("barrier: new succeed result failed").WithCause(encodeErr)
 		return
@@ -37,7 +38,7 @@ func failed(err error) (r Result) {
 	ce, ok := errors.As(err)
 	if ok {
 		r = append(r, 'C')
-		p, _ := ce.MarshalJSON()
+		p, _ := avro.Marshal(ce)
 		r = append(r, p...)
 	} else {
 		r = append(r, 'S')
@@ -53,7 +54,9 @@ func (r Result) Value() (p []byte, err error) {
 		if r[1] == 'S' {
 			err = fmt.Errorf(bytex.ToString(r[2:]))
 		} else {
-			err = errors.Decode(r[2:])
+			ce := errors.CodeErrorImpl{}
+			_ = avro.Unmarshal(r[2:], &ce)
+			err = ce
 		}
 		return
 	}
@@ -156,7 +159,7 @@ func (builder *barrierBuilder) Build(ctx context.Context, config configures.Conf
 	barrier = &Barrier{
 		group:  singleflight.Group{},
 		client: ac,
-		ttl:    5 * time.Second,
+		ttl:    1 * time.Second,
 		prefix: []byte("fns:barrier:"),
 	}
 
@@ -205,14 +208,13 @@ func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err
 		err = doErr
 		return
 	}
-	result = objects.New(v.([]byte))
+	result = objects.New(avros.RawMessage(v.([]byte)))
 	return
 }
 
-func (b *Barrier) Forget(ctx context.Context, key []byte) {
+func (b *Barrier) Forget(_ context.Context, key []byte) {
 	key = append(b.prefix, key...)
 	sk := bytex.ToString(key)
-	_ = b.client.Del(ctx, sk)
 	b.group.Forget(sk)
 	return
 }

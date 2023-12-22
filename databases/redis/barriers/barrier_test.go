@@ -37,7 +37,7 @@ func TestBarrier_Do(t *testing.T) {
 		return
 	}
 	t.Log(now)
-	//barrier.Forget(context.TODO(), key)
+	barrier.Forget(context.TODO(), key)
 }
 
 func TestBarrier_DoFailed(t *testing.T) {

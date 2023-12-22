@@ -42,10 +42,10 @@ func (handler *luaHandler) Handle(ctx services.Request) (v any, err error) {
 }
 
 type LuaParam struct {
-	Readonly bool     `json:"readonly"`
-	Script   string   `json:"script"`
-	Keys     []string `json:"keys"`
-	Args     []string `json:"args"`
+	Readonly bool     `json:"readonly" avro:"readonly"`
+	Script   string   `json:"script" avro:"script"`
+	Keys     []string `json:"keys" avro:"keys"`
+	Args     []string `json:"args" avro:"args"`
 }
 
 func ExecLua(ctx context.Context, script string, keys []string, args []string, readonly bool) (v Result, err error) {
