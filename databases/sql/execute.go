@@ -74,8 +74,8 @@ func Execute(ctx context.Context, query []byte, arguments ...interface{}) (resul
 }
 
 type executeParam struct {
-	Query     string    `json:"query"`
-	Arguments Arguments `json:"arguments"`
+	Query     string    `json:"query" avro:"query"`
+	Arguments Arguments `json:"arguments" avro:"arguments"`
 }
 
 type executeFn struct {

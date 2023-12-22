@@ -1,16 +1,12 @@
 package sql
 
 import (
-	"bytes"
+	"github.com/aacfactory/avro"
 	"github.com/aacfactory/errors"
-	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/times"
-	"github.com/aacfactory/json"
 	"reflect"
-	"strconv"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 func NewColumnType(name string, databaseType string, scanType reflect.Type) (v ColumnType) {
@@ -88,9 +84,9 @@ func NewColumnType(name string, databaseType string, scanType reflect.Type) (v C
 }
 
 type ColumnType struct {
-	Name         string `json:"name"`
-	DatabaseType string `json:"databaseType"`
-	Type         string `json:"type"`
+	Name         string `json:"name" avro:"name"`
+	DatabaseType string `json:"databaseType" avro:"databaseType"`
+	Type         string `json:"type" avro:"type"`
 }
 
 func (ct ColumnType) ScanValue() (sv any) {
@@ -127,15 +123,15 @@ func (ct ColumnType) ScanValue() (sv any) {
 }
 
 type Column struct {
-	Valid bool   `json:"valid"`
-	Value []byte `json:"value"`
+	Valid bool            `json:"valid" avro:"valid"`
+	Value avro.RawMessage `json:"value" avro:"value"`
 }
 
 func (c *Column) Scan(src any) (err error) {
 	if src == nil {
 		return
 	}
-	c.Value, err = json.Marshal(src)
+	c.Value, err = avro.Marshal(src)
 	if err != nil {
 		err = errors.Warning("sql: column scan failed").WithCause(err)
 		return
@@ -151,11 +147,11 @@ func (c *Column) String() (v string, err error) {
 		if pLen == 0 {
 			return
 		}
-		if p[0] != '"' || p[pLen-1] != '"' {
+		err = avro.Unmarshal(p, &v)
+		if err != nil {
 			err = errors.Warning("sql: value of column is not string")
 			return
 		}
-		v = bytex.ToString(p[1 : pLen-1])
 	}
 	return
 }
@@ -167,16 +163,11 @@ func (c *Column) Bool() (v bool, err error) {
 		if pLen == 0 {
 			return
 		}
-		v = bytes.Equal(p, trueBytes)
-		if v {
+		err = avro.Unmarshal(p, &v)
+		if err != nil {
+			err = errors.Warning("sql: value of column is not bool")
 			return
 		}
-		v = bytes.Equal(p, falseBytes)
-		if v {
-			v = !v
-			return
-		}
-		err = errors.Warning("sql: value of column is not bool")
 	}
 	return
 }
@@ -188,7 +179,7 @@ func (c *Column) Int() (v int64, err error) {
 		if pLen == 0 {
 			return
 		}
-		v, err = strconv.ParseInt(unsafe.String(unsafe.SliceData(p), pLen), 10, 64)
+		err = avro.Unmarshal(p, &v)
 		if err != nil {
 			err = errors.Warning("sql: value of column is not int")
 			return
@@ -204,7 +195,7 @@ func (c *Column) Float() (v float64, err error) {
 		if pLen == 0 {
 			return
 		}
-		v, err = strconv.ParseFloat(unsafe.String(unsafe.SliceData(p), pLen), 64)
+		err = avro.Unmarshal(p, &v)
 		if err != nil {
 			err = errors.Warning("sql: value of column is not float")
 			return
@@ -215,16 +206,31 @@ func (c *Column) Float() (v float64, err error) {
 
 func (c *Column) Datetime() (v time.Time, err error) {
 	if c.Valid {
-		err = json.Unmarshal(c.Value, &v)
+		p := c.Value
+		pLen := len(p)
+		if pLen == 0 {
+			return
+		}
+		err = avro.Unmarshal(p, &v)
+		if err != nil {
+			err = errors.Warning("sql: value of column is not datetime")
+			return
+		}
 	}
 	return
 }
 
 func (c *Column) Date() (v times.Date, err error) {
 	if c.Valid {
+		p := c.Value
+		pLen := len(p)
+		if pLen == 0 {
+			return
+		}
 		t := time.Time{}
-		err = json.Unmarshal(c.Value, &t)
+		err = avro.Unmarshal(p, &t)
 		if err != nil {
+			err = errors.Warning("sql: value of column is not date")
 			return
 		}
 		v = times.DataOf(t)
@@ -234,9 +240,15 @@ func (c *Column) Date() (v times.Date, err error) {
 
 func (c *Column) Time() (v times.Time, err error) {
 	if c.Valid {
+		p := c.Value
+		pLen := len(p)
+		if pLen == 0 {
+			return
+		}
 		t := time.Time{}
-		err = json.Unmarshal(c.Value, &t)
+		err = avro.Unmarshal(p, &t)
 		if err != nil {
+			err = errors.Warning("sql: value of column is not time")
 			return
 		}
 		v = times.TimeOf(t)
@@ -246,14 +258,32 @@ func (c *Column) Time() (v times.Time, err error) {
 
 func (c *Column) Bytes() (v []byte, err error) {
 	if c.Valid {
-		err = json.Unmarshal(c.Value, &v)
+		p := c.Value
+		pLen := len(p)
+		if pLen == 0 {
+			return
+		}
+		err = avro.Unmarshal(c.Value, &v)
+		if err != nil {
+			err = errors.Warning("sql: value of column is not bytes")
+			return
+		}
 	}
 	return
 }
 
 func (c *Column) Byte() (v byte, err error) {
 	if c.Valid {
-		err = json.Unmarshal(c.Value, &v)
+		p := c.Value
+		pLen := len(p)
+		if pLen == 0 {
+			return
+		}
+		err = avro.Unmarshal(c.Value, &v)
+		if err != nil {
+			err = errors.Warning("sql: value of column is not byte")
+			return
+		}
 	}
 	return
 }

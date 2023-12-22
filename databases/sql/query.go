@@ -79,8 +79,8 @@ func Query(ctx context.Context, query []byte, arguments ...interface{}) (v Rows,
 }
 
 type queryParam struct {
-	Query     string    `json:"query"`
-	Arguments Arguments `json:"arguments"`
+	Query     string    `json:"query" avro:"query"`
+	Arguments Arguments `json:"arguments" avro:"arguments"`
 }
 
 type queryFn struct {

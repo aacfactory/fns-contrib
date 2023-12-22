@@ -32,9 +32,7 @@ var (
 )
 
 var (
-	nullBytes  = []byte("null")
-	trueBytes  = []byte("true")
-	falseBytes = []byte("false")
+	nullBytes = []byte("null")
 )
 
 type Scanner interface {

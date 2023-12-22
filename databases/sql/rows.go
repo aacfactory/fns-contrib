@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	stdJson "encoding/json"
 	"fmt"
+	"github.com/aacfactory/avro"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
 	"github.com/aacfactory/fns/commons/times"
@@ -62,56 +63,6 @@ func (rows *Rows) Close() error {
 		return nil
 	}
 	return rows.rows.Close()
-}
-
-func (rows Rows) MarshalJSON() (p []byte, err error) {
-	if len(rows.values) > 0 {
-		tr := transferRows{
-			ColumnTypes: rows.columnTypes,
-			Values:      rows.values,
-		}
-		p, err = json.Marshal(tr)
-		return
-	}
-	if rows.idx != 0 {
-		err = errors.Warning("sql: encode rows failed").WithCause(fmt.Errorf("rows has been used"))
-		return
-	}
-	mc := newMultiColumns(rows.columnLen)
-	for rows.rows.Next() {
-		scanners := mc.Next()
-		scanErr := rows.rows.Scan(scanners...)
-		if scanErr != nil {
-			_ = rows.rows.Close()
-			mc.Release()
-			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
-			return
-		}
-	}
-	_ = rows.rows.Close()
-	rows.values = mc.Rows()
-	rows.size = len(rows.values)
-	tr := transferRows{
-		ColumnTypes: rows.columnTypes,
-		Values:      rows.values,
-	}
-	p, err = json.Marshal(tr)
-	mc.Release()
-	return
-}
-
-func (rows *Rows) UnmarshalJSON(p []byte) (err error) {
-	tr := transferRows{}
-	err = json.Unmarshal(p, &tr)
-	if err != nil {
-		return
-	}
-	rows.idx = 0
-	rows.columnTypes = tr.ColumnTypes
-	rows.columnLen = len(rows.columnTypes)
-	rows.values = tr.Values
-	rows.size = len(rows.values)
-	return
 }
 
 func (rows *Rows) Next() (ok bool) {
@@ -680,7 +631,110 @@ func (rows *Rows) Scan(dst ...any) (err error) {
 	return
 }
 
+func (rows Rows) MarshalAvro() (p []byte, err error) {
+	if len(rows.values) > 0 {
+		tr := transferRows{
+			ColumnTypes: rows.columnTypes,
+			Values:      rows.values,
+		}
+		p, err = avro.Marshal(tr)
+		return
+	}
+	if rows.idx != 0 {
+		err = errors.Warning("sql: encode rows failed").WithCause(fmt.Errorf("rows has been used"))
+		return
+	}
+	mc := newMultiColumns(rows.columnLen)
+	for rows.rows.Next() {
+		scanners := mc.Next()
+		scanErr := rows.rows.Scan(scanners...)
+		if scanErr != nil {
+			_ = rows.rows.Close()
+			mc.Release()
+			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
+			return
+		}
+	}
+	_ = rows.rows.Close()
+	rows.values = mc.Rows()
+	rows.size = len(rows.values)
+	tr := transferRows{
+		ColumnTypes: rows.columnTypes,
+		Values:      rows.values,
+	}
+	p, err = avro.Marshal(tr)
+	mc.Release()
+	return
+}
+
+func (rows *Rows) UnmarshalAvro(p []byte) (err error) {
+	if len(p) == 0 {
+		return
+	}
+	tr := transferRows{}
+	err = avro.Unmarshal(p, &tr)
+	if err != nil {
+		return
+	}
+	rows.idx = 0
+	rows.columnTypes = tr.ColumnTypes
+	rows.columnLen = len(rows.columnTypes)
+	rows.values = tr.Values
+	rows.size = len(rows.values)
+	return
+}
+
+func (rows Rows) MarshalJSON() (p []byte, err error) {
+	if len(rows.values) > 0 {
+		tr := transferRows{
+			ColumnTypes: rows.columnTypes,
+			Values:      rows.values,
+		}
+		p, err = json.Marshal(tr)
+		return
+	}
+	if rows.idx != 0 {
+		err = errors.Warning("sql: encode rows failed").WithCause(fmt.Errorf("rows has been used"))
+		return
+	}
+	mc := newMultiColumns(rows.columnLen)
+	for rows.rows.Next() {
+		scanners := mc.Next()
+		scanErr := rows.rows.Scan(scanners...)
+		if scanErr != nil {
+			_ = rows.rows.Close()
+			mc.Release()
+			err = errors.Warning("sql: encode rows failed").WithCause(scanErr)
+			return
+		}
+	}
+	_ = rows.rows.Close()
+	rows.values = mc.Rows()
+	rows.size = len(rows.values)
+	tr := transferRows{
+		ColumnTypes: rows.columnTypes,
+		Values:      rows.values,
+	}
+	p, err = json.Marshal(tr)
+	mc.Release()
+	return
+}
+
+func (rows *Rows) UnmarshalJSON(p []byte) (err error) {
+	tr := transferRows{}
+	err = json.Unmarshal(p, &tr)
+	if err != nil {
+		return
+	}
+	rows.idx = 0
+	rows.columnTypes = tr.ColumnTypes
+	rows.columnLen = len(rows.columnTypes)
+	rows.values = tr.Values
+	rows.size = len(rows.values)
+	return
+}
+
 type transferRows struct {
-	ColumnTypes []ColumnType `json:"columnTypes"`
-	Values      []Row        `json:"values"`
+	ColumnTypes []ColumnType `json:"columnTypes" avro:"columnTypes"`
+	Values      []Row        `json:"values" avro:"values"`
 }
