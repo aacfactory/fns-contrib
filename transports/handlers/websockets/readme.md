@@ -5,6 +5,9 @@
 go get github.com/aacfactory/fns-contrib/transports/handlers/websockets
 ```
 
+## Note
+Only support json bytes.
+
 ## Usage
 Make sure tls is used.
 ```go

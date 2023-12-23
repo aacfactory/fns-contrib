@@ -4,10 +4,10 @@ import (
 	"github.com/aacfactory/configures"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/caches/lru"
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/json"
 	"github.com/aacfactory/logs"
-	"github.com/hashicorp/golang-lru/arc/v2"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 	"net/http"
@@ -50,7 +50,7 @@ type middleware struct {
 	alarms        *rate.Limiter
 	requests      *rate.Limiter
 	deviceEnabled bool
-	devices       *arc.ARCCache[string, *rate.Limiter]
+	devices       *lru.ARCCache[string, *rate.Limiter]
 	deviceEvery   time.Duration
 	deviceBurst   int
 	group         *singleflight.Group
@@ -96,7 +96,7 @@ func (middle *middleware) Construct(options transports.MiddlewareOptions) (err e
 			if maxDevice < 1 {
 				maxDevice = 4096
 			}
-			middle.devices, err = arc.NewARC[string, *rate.Limiter](maxDevice)
+			middle.devices, err = lru.NewARC[string, *rate.Limiter](maxDevice)
 			if err != nil {
 				err = errors.Warning("fns: construct limiter middleware failed").WithCause(err)
 				return

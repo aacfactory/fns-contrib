@@ -15,7 +15,7 @@ var (
 	_sendFnName = []byte("send")
 )
 
-func Send(ctx context.Context, id []byte, data interface{}) (err error) {
+func Send(ctx context.Context, id []byte, data any) (err error) {
 	message, messageErr := json.Marshal(data)
 	if messageErr != nil {
 		err = errors.Warning("websockets: send message to connection failed").WithCause(messageErr)
@@ -59,8 +59,8 @@ func proxySend(ctx context.Context, param SendParam, options ...SendOption) (err
 }
 
 type SendParam struct {
-	ConnectionId string          `json:"connectionId"`
-	Message      json.RawMessage `json:"message"`
+	ConnectionId string `json:"connectionId" avro:"connectionId"`
+	Message      []byte `json:"message" avro:"message"`
 }
 
 func send(ctx context.Context, registration Registration, param SendParam) (err error) {

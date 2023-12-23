@@ -15,7 +15,7 @@ var (
 	requestPool = sync.Pool{}
 )
 
-func AcquireRequest(endpoint []byte, fn []byte, payload interface{}) (r *Request, err error) {
+func AcquireRequest(endpoint []byte, fn []byte, payload any) (r *Request, err error) {
 	if len(endpoint) == 0 || len(fn) == 0 {
 		err = errors.Warning("websockets: acquire request failed").WithCause(errors.Warning("endpoint and fn is required"))
 		return
@@ -85,7 +85,7 @@ func (r *Request) Versions() (v versions.Intervals, has bool, err error) {
 	return
 }
 
-func Succeed(payload interface{}) (resp *Response) {
+func Succeed(payload any) (resp *Response) {
 	resp = &Response{
 		Succeed: true,
 		Payload: payload,
