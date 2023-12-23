@@ -2,11 +2,15 @@ package hazelcasts_test
 
 import (
 	"fmt"
+	"github.com/aacfactory/avro"
+	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/cluster/hazelcasts"
 	"github.com/aacfactory/fns/barriers"
+	"github.com/aacfactory/fns/commons/avros"
 	"github.com/aacfactory/fns/commons/objects"
 	"github.com/aacfactory/fns/context"
 	"github.com/hazelcast/hazelcast-go-client"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,12 +44,44 @@ func TestBarrier_Do(t *testing.T) {
 		t.Errorf("%+v", doErr)
 		return
 	}
+	fmt.Println(reflect.TypeOf(r))
 	now, nowErr := objects.Value[[]time.Time](r)
 	if nowErr != nil {
 		t.Error(nowErr)
 		return
 	}
 	t.Log(now)
+	barrier.Forget(context.TODO(), key)
+}
+
+func TestBarrier_DoNilResult(t *testing.T) {
+	config := hazelcast.NewConfig()
+	config.Cluster.Network.SetAddresses("127.0.0.1:15701")
+	config.Cluster.Security.Credentials.Username = ""
+	config.Cluster.Security.Credentials.Password = ""
+	client, err := hazelcast.StartNewClientWithConfig(context.TODO(), config)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer client.Shutdown(context.TODO())
+	t.Log(client.Name())
+	barrier, barrierErr := hazelcasts.NewBarrier(context.TODO(), client, 8)
+	if barrierErr != nil {
+		t.Error(barrierErr)
+		return
+	}
+	key := []byte("some")
+	r, doErr := barrier.Do(context.TODO(), key, func() (result interface{}, err error) {
+		t.Log("do")
+		return
+	})
+	if doErr != nil {
+		t.Errorf("%+v", doErr)
+		return
+	}
+	t.Log("type r:", reflect.TypeOf(r), len(r.(avros.RawMessage)))
+	t.Log(avro.MustMarshal(r))
 	barrier.Forget(context.TODO(), key)
 }
 
@@ -69,8 +105,8 @@ func TestBarrier_DoFailed(t *testing.T) {
 	key := []byte("some")
 	r, doErr := barrier.Do(context.TODO(), key, func() (result interface{}, err error) {
 		t.Log("do", time.Now())
-		//err = errors.Warning("hazelcast: barrier failed xxx")
-		err = fmt.Errorf("hazelcast: cc barrier failed")
+		err = errors.Warning("hazelcast: barrier failed xxx")
+		//err = fmt.Errorf("hazelcast: cc barrier failed")
 		return
 	})
 	if doErr != nil {

@@ -2,12 +2,13 @@ package hazelcasts
 
 import (
 	"fmt"
+	"github.com/aacfactory/avro"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/barriers"
+	"github.com/aacfactory/fns/commons/avros"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/objects"
 	"github.com/aacfactory/fns/context"
-	"github.com/aacfactory/json"
 	"github.com/hazelcast/hazelcast-go-client"
 	"golang.org/x/sync/singleflight"
 	"time"
@@ -53,7 +54,7 @@ func (barrier *Barrier) Do(ctx context.Context, key []byte, fn func() (result in
 		err = doErr
 		return
 	}
-	result = objects.New(r)
+	result = objects.New(avros.RawMessage(r.([]byte)))
 	return
 }
 
@@ -122,6 +123,7 @@ func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (res
 			err = errors.Warning("hazelcast: barrier failed").WithCause(setErr)
 			return
 		}
+		r, err = value.Value()
 		return
 	}
 
@@ -159,7 +161,6 @@ func (barrier *Barrier) Forget(_ context.Context, key []byte) {
 		key = []byte{'-'}
 	}
 	barrier.group.Forget(bytex.ToString(key))
-	//_ = barrier.values.Remove(ctx, key)
 	return
 }
 
@@ -202,7 +203,13 @@ func (bv BarrierValue) Value() (data []byte, err error) {
 		return
 	}
 	if bv[1] == 'C' {
-		err = errors.Decode(bv[2:])
+		codeErr := &errors.CodeErrorImpl{}
+		err = avro.Unmarshal(bv[2:], codeErr)
+		if err != nil {
+			err = errors.Warning("hazelcast: decode barrier err result failed").WithCause(err)
+			return
+		}
+		err = codeErr
 	} else if bv[1] == 'S' {
 		err = fmt.Errorf(bytex.ToString(bv[2:]))
 	}
@@ -220,7 +227,7 @@ func (bv BarrierValue) Succeed(v interface{}) (n BarrierValue, err error) {
 		n = append(n, 'N')
 		return
 	}
-	p, encodeErr := json.Marshal(v)
+	p, encodeErr := avro.Marshal(v)
 	if encodeErr != nil {
 		err = errors.Warning("hazelcast: set succeed value into barrier value failed").WithCause(encodeErr)
 		return
@@ -238,7 +245,7 @@ func (bv BarrierValue) Failed(v error) (n BarrierValue) {
 	codeErr, ok := errors.As(v)
 	if ok {
 		n = append(n, 'C')
-		p, _ := codeErr.MarshalJSON()
+		p, _ := avro.Marshal(codeErr)
 		n = append(n, p...)
 	} else {
 		n = append(n, 'S')

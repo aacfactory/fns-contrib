@@ -2,12 +2,14 @@ module github.com/aacfactory/fns-contrib/cluster/hazelcasts
 
 go 1.21.0
 
+replace github.com/aacfactory/fns v1.2.11 => ../../../fns
+
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/configures v1.12.1
-	github.com/aacfactory/errors v1.13.11
+	github.com/aacfactory/errors v1.13.12
 	github.com/aacfactory/fns v1.2.11
-	github.com/aacfactory/json v1.16.6
+	github.com/aacfactory/json v1.16.8
 	github.com/aacfactory/logs v1.13.12
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/hazelcast/hazelcast-go-client v1.4.1
@@ -15,7 +17,9 @@ require (
 )
 
 require (
+	github.com/aacfactory/avro v1.2.12 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
+	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/goccy/go-yaml v1.11.2 // indirect
@@ -24,6 +28,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20231016141302-07b5767bb0ed // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
@@ -37,9 +42,9 @@ require (
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
 )
