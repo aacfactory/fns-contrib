@@ -13,8 +13,8 @@ var (
 )
 
 type UnbindParam struct {
-	Account authorizations.Id `json:"account"`
-	Roles   Roles             `json:"roles"`
+	Account authorizations.Id `json:"account" avro:"account"`
+	Roles   Roles             `json:"roles" avro:"roles"`
 }
 
 func Unbind(ctx context.Context, param UnbindParam) (err error) {

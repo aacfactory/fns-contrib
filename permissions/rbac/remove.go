@@ -24,8 +24,8 @@ func Remove(ctx context.Context, id string, cascade bool) (v Role, err error) {
 }
 
 type removeParam struct {
-	Id      string `json:"id"`
-	Cascade bool   `json:"cascade"`
+	Id      string `json:"id" avro:"id"`
+	Cascade bool   `json:"cascade" avro:"cascade"`
 }
 
 type removeFn struct {

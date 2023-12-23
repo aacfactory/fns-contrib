@@ -7,8 +7,8 @@ import (
 )
 
 type Policy struct {
-	Object string `json:"object"`
-	Action string `json:"action"`
+	Object string `json:"object" avro:"object"`
+	Action string `json:"action" avro:"action"`
 }
 
 func (p *Policy) match(action string) (ok bool) {
@@ -87,12 +87,12 @@ func (roles Roles) Remove(role Role) (v Roles) {
 }
 
 type Role struct {
-	Id          string   `json:"id" tree:"ParentId+Children"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	ParentId    string   `json:"parentId"`
-	Children    Roles    `json:"children"`
-	Policies    []Policy `json:"policies"`
+	Id          string   `json:"id" tree:"ParentId+Children" avro:"id"`
+	Name        string   `json:"name" avro:"name"`
+	Description string   `json:"description" avro:"description"`
+	ParentId    string   `json:"parentId" avro:"parentId"`
+	Children    Roles    `json:"children" avro:"children"`
+	Policies    []Policy `json:"policies" avro:"policies"`
 }
 
 func (role *Role) CheckPolicy(object string, action string) (ok bool) {

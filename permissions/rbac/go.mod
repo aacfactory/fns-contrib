@@ -2,6 +2,10 @@ module github.com/aacfactory/fns-contrib/permissions/rbac
 
 go 1.21.0
 
+replace (
+	github.com/aacfactory/fns v1.2.11 => ../../../fns
+)
+
 require (
 	github.com/aacfactory/errors v1.13.11
 	github.com/aacfactory/fns v1.2.11

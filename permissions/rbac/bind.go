@@ -13,8 +13,8 @@ var (
 )
 
 type BindParam struct {
-	Account authorizations.Id `json:"account"`
-	Roles   Roles             `json:"roles"`
+	Account authorizations.Id `json:"account" avro:"account"`
+	Roles   Roles             `json:"roles" avro:"roles"`
 }
 
 func Bind(ctx context.Context, param BindParam) (err error) {
