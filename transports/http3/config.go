@@ -37,10 +37,16 @@ type AlternativeConfig struct {
 	Options json.RawMessage `json:"options"`
 }
 
+type DialerConfig struct {
+	CacheSize     int `json:"cacheSize"`
+	ExpireSeconds int `json:"expireSeconds"`
+}
+
 type ClientConfig struct {
-	MaxConnsPerHost       int    `json:"maxConnsPerHost"`
-	MaxResponseHeaderSize string `json:"maxResponseHeaderSize"`
-	Timeout               string `json:"timeout"`
+	MaxConnsPerHost       int          `json:"maxConnsPerHost"`
+	MaxResponseHeaderSize string       `json:"maxResponseHeaderSize"`
+	Timeout               string       `json:"timeout"`
+	Dialer                DialerConfig `json:"dialer"`
 }
 
 func (config *ClientConfig) MaxConnectionsPerHost() (n int) {

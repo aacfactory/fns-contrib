@@ -2,9 +2,11 @@ module github.com/aacfactory/fns-contrib/transports/http3
 
 go 1.21.0
 
+replace github.com/aacfactory/fns v1.2.11 => ../../../fns
+
 require (
 	github.com/aacfactory/afssl v1.12.0
-	github.com/aacfactory/errors v1.13.11
+	github.com/aacfactory/errors v1.13.12
 	github.com/aacfactory/fns v1.2.11
 	github.com/aacfactory/json v1.16.6
 	github.com/aacfactory/logs v1.13.12
@@ -13,6 +15,7 @@ require (
 )
 
 require (
+	github.com/aacfactory/avro v1.2.10 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
 	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/dgrr/http2 v0.3.6-0.20231023141632-12370d352f5f // indirect
@@ -24,6 +27,7 @@ require (
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/onsi/ginkgo/v2 v2.13.2 // indirect
