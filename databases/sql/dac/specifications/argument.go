@@ -46,6 +46,7 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 				return
 			}
 			arguments = append(arguments, argument)
+			break
 		case Json:
 			fv := rv.FieldByName(target.Field)
 			if fv.Type().Kind() == reflect.Ptr {
@@ -61,6 +62,7 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 				return
 			}
 			arguments = append(arguments, json.RawMessage(argument))
+			break
 		default:
 			err = errors.Warning("sql: field can not as argument").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
@@ -97,7 +99,6 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 		if fv.Type().Kind() == reflect.Ptr {
 			if fv.IsNil() {
 				return
-				//fv.Set(reflect.New(fv.Type()).Elem())
 			}
 			fv = fv.Elem()
 		}
@@ -107,6 +108,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 			err = errors.Warning("sql: get field value failed").WithCause(err).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
 		}
+		break
 	case Json:
 		fv := rv.FieldByName(target.Field)
 		encode, encodeErr := json.Marshal(fv.Interface())
@@ -115,6 +117,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 			return
 		}
 		argument = json.RawMessage(encode)
+		break
 	default:
 		err = errors.Warning("sql: field can not as argument").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 		return
