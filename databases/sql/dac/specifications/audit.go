@@ -16,7 +16,7 @@ func setupAudit[T any](by *Column, at *Column, auth authorizations.Authorization
 	for i, entry := range entries {
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
+			rby := by.ReadValue(rv.Elem())
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -26,7 +26,7 @@ func setupAudit[T any](by *Column, at *Column, auth authorizations.Authorization
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
+			rat := at.ReadValue(rv.Elem())
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -64,7 +64,7 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 		if hasPk && !pk.Incr() {
 			for i, entry := range entries {
 				rv := reflect.ValueOf(&entry)
-				pkf := rv.Elem().FieldByName(pk.Field)
+				pkf := pk.ReadValue(rv.Elem())
 				if pkf.IsZero() {
 					pkf.SetString(uid.UID())
 					entries[i] = entry
@@ -89,7 +89,7 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 	for i, entry := range entries {
 		rv := reflect.ValueOf(&entry)
 		if by != nil {
-			rby := rv.Elem().FieldByName(by.Field)
+			rby := by.ReadValue(rv.Elem())
 			if rby.IsZero() {
 				if by.Type.Name == StringType {
 					rby.SetString(auth.Id.String())
@@ -99,7 +99,7 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 			}
 		}
 		if at != nil {
-			rat := rv.Elem().FieldByName(at.Field)
+			rat := at.ReadValue(rv.Elem())
 			if at.Type.Value.ConvertibleTo(datetimeType) {
 				rat.Set(reflect.ValueOf(time.Now()))
 			} else if at.Type.Value.ConvertibleTo(nullTimeType) {
@@ -124,7 +124,7 @@ func TrySetupAuditCreation[T any](ctx context.Context, spec *Specification, entr
 			}
 		}
 		if hasPk && !pk.Incr() {
-			pkf := rv.Elem().FieldByName(pk.Field)
+			pkf := pk.ReadValue(rv.Elem())
 			if pkf.IsZero() {
 				pkf.SetString(uid.UID())
 			}
@@ -190,7 +190,7 @@ func TrySetupAuditVersion[T any](ctx context.Context, entries []T) (err error) {
 	}
 	for i, entry := range entries {
 		rv := reflect.ValueOf(&entry)
-		rvt := rv.Elem().FieldByName(column.Field)
+		rvt := column.ReadValue(rv.Elem())
 		pv := rvt.Int()
 		rvt.SetInt(pv + 1)
 		entries[i] = entry
@@ -214,7 +214,7 @@ func TrySetupLastInsertId[T any](ctx context.Context, entry T, id int64) (v T, e
 		return
 	}
 	rv := reflect.ValueOf(&entry)
-	rvt := rv.Elem().FieldByName(column.Field)
+	rvt := column.ReadValue(rv.Elem())
 	rvt.SetInt(id)
 	v = rv.Elem().Interface().(T)
 	return

@@ -155,6 +155,7 @@ func (ct *ColumnType) String() string {
 // Column
 // 'column:"{name},{kind},{options}"'
 type Column struct {
+	FieldIdx    []int
 	Field       string
 	Name        string
 	JsonIdent   string
@@ -315,7 +316,15 @@ func (column *Column) WriteValue(field reflect.Value, value any) (err error) {
 	return
 }
 
-func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err error) {
+func (column *Column) ReadValue(sv reflect.Value) (fv reflect.Value) {
+	for i := len(column.FieldIdx) - 1; i > -1; i-- {
+		sv = sv.Field(column.FieldIdx[i])
+	}
+	fv = sv
+	return
+}
+
+func newColumn(ctx context.Context, rt reflect.StructField, idx []int) (column *Column, err error) {
 	tag, hasTag := rt.Tag.Lookup(columnTag)
 	if !hasTag {
 		return
@@ -643,6 +652,7 @@ func newColumn(ctx context.Context, rt reflect.StructField) (column *Column, err
 	}
 
 	column = &Column{
+		FieldIdx:    idx,
 		Field:       rt.Name,
 		Name:        name,
 		JsonIdent:   jsonTag,

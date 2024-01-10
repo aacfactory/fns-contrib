@@ -32,13 +32,11 @@ func acquireGenerics(n int) (v Generics) {
 	return
 }
 
-func releaseGenerics(vv ...Generics) {
-	for _, generics := range vv {
-		for _, generic := range generics {
-			generic.(*Generic).Reset()
-		}
-		genericsPool.Put(generics)
+func releaseGenerics(generics Generics) {
+	for _, generic := range generics {
+		generic.(*Generic).Reset()
 	}
+	genericsPool.Put(generics)
 }
 
 type Generics []any
@@ -52,7 +50,7 @@ func (generics Generics) WriteTo(spec *Specification, fieldNames []string, entry
 				WithMeta("field", fieldName).WithMeta("table", spec.Key)
 			return
 		}
-		fv := rv.FieldByName(fieldName)
+		fv := column.ReadValue(rv)
 		generic := generics[i].(*Generic)
 		if generic.Valid {
 			err = column.WriteValue(fv, generic.Value)

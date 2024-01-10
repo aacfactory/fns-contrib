@@ -278,6 +278,7 @@ func scanTableFields(ctx context.Context, key string, rt reflect.Type) (columns 
 		if !field.IsExported() {
 			continue
 		}
+
 		if field.Anonymous {
 			if field.Type.Kind() == reflect.Ptr {
 				err = errors.Warning("type of anonymous field can not be ptr").WithMeta("field", field.Name)
@@ -292,10 +293,13 @@ func scanTableFields(ctx context.Context, key string, rt reflect.Type) (columns 
 					return
 				}
 			}
-			columns = append(columns, anonymous...)
+			for _, column := range anonymous {
+				column.FieldIdx = append(column.FieldIdx, i)
+				columns = append(columns, column)
+			}
 			continue
 		}
-		column, columnErr := newColumn(ctx, field)
+		column, columnErr := newColumn(ctx, field, []int{i})
 		if columnErr != nil {
 			err = errors.Warning("sql: scan table field failed").
 				WithCause(columnErr).

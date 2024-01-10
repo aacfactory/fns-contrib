@@ -22,11 +22,11 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 		}
 		switch target.Kind {
 		case Normal, Pk, Acb, Act, Amb, Amt, Adb, Adt, Aol:
-			fv := rv.FieldByName(target.Field)
+			fv := target.ReadValue(rv)
 			arguments = append(arguments, fv.Interface())
 			break
 		case Reference:
-			fv := rv.FieldByName(target.Field)
+			fv := target.ReadValue(rv)
 			if fv.Type().Kind() == reflect.Ptr {
 				if fv.IsNil() {
 					arguments = append(arguments, nil)
@@ -48,7 +48,7 @@ func (spec *Specification) Arguments(instance any, fieldNames []string) (argumen
 			arguments = append(arguments, argument)
 			break
 		case Json:
-			fv := rv.FieldByName(target.Field)
+			fv := target.ReadValue(rv)
 			if fv.Type().Kind() == reflect.Ptr {
 				if fv.IsNil() {
 					arguments = append(arguments, json.NullBytes)
@@ -86,7 +86,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 	}
 	switch target.Kind {
 	case Normal, Pk, Acb, Act, Amb, Amt, Adb, Adt, Aol:
-		fv := rv.FieldByName(target.Field)
+		fv := target.ReadValue(rv)
 		argument = fv.Interface()
 		break
 	case Reference:
@@ -95,7 +95,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 			err = errors.Warning("sql: field is not reference").WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)
 			return
 		}
-		fv := rv.FieldByName(target.Field)
+		fv := target.ReadValue(rv)
 		if fv.Type().Kind() == reflect.Ptr {
 			if fv.IsNil() {
 				return
@@ -110,7 +110,7 @@ func (spec *Specification) ArgumentByField(instance any, field string) (argument
 		}
 		break
 	case Json:
-		fv := rv.FieldByName(target.Field)
+		fv := target.ReadValue(rv)
 		encode, encodeErr := json.Marshal(fv.Interface())
 		if encodeErr != nil {
 			err = errors.Warning("sql: encode field value failed").WithCause(encodeErr).WithMeta("table", rv.Type().String()).WithMeta("field", target.Field)

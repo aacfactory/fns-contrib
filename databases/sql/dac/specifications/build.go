@@ -333,6 +333,8 @@ func BuildUpdateFields[T any](ctx context.Context, fields []FieldValue, cond Con
 				fields[i] = field
 			}
 			break
+		default:
+			break
 		}
 	}
 	method, query, arguments, err = dialect.UpdateFields(Todo(ctx, t, dialect), spec, fields, cond)

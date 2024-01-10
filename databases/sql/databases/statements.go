@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/commons/caches/lru"
 	"github.com/aacfactory/fns/commons/mmhash"
 	"github.com/aacfactory/logs"
-	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"golang.org/x/sync/singleflight"
 	"strconv"
 	"sync/atomic"
@@ -114,13 +114,9 @@ func NewStatements(log logs.Logger, preparer Preparer, size int, evictTimeout ti
 	if evictTimeout < 1 {
 		evictTimeout = 10 * time.Second
 	}
-	pool, poolErr := simplelru.NewLRU[uint64, *Statement](size, func(key uint64, value *Statement) {
+	pool := lru.New[uint64, *Statement](size, func(key uint64, value *Statement) {
 		value.evict()
 	})
-	if poolErr != nil {
-		err = errors.Warning("sql: new statements failed").WithCause(poolErr)
-		return
-	}
 	v = &Statements{
 		log:          log.With("sql", "statements"),
 		evictTimeout: evictTimeout,
@@ -135,7 +131,7 @@ type Statements struct {
 	log          logs.Logger
 	evictTimeout time.Duration
 	preparer     Preparer
-	pool         *simplelru.LRU[uint64, *Statement]
+	pool         *lru.LRU[uint64, *Statement]
 	group        singleflight.Group
 }
 
