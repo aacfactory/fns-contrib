@@ -2,15 +2,13 @@ module github.com/aacfactory/fns-contrib/transports/middlewares/limiter
 
 go 1.21.0
 
-replace github.com/aacfactory/fns v1.2.11 => ../../../../fns
-
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.11
+	github.com/aacfactory/fns v1.2.40
 	github.com/aacfactory/json v1.16.8
-	github.com/aacfactory/logs v1.13.12
-	golang.org/x/sync v0.5.0
+	github.com/aacfactory/logs v1.13.13
+	golang.org/x/sync v0.6.0
 	golang.org/x/time v0.5.0
 )
 
@@ -32,7 +30,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/crypto v0.18.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )

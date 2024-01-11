@@ -4,14 +4,14 @@ go 1.21.0
 
 require (
 	github.com/aacfactory/afssl v1.12.0
-	github.com/aacfactory/avro v1.2.10
+	github.com/aacfactory/avro v1.2.12
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.20
-	github.com/aacfactory/json v1.16.6
-	github.com/aacfactory/logs v1.13.12
-	github.com/redis/rueidis v1.0.25
-	golang.org/x/sync v0.5.0
+	github.com/aacfactory/fns v1.2.40
+	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/logs v1.13.13
+	github.com/redis/rueidis v1.0.26
+	golang.org/x/sync v0.6.0
 )
 
 require (
@@ -38,7 +38,7 @@ require (
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/crypto v0.18.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )

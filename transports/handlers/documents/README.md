@@ -20,10 +20,6 @@ transport:
 ```
 
 ## URL
-View
-```
-/documents/view/index.html
-```
 Raw document
 ```
 /documents 

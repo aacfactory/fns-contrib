@@ -13,10 +13,10 @@ var (
 )
 
 type ProducerMessage struct {
-	Topic   string  `json:"topic"`
-	Key     []byte  `json:"key"`
-	Body    []byte  `json:"body"`
-	Headers Headers `json:"headers"`
+	Topic   string  `json:"topic" avro:"topic"`
+	Key     []byte  `json:"key" avro:"key"`
+	Body    []byte  `json:"body" avro:"body"`
+	Headers Headers `json:"headers" avro:"headers"`
 }
 
 func (msg ProducerMessage) AddHeader(key string, value []byte) ProducerMessage {
@@ -80,8 +80,8 @@ func PublishAsync(ctx context.Context, message ...ProducerMessage) (err error) {
 }
 
 type publishParam struct {
-	Messages []ProducerMessage `json:"messages"`
-	Async    bool              `json:"async"`
+	Messages []ProducerMessage `json:"messages" avro:"messages"`
+	Async    bool              `json:"async" avro:"async"`
 }
 
 type publishFn struct {
