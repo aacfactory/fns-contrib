@@ -12,11 +12,7 @@ var (
 )
 
 func Save(ctx context.Context, role Role) (err error) {
-	_, rErr := runtime.Endpoints(ctx).Request(ctx, endpointName, saveFnName, role)
-	if rErr != nil {
-		err = rErr
-		return
-	}
+	_, err = runtime.Endpoints(ctx).Request(ctx, endpointName, saveFnName, role)
 	return
 }
 

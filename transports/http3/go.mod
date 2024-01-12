@@ -5,8 +5,8 @@ go 1.21.0
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.41
-	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/quic-go/quic-go v0.40.1
 	golang.org/x/sync v0.6.0
@@ -15,7 +15,7 @@ require (
 require (
 	github.com/aacfactory/avro v1.2.12 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/dgrr/http2 v0.3.6-0.20231023141632-12370d352f5f // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
@@ -47,6 +47,6 @@ require (
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )

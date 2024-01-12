@@ -7,9 +7,9 @@ require (
 	github.com/aacfactory/avro v1.2.12
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.41
+	github.com/aacfactory/fns v1.2.50
 	github.com/aacfactory/gcg v1.0.5
-	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.6.0
@@ -35,9 +35,8 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )

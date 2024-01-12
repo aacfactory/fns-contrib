@@ -5,8 +5,8 @@ import (
 )
 
 type Header struct {
-	Key   string `json:"key"`
-	Value []byte `json:"value"`
+	Key   string `json:"key" avro:"key"`
+	Value []byte `json:"value" avro:"value"`
 }
 
 type Headers []Header

@@ -3,7 +3,11 @@ package rbac
 import (
 	"fmt"
 	"github.com/aacfactory/errors"
+	"github.com/aacfactory/fns/commons/bytex"
+	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/services"
+	"github.com/aacfactory/fns/services/authorizations"
+	"time"
 )
 
 var (
@@ -31,15 +35,29 @@ func (svc *service) Construct(options services.Options) (err error) {
 	if err != nil {
 		return
 	}
-
+	config := Config{}
+	configErr := options.Config.As(&config)
+	if configErr != nil {
+		err = errors.Warning("rbac: construct failed").WithCause(configErr)
+		return
+	}
+	cacheable := config.Cache.Enable
+	cacheTTL := config.Cache.TTL
+	if cacheable && cacheTTL < 1 {
+		cacheTTL = 1 * time.Hour
+	}
 	svc.AddFunction(&bindFn{
-		store: svc.store,
+		store:     svc.store,
+		cacheable: cacheable,
 	})
 	svc.AddFunction(&unbindFn{
-		store: svc.store,
+		store:     svc.store,
+		cacheable: cacheable,
 	})
 	svc.AddFunction(&boundsFn{
-		store: svc.store,
+		store:     svc.store,
+		cacheable: cacheable,
+		cacheTTL:  cacheTTL,
 	})
 	svc.AddFunction(&getFn{
 		store: svc.store,
@@ -53,5 +71,18 @@ func (svc *service) Construct(options services.Options) (err error) {
 	svc.AddFunction(&removeFn{
 		store: svc.store,
 	})
+	return
+}
+
+const (
+	cachePrefix = "rbac:"
+)
+
+type CacheParam struct {
+	Account authorizations.Id
+}
+
+func (param CacheParam) CacheKey(ctx context.Context) (key []byte, err error) {
+	key = append(bytex.FromString(cachePrefix), param.Account...)
 	return
 }

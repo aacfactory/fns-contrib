@@ -10,8 +10,8 @@ type Config struct {
 }
 
 type TableConfig struct {
-	Schema string `json:"schema" yaml:"schema"`
-	Table  string `json:"table" yaml:"table"`
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
 }
 
 type CacheConfig struct {

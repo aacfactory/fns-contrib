@@ -13,6 +13,15 @@ Deploy service
 app.Deploy(rbac.New(store))
 app.Deploy(permissions.New(rbac.Enforcer()))
 ```
+Enable cache.  
+Note: when enabled, then modify role will not update cache.
+```yaml
+permissions:
+  cache:
+    enable: true
+    ttl: "1h0m0s"
+```
+
 
 ## Store
 Implement rbac.Store or use [sql](https://github.com/aacfactory/fns-contrib/tree/main/permissions/rbac/sql).

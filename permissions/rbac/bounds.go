@@ -6,6 +6,8 @@ import (
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/fns/services/authorizations"
+	"github.com/aacfactory/fns/services/caches"
+	"time"
 )
 
 var (
@@ -27,7 +29,9 @@ func Bounds(ctx context.Context, account authorizations.Id) (v Roles, err error)
 }
 
 type boundsFn struct {
-	store Store
+	store     Store
+	cacheable bool
+	cacheTTL  time.Duration
 }
 
 func (fn *boundsFn) Name() string {
@@ -48,10 +52,21 @@ func (fn *boundsFn) Handle(ctx services.Request) (v any, err error) {
 		err = errors.Warning("rbac: bounds failed").WithCause(paramErr)
 		return
 	}
+	if fn.cacheable {
+		roles := make(Roles, 0)
+		cached, _ := caches.Load(ctx, CacheParam{Account: account}, &roles)
+		if cached {
+			v = roles
+			return
+		}
+	}
 	roles, rolesErr := fn.store.Bounds(ctx, account)
 	if rolesErr != nil {
 		err = errors.Warning("rbac: bounds failed").WithCause(rolesErr)
 		return
+	}
+	if fn.cacheable {
+		_ = caches.Set(ctx, CacheParam{Account: account}, roles, fn.cacheTTL)
 	}
 	v = roles
 	return

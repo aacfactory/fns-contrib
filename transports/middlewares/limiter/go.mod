@@ -5,8 +5,8 @@ go 1.21.0
 require (
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.41
-	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	golang.org/x/sync v0.6.0
 	golang.org/x/time v0.5.0

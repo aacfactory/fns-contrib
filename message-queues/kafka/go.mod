@@ -6,8 +6,8 @@ require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.40
-	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/klauspost/compress v1.17.4
 	github.com/pierrec/lz4/v4 v4.1.21
@@ -18,7 +18,7 @@ require (
 require (
 	github.com/aacfactory/avro v1.2.12 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
-	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgrr/http2 v0.3.6-0.20231023141632-12370d352f5f // indirect
 	github.com/fatih/color v1.16.0 // indirect

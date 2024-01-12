@@ -6,10 +6,10 @@ github.com/aacfactory/configures v1.12.1 h1:dt8EafWfEG1xTfZ1lO4UY56i5EieI4lkG+Vz
 github.com/aacfactory/configures v1.12.1/go.mod h1:Iw63k3WoJD8eb1HWE6cvkBTFXfoeCqutuj8vVnia1Kg=
 github.com/aacfactory/errors v1.13.12 h1:h9UayzDvwp4ak23fs7Sb7PTYEosVx2lYraWAoL9lpkI=
 github.com/aacfactory/errors v1.13.12/go.mod h1:D63VqtkV+Yrz9st8R97h6mxaaI8bAVvkQMpQ0zsjNec=
-github.com/aacfactory/fns v1.2.41 h1:Nxbn33gGCDy0o81DHVJSJ+PNzYIfgvcyVzHfqzG7TqQ=
-github.com/aacfactory/fns v1.2.41/go.mod h1:NZqF0espmlsU83/7L4gX3PIXaTruKSdxU1udDu4xcxw=
-github.com/aacfactory/json v1.16.8 h1:rXI4umV1+uEP5nzF79MxCvuzU38sc5dixU2oiVfidbE=
-github.com/aacfactory/json v1.16.8/go.mod h1:dSwAMBvte4xcOZJkksnjAqr8/ZN4q31o28nldl1Vht0=
+github.com/aacfactory/fns v1.2.50 h1:yQRTbPiku2RhAAeXWUcZ36ap1g0KPv9JstQyfecYNag=
+github.com/aacfactory/fns v1.2.50/go.mod h1:bqoyMJqJl/7VOHhmQQ5oWchiQPJBhxVi55bG4kEIZo4=
+github.com/aacfactory/json v1.16.9 h1:VTzaCRenX9O31LbB5G8cIUg+NLkZt9tDdnGlxGId4xw=
+github.com/aacfactory/json v1.16.9/go.mod h1:dSwAMBvte4xcOZJkksnjAqr8/ZN4q31o28nldl1Vht0=
 github.com/aacfactory/logs v1.13.13 h1:crHVVxn3uQnj6Tm+X6itCweiXnpv/psGgXwmt9BDyTM=
 github.com/aacfactory/logs v1.13.13/go.mod h1:kgIwnpSXtWPhp+bfhvbDTTbtu8Goy+JenUlHZmte7hY=
 github.com/aacfactory/workers v1.8.4 h1:cS9+VzMTngwPs2bSESn6jGAEao7gKfcnPxgdq5n8Esk=
@@ -74,8 +74,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 golang.org/x/crypto v0.18.0 h1:PGVlW0xEltQnzFZ55hkuX5+KLyrMYhHld1YHO4AKcdc=
 golang.org/x/crypto v0.18.0/go.mod h1:R0j02AL6hcrfOiy9T4ZYp/rcWeMxM3L6QYxlOuEG1mg=
-golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=
-golang.org/x/net v0.19.0/go.mod h1:CfAk/cbD4CthTvqiEl8NpboMuiuOYsAr/7NOjZJtv1U=
+golang.org/x/net v0.20.0 h1:aCL9BSgETF1k+blQaYUBx9hJ9LOGP3gAVemcZlf1Kpo=
+golang.org/x/net v0.20.0/go.mod h1:z8BVo6PvndSri0LbOE3hAn0apkU+1YvI6E70E9jsnvY=
 golang.org/x/sync v0.6.0 h1:5BMeUDZ7vkXGfEr1x9B4bRcTH4lpkTkpdh0T/J+qjbQ=
 golang.org/x/sync v0.6.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
 golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

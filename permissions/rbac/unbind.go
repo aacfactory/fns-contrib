@@ -6,6 +6,7 @@ import (
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/fns/services/authorizations"
+	"github.com/aacfactory/fns/services/caches"
 )
 
 var (
@@ -18,13 +19,13 @@ type UnbindParam struct {
 }
 
 func Unbind(ctx context.Context, param UnbindParam) (err error) {
-	eps := runtime.Endpoints(ctx)
-	_, err = eps.Request(ctx, endpointName, unbindFnName, param)
+	_, err = runtime.Endpoints(ctx).Request(ctx, endpointName, unbindFnName, param)
 	return
 }
 
 type unbindFn struct {
-	store Store
+	store     Store
+	cacheable bool
 }
 
 func (fn *unbindFn) Name() string {
@@ -49,6 +50,9 @@ func (fn *unbindFn) Handle(ctx services.Request) (v any, err error) {
 	if err != nil {
 		err = errors.Warning("rbac: unbind failed").WithCause(err)
 		return
+	}
+	if fn.cacheable {
+		_ = caches.Remove(ctx, CacheParam{Account: param.Account})
 	}
 	return
 }

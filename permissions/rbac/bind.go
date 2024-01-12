@@ -6,6 +6,7 @@ import (
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
 	"github.com/aacfactory/fns/services/authorizations"
+	"github.com/aacfactory/fns/services/caches"
 )
 
 var (
@@ -24,7 +25,8 @@ func Bind(ctx context.Context, param BindParam) (err error) {
 }
 
 type bindFn struct {
-	store Store
+	store     Store
+	cacheable bool
 }
 
 func (fn *bindFn) Name() string {
@@ -49,6 +51,9 @@ func (fn *bindFn) Handle(ctx services.Request) (v any, err error) {
 	if err != nil {
 		err = errors.Warning("rbac: bind failed").WithCause(err)
 		return
+	}
+	if fn.cacheable {
+		_ = caches.Remove(ctx, CacheParam{Account: param.Account})
 	}
 	return
 }

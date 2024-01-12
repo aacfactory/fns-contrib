@@ -11,15 +11,11 @@ var (
 	removeFnName = []byte("remove")
 )
 
-func Remove(ctx context.Context, id string, cascade bool) (v Role, err error) {
-	_, rErr := runtime.Endpoints(ctx).Request(ctx, endpointName, removeFnName, removeParam{
+func Remove(ctx context.Context, id string, cascade bool) (err error) {
+	_, err = runtime.Endpoints(ctx).Request(ctx, endpointName, removeFnName, removeParam{
 		Id:      id,
 		Cascade: cascade,
 	})
-	if rErr != nil {
-		err = rErr
-		return
-	}
 	return
 }
 

@@ -7,8 +7,8 @@ require (
 	github.com/aacfactory/avro v1.2.12
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.41
-	github.com/aacfactory/json v1.16.8
+	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/hazelcast/hazelcast-go-client v1.4.1
@@ -17,7 +17,7 @@ require (
 
 require (
 	github.com/aacfactory/workers v1.8.4 // indirect
-	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/goccy/go-yaml v1.11.2 // indirect
