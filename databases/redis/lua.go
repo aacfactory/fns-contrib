@@ -65,11 +65,6 @@ func ExecLua(ctx context.Context, script string, keys []string, args []string, r
 		err = handleErr
 		return
 	}
-	r := result{}
-	err = response.Unmarshal(&r)
-	if err != nil {
-		return
-	}
-	v = r
+	v, err = services.ValueOfResponse[result](response)
 	return
 }

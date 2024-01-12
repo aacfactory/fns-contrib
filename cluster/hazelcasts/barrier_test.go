@@ -1,7 +1,6 @@
 package hazelcasts_test
 
 import (
-	"fmt"
 	"github.com/aacfactory/avro"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/cluster/hazelcasts"
@@ -35,22 +34,23 @@ func TestBarrier_Do(t *testing.T) {
 		return
 	}
 	key := []byte("some")
-	r, doErr := barrier.Do(context.TODO(), key, func() (result interface{}, err error) {
-		t.Log("do")
-		result = []time.Time{time.Now()}
-		return
-	})
-	if doErr != nil {
-		t.Errorf("%+v", doErr)
-		return
+	for i := 0; i < 2; i++ {
+		r, doErr := barrier.Do(context.TODO(), key, func() (result interface{}, err error) {
+			t.Log("do")
+			result = []time.Time{time.Now()}
+			return
+		})
+		if doErr != nil {
+			t.Errorf("%+v", doErr)
+			return
+		}
+		now, nowErr := objects.Value[[]time.Time](r)
+		if nowErr != nil {
+			t.Error(nowErr)
+			return
+		}
+		t.Log(now)
 	}
-	fmt.Println(reflect.TypeOf(r))
-	now, nowErr := objects.Value[[]time.Time](r)
-	if nowErr != nil {
-		t.Error(nowErr)
-		return
-	}
-	t.Log(now)
 	barrier.Forget(context.TODO(), key)
 }
 

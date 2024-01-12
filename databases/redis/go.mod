@@ -7,7 +7,7 @@ require (
 	github.com/aacfactory/avro v1.2.12
 	github.com/aacfactory/configures v1.12.1
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.40
+	github.com/aacfactory/fns v1.2.41
 	github.com/aacfactory/json v1.16.8
 	github.com/aacfactory/logs v1.13.13
 	github.com/redis/rueidis v1.0.26

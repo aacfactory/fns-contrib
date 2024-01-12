@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.40
+	github.com/aacfactory/fns v1.2.41
 	github.com/aacfactory/logs v1.13.13
 )
 

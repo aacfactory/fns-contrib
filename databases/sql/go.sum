@@ -8,8 +8,8 @@ github.com/aacfactory/configures v1.12.1 h1:dt8EafWfEG1xTfZ1lO4UY56i5EieI4lkG+Vz
 github.com/aacfactory/configures v1.12.1/go.mod h1:Iw63k3WoJD8eb1HWE6cvkBTFXfoeCqutuj8vVnia1Kg=
 github.com/aacfactory/errors v1.13.12 h1:h9UayzDvwp4ak23fs7Sb7PTYEosVx2lYraWAoL9lpkI=
 github.com/aacfactory/errors v1.13.12/go.mod h1:D63VqtkV+Yrz9st8R97h6mxaaI8bAVvkQMpQ0zsjNec=
-github.com/aacfactory/fns v1.2.40 h1:n0b8Ed93P5QJHJDwynjJNsF+LB4cMEQNC/8s4AI2TDo=
-github.com/aacfactory/fns v1.2.40/go.mod h1:NZqF0espmlsU83/7L4gX3PIXaTruKSdxU1udDu4xcxw=
+github.com/aacfactory/fns v1.2.41 h1:Nxbn33gGCDy0o81DHVJSJ+PNzYIfgvcyVzHfqzG7TqQ=
+github.com/aacfactory/fns v1.2.41/go.mod h1:NZqF0espmlsU83/7L4gX3PIXaTruKSdxU1udDu4xcxw=
 github.com/aacfactory/gcg v1.0.5 h1:PqRSru7R7oefBWQcMnvYPWs12YBOXlHyDXxkPSq0JCQ=
 github.com/aacfactory/gcg v1.0.5/go.mod h1:e2WAmGbOdjFMXkcx3bRQcq9f9Hpcv70sUGSbYYWW6CE=
 github.com/aacfactory/json v1.16.8 h1:rXI4umV1+uEP5nzF79MxCvuzU38sc5dixU2oiVfidbE=

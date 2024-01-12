@@ -16,8 +16,8 @@ type Claims struct {
 
 type JWT struct {
 	method   jwt.SigningMethod
-	pubKey   interface{}
-	priKey   interface{}
+	pubKey   any
+	priKey   any
 	issuer   string
 	audience []string
 }

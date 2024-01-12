@@ -69,6 +69,9 @@ func Do(ctx context.Context, command IncompleteCommand) (v Result, err error) {
 		err = doErr
 		return
 	}
+	if len(vv) == 0 {
+		return
+	}
 	v = vv[0]
 	return
 }
@@ -93,12 +96,16 @@ func DoMulti(ctx context.Context, commands ...IncompleteCommand) (v []Result, er
 		err = handleErr
 		return
 	}
-	r := make([]result, 0, 1)
-	err = response.Unmarshal(&r)
-	if err != nil {
+	r, rErr := services.ValueOfResponse[[]result](response)
+	if rErr != nil {
+		err = rErr
 		return
 	}
-	v = make([]Result, len(r))
+	rLen := len(r)
+	if rLen == 0 {
+		return
+	}
+	v = make([]Result, rLen)
 	for i, e := range r {
 		v[i] = e
 	}
