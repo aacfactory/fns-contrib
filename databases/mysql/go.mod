@@ -4,8 +4,8 @@ go 1.21.0
 
 require (
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.41
-	github.com/aacfactory/fns-contrib/databases/sql v1.2.41
+	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/fns-contrib/databases/sql v1.2.50
 	github.com/aacfactory/gcg v1.0.5
 	github.com/valyala/bytebufferpool v1.0.0
 	golang.org/x/sync v0.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/aacfactory/avro v1.2.12 // indirect
 	github.com/aacfactory/cases v1.1.0 // indirect
 	github.com/aacfactory/configures v1.12.1 // indirect
-	github.com/aacfactory/json v1.16.8 // indirect
+	github.com/aacfactory/json v1.16.9 // indirect
 	github.com/aacfactory/logs v1.13.13 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -37,6 +37,6 @@ require (
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )
