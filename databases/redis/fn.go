@@ -69,14 +69,14 @@ func Do(ctx context.Context, command IncompleteCommand) (v Result, err error) {
 		err = doErr
 		return
 	}
-	if len(vv) == 0 {
-		return
+	r, has := vv.Next()
+	if has {
+		v = r
 	}
-	v = vv[0]
 	return
 }
 
-func DoMulti(ctx context.Context, commands ...IncompleteCommand) (v []Result, err error) {
+func DoMulti(ctx context.Context, commands ...IncompleteCommand) (v Results, err error) {
 	ep := used(ctx)
 	if len(ep) == 0 {
 		ep = endpointName
@@ -101,13 +101,6 @@ func DoMulti(ctx context.Context, commands ...IncompleteCommand) (v []Result, er
 		err = rErr
 		return
 	}
-	rLen := len(r)
-	if rLen == 0 {
-		return
-	}
-	v = make([]Result, rLen)
-	for i, e := range r {
-		v[i] = e
-	}
+	v = newResults(r)
 	return
 }

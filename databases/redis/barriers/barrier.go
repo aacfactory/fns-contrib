@@ -10,7 +10,6 @@ import (
 	"github.com/aacfactory/fns/barriers"
 	"github.com/aacfactory/fns/commons/avros"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/commons/objects"
 	"github.com/aacfactory/fns/context"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidisaside"
@@ -208,7 +207,7 @@ func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err
 		err = doErr
 		return
 	}
-	result = objects.New(avros.RawMessage(v.([]byte)))
+	result = avros.RawMessage(v.([]byte))
 	return
 }
 

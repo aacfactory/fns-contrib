@@ -7,7 +7,6 @@ import (
 	"github.com/aacfactory/fns/barriers"
 	"github.com/aacfactory/fns/commons/avros"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/commons/objects"
 	"github.com/aacfactory/fns/context"
 	"github.com/hazelcast/hazelcast-go-client"
 	"golang.org/x/sync/singleflight"
@@ -54,7 +53,7 @@ func (barrier *Barrier) Do(ctx context.Context, key []byte, fn func() (result in
 		err = doErr
 		return
 	}
-	result = objects.New(avros.RawMessage(r.([]byte)))
+	result = avros.RawMessage(r.([]byte))
 	return
 }
 

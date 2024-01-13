@@ -45,6 +45,34 @@ type Result interface {
 	AsJson(dst any) (err error)
 }
 
+type Results interface {
+	Next() (r Result, has bool)
+}
+
+func newResults(values []result) Results {
+	return &resultIterator{
+		Pos:    0,
+		Len:    len(values),
+		Values: values,
+	}
+}
+
+type resultIterator struct {
+	Pos    int      `avro:"pos"`
+	Len    int      `avro:"len"`
+	Values []result `avro:"values"`
+}
+
+func (iter *resultIterator) Next() (r Result, has bool) {
+	if iter.Pos == iter.Len {
+		return
+	}
+	r = iter.Values[iter.Pos]
+	iter.Pos++
+	has = true
+	return
+}
+
 func newResult(raw rueidis.RedisResult) (r result) {
 	msg, msgErr := raw.ToMessage()
 	if msgErr != nil {
