@@ -225,6 +225,7 @@ func (handler *Handler) documents(r transports.Request) (v documents.Documents) 
 		v = dd
 		return
 	})
+	handler.group.Forget(groupKey)
 	v = vv.(documents.Documents)
 	return
 }

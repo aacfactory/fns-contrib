@@ -124,13 +124,7 @@ func (consumer *GroupConsumer) Listen(ctx context.Context) (err error) {
 			stopped = true
 			break
 		default:
-			// PollRecords is strongly recommended when using
-			// BlockRebalanceOnPoll. You can tune how many records to
-			// process at once (upper bound -- could all be on one
-			// partition), ensuring that your processor loops complete fast
-			// enough to not block a rebalance too long.
 			fetches := consumer.client.PollRecords(ctx, consumer.maxPollRecords)
-
 			fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 				if p.Err != nil {
 					if consumer.errorHandler != nil {
@@ -142,14 +136,6 @@ func (consumer *GroupConsumer) Listen(ctx context.Context) (err error) {
 					Topic:     p.Topic,
 					Partition: p.Partition,
 				}
-				// Since we are using BlockRebalanceOnPoll, we can be
-				// sure this partition consumer exists:
-				//
-				// * onAssigned is guaranteed to be called before we
-				// fetch offsets for newly added partitions
-				//
-				// * onRevoked waits for partition consumers to quit
-				// and be deleted before re-allowing polling.
 				consumer.partitions[key].records <- p.Records
 			})
 			consumer.client.AllowRebalance()

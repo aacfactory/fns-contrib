@@ -57,7 +57,7 @@ func some(ctx context.Context, param Param) (result Result, err error) {
 	return
 }
 ```
-Use `@postgres:use` annotation to switch datasource service. param is service name.
+Use `@postgres:use` annotation to switch datasource service. param is service name and mark it before `@postgres:transaction`.
 ```go
 // @fn some
 // ... some func use transaction

@@ -92,6 +92,7 @@ func (generics *Generics) Get(ctx specifications.Context, spec *specifications.S
 		v = gen
 		return
 	})
+	generics.group.Forget(spec.Key)
 	if createErr != nil {
 		err = errors.Warning("sql: get generic failed").WithCause(createErr).WithMeta("table", spec.Key)
 		return

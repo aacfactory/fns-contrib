@@ -70,6 +70,7 @@ func (dialer *Dialer) Dial(addressBytes []byte) (client transports.Client, err e
 		client = hosted
 		return
 	})
+	dialer.group.Forget(address)
 	if doErr != nil {
 		err = errors.Warning("http3: dial failed").WithMeta("address", address).WithCause(doErr)
 		return

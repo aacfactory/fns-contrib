@@ -209,6 +209,7 @@ func GetSpecification(ctx context.Context, e any) (spec *Specification, err erro
 		tables.Store(key, v)
 		return
 	})
+	group.Forget(key)
 	if err != nil {
 		err = errors.Warning("sql: get table specification failed").WithCause(err)
 		return

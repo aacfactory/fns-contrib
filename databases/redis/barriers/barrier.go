@@ -155,13 +155,13 @@ func (builder *barrierBuilder) Build(ctx context.Context, config configures.Conf
 		err = errors.Warning("redis: new barrier failed").WithCause(acErr)
 		return
 	}
+
 	barrier = &Barrier{
 		group:  singleflight.Group{},
 		client: ac,
 		ttl:    1 * time.Second,
 		prefix: []byte("fns:barrier:"),
 	}
-
 	return
 }
 
@@ -203,6 +203,7 @@ func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err
 		v = p
 		return
 	})
+	b.group.Forget(sk)
 	if doErr != nil {
 		err = doErr
 		return
@@ -211,9 +212,6 @@ func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err
 	return
 }
 
-func (b *Barrier) Forget(_ context.Context, key []byte) {
-	key = append(b.prefix, key...)
-	sk := bytex.ToString(key)
-	b.group.Forget(sk)
+func (b *Barrier) Forget(_ context.Context, _ []byte) {
 	return
 }

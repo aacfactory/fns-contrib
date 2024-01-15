@@ -192,6 +192,7 @@ func (middle *middleware) getDeviceLimiter(deviceId []byte) (limiter *rate.Limit
 		v = limiter
 		return
 	})
+	middle.group.Forget(id)
 	limiter = v.(*rate.Limiter)
 	return
 }

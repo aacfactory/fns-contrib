@@ -45,10 +45,12 @@ func (barrier *Barrier) Do(ctx context.Context, key []byte, fn func() (result in
 	if len(key) == 0 {
 		key = []byte{'-'}
 	}
-	r, doErr, _ := barrier.group.Do(bytex.ToString(key), func() (r interface{}, err error) {
+	localKey := bytex.ToString(key)
+	r, doErr, _ := barrier.group.Do(localKey, func() (r interface{}, err error) {
 		r, err = barrier.doRemote(ctx, key, fn)
 		return
 	})
+	barrier.group.Forget(localKey)
 	if doErr != nil {
 		err = doErr
 		return
@@ -155,11 +157,7 @@ func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (res
 	return
 }
 
-func (barrier *Barrier) Forget(_ context.Context, key []byte) {
-	if len(key) == 0 {
-		key = []byte{'-'}
-	}
-	barrier.group.Forget(bytex.ToString(key))
+func (barrier *Barrier) Forget(_ context.Context, _ []byte) {
 	return
 }
 

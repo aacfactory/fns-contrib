@@ -102,8 +102,8 @@ func Failed(err error) (resp *Response) {
 }
 
 type Response struct {
-	Succeed bool        `json:"succeed"`
-	Payload interface{} `json:"result"`
+	Succeed bool `json:"succeed"`
+	Payload any  `json:"result"`
 }
 
 func (resp *Response) Encode() (p []byte) {

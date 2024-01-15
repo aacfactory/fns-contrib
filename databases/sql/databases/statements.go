@@ -146,7 +146,8 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 		}
 		return
 	}
-	v, groupErr, _ := stmts.group.Do(strconv.FormatUint(key, 16), func() (v interface{}, err error) {
+	groupKey := strconv.FormatUint(key, 16)
+	v, groupErr, _ := stmts.group.Do(groupKey, func() (v interface{}, err error) {
 		value, prepareErr := stmts.preparer.Prepare(bytex.ToString(query))
 		if prepareErr != nil {
 			err = prepareErr
@@ -163,6 +164,7 @@ func (stmts *Statements) Get(query []byte) (stmt *Statement, err error) {
 		v = st
 		return
 	})
+	stmts.group.Forget(groupKey)
 	if groupErr != nil {
 		err = groupErr
 		return
