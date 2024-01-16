@@ -19,7 +19,8 @@ func NewBarrier(ctx context.Context, client *hazelcast.Client, size int) (v barr
 		err = errors.Warning("hazelcast: new barrier failed").WithCause(mmErr)
 		return
 	}
-	ttl := 2 * time.Second
+
+	ttl := 1 * time.Second
 	interval := 50 * time.Millisecond
 	loops := int(ttl / interval)
 

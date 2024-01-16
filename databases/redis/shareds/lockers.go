@@ -30,7 +30,9 @@ func (locker *Locker) Lock(ctx context.Context) (err error) {
 }
 
 func (locker *Locker) Unlock(ctx context.Context) (err error) {
-	locker.cancel()
+	if locker.cancel != nil {
+		locker.cancel()
+	}
 	return
 }
 
