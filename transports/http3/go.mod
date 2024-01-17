@@ -5,7 +5,7 @@ go 1.21.0
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/fns v1.2.84
 	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/quic-go/quic-go v0.40.1
@@ -14,7 +14,8 @@ require (
 
 require (
 	github.com/aacfactory/avro v1.2.12 // indirect
-	github.com/aacfactory/configures v1.12.1 // indirect
+	github.com/aacfactory/configures v1.13.0 // indirect
+	github.com/aacfactory/copier v1.4.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/dgrr/http2 v0.3.6-0.20231023141632-12370d352f5f // indirect
 	github.com/fatih/color v1.16.0 // indirect

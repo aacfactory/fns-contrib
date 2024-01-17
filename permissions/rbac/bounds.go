@@ -53,8 +53,7 @@ func (fn *boundsFn) Handle(ctx services.Request) (v any, err error) {
 		return
 	}
 	if fn.cacheable {
-		roles := make(Roles, 0)
-		cached, _ := caches.Load(ctx, CacheParam{Account: account}, &roles)
+		roles, cached, _ := caches.Load[Roles](ctx, CacheParam{Account: account})
 		if cached {
 			v = roles
 			return

@@ -5,11 +5,34 @@
     <title>Openapi</title>
     <script src="web-components.min.js"></script>
     <link rel="stylesheet" href="styles.min.css">
+    <script type="text/javascript">
+        window.onload = function () {
+            function getQueryString(name) {
+                var url_string = window.location.href;
+                var params = url_string.split('?')[1];
+                if (!params) return null;
+                var vars = params.split("&");
+                for (var i = 0; i < vars.length; i++) {
+                    var pair = vars[i].split("=");
+                    var key = decodeURIComponent(pair[0]);
+                    var value = decodeURIComponent(pair[1]);
+                    if (name === key) {
+                        return value;
+                    }
+                }
+                return null;
+            }
+
+            var body = document.getElementById('main')
+            var ver = getQueryString("version")
+            if (ver === undefined || ver === null || ver === '') {
+                body.innerHTML = `<elements-api apiDescriptionUrl="/documents?openapi=latest" router="hash" />`
+            } else {
+                body.innerHTML = `<elements-api apiDescriptionUrl="/documents?openapi=${ver}" router="hash" />`
+            }
+        }
+    </script>
 </head>
-<body>
-    <elements-api
-            apiDescriptionUrl="/documents?openapi=latest"
-            router="hash"
-    />
+<body id="main">
 </body>
 </html>

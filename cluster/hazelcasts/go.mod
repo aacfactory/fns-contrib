@@ -2,14 +2,12 @@ module github.com/aacfactory/fns-contrib/cluster/hazelcasts
 
 go 1.21.0
 
-replace github.com/aacfactory/fns v1.2.50 => ../../../fns
-
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/avro v1.2.12
 	github.com/aacfactory/configures v1.13.0
 	github.com/aacfactory/errors v1.13.12
-	github.com/aacfactory/fns v1.2.50
+	github.com/aacfactory/fns v1.2.84
 	github.com/aacfactory/json v1.16.9
 	github.com/aacfactory/logs v1.13.13
 	github.com/cespare/xxhash/v2 v2.2.0

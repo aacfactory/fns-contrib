@@ -17,6 +17,11 @@ transport:
   handlers:
     documents:
       enable: true
+      openAPI:
+        version: "openapi version"
+        title: ""
+        description: ""
+        term: ""
 ```
 
 ## URL
@@ -27,6 +32,11 @@ Raw document
 Openapi view (latest)
 ```
 /documents/openapi/index.html
+```
+Openapi view (by version)   
+It will find major and miner matched.
+```
+/documents/openapi/index.html?version=v1.0
 ```
 Openapi document
 ```

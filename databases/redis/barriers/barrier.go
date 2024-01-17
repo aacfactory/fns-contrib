@@ -108,7 +108,7 @@ func NewWithClient(client rueidis.Client, ttl time.Duration) (v barriers.Barrier
 		return
 	}
 	if ttl < 1 {
-		ttl = 5 * time.Second
+		ttl = 1 * time.Second
 	}
 	v = &Barrier{
 		group:  singleflight.Group{},

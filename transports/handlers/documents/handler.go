@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/transports/handlers/documents/oas"
+	"github.com/aacfactory/fns-contrib/transports/handlers/documents/spec"
 	"github.com/aacfactory/fns/commons/bytex"
 	"github.com/aacfactory/fns/commons/versions"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/runtime"
 	"github.com/aacfactory/fns/services"
-	"github.com/aacfactory/fns/services/documents"
 	"github.com/aacfactory/fns/transports"
 	"github.com/aacfactory/logs"
 	"golang.org/x/sync/singleflight"
+	"sort"
 	"strings"
 )
 
@@ -22,7 +23,6 @@ var (
 	_path                 = []byte("/documents")
 	_viewPathPrefix       = []byte("/documents/view/")
 	_oasViewPathPrefix    = []byte("/documents/openapi/")
-	_serversPath          = []byte("/documents/servers/")
 	openapiQueryParam     = []byte("openapi")
 	htmlContentType       = []byte("text/html")
 	jsContentType         = []byte("text/javascript")
@@ -56,7 +56,6 @@ func New() transports.MuxHandler {
 type Handler struct {
 	log     logs.Logger
 	enable  bool
-	servers []Server
 	openAPI OpenAPI
 	group   singleflight.Group
 }
@@ -74,25 +73,11 @@ func (handler *Handler) Construct(options transports.MuxHandlerOptions) (err err
 		return
 	}
 	handler.enable = config.Enable
-	handler.servers = config.Servers
-	if handler.servers == nil {
-		handler.servers = make([]Server, 0, 1)
-	}
-	for i, server := range handler.servers {
-		ssl := server.SSL
-		exist, readErr := ssl.Read()
-		if readErr != nil {
-			err = errors.Warning("fns: construct documents handler failed").WithCause(readErr)
-			return
+	if handler.enable {
+		handler.openAPI = config.OpenAPI
+		if handler.openAPI.Title == "" {
+			handler.openAPI.Title = "FNS"
 		}
-		if exist {
-			server.SSL = ssl
-			handler.servers[i] = server
-		}
-	}
-	handler.openAPI = config.OpenAPI
-	if handler.openAPI.Title == "" {
-		handler.openAPI.Title = "FNS"
 	}
 	return
 }
@@ -101,20 +86,16 @@ func (handler *Handler) Match(_ context.Context, method []byte, path []byte, _ t
 	if !handler.enable {
 		return
 	}
-	ok = bytes.Equal(method, transports.MethodGet) && bytes.Equal(_path, path)
-	if ok {
-		return
-	}
-	ok = bytes.Equal(method, transports.MethodGet) && bytes.Equal(_serversPath, path)
-	if ok {
-		return
-	}
-	ok = bytes.Equal(method, transports.MethodGet) && bytes.Index(path, _viewPathPrefix) == 0
-	if ok {
-		return
-	}
-	ok = bytes.Equal(method, transports.MethodGet) && bytes.Index(path, _oasViewPathPrefix) == 0
-	if ok {
+	if bytes.Equal(method, transports.MethodGet) {
+		if ok = bytes.Equal(path, _path); ok {
+			return
+		}
+		if ok = bytes.Index(path, _viewPathPrefix) == 0; ok {
+			return
+		}
+		if ok = bytes.Index(path, _oasViewPathPrefix) == 0; ok {
+			return
+		}
 		return
 	}
 	return
@@ -122,10 +103,6 @@ func (handler *Handler) Match(_ context.Context, method []byte, path []byte, _ t
 
 func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request) {
 	path := r.Path()
-	if bytes.Equal(_serversPath, path) {
-		w.Succeed(handler.servers)
-		return
-	}
 	if bytes.Index(path, _viewPathPrefix) == 0 {
 		static, found := bytes.CutPrefix(path, _viewPathPrefix)
 		if !found || len(static) == 0 {
@@ -187,45 +164,40 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 			w.Succeed(services.Empty{})
 			return
 		}
-		var target documents.Document
-		has := false
+		var target spec.Document
 		if string(openapiParam) == "latest" {
 			target = data.Latest()
-			has = true
 		} else {
 			version, versionErr := versions.Parse(openapiParam)
 			if versionErr == nil {
-				target, has = data.Version(version)
+				target = data.MatchMajorAndMiner(version)
+			} else {
+				target = spec.Document{
+					Version:   versions.Version{},
+					Endpoints: nil,
+				}
 			}
 		}
-		if !has {
-			target = data.Latest()
-		}
 		api := oas.Openapi(handler.openAPI.Title, handler.openAPI.Description, handler.openAPI.Term, handler.openAPI.Version, target)
-		for _, server := range handler.servers {
-			api.Servers = append(api.Servers, oas.Server{
-				Url:         server.URL,
-				Description: server.Name,
-			})
-		}
 		w.Succeed(api)
 	}
 }
 
-func (handler *Handler) documents(r transports.Request) (v documents.Documents) {
+func (handler *Handler) documents(r transports.Request) (v spec.Documents) {
 	eps := runtime.Endpoints(r)
 	vv, _, _ := handler.group.Do(groupKey, func() (v interface{}, err error) {
-		dd := make(documents.Documents, 0, 1)
+		dd := make(spec.Documents, 0, 1)
 		infos := eps.Info()
 		for _, info := range infos {
 			if ep := info.Document; ep.Defined() {
 				dd = dd.Add(ep)
 			}
 		}
+		sort.Sort(dd)
 		v = dd
 		return
 	})
 	handler.group.Forget(groupKey)
-	v = vv.(documents.Documents)
+	v = vv.(spec.Documents)
 	return
 }

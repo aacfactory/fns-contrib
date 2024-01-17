@@ -2,11 +2,11 @@ package oas
 
 import (
 	"fmt"
-	"github.com/aacfactory/fns/services/documents"
+	"github.com/aacfactory/fns-contrib/transports/handlers/documents/spec"
 	"sort"
 )
 
-func Openapi(title string, description string, term string, openapiVersion string, document documents.Document) (api API) {
+func Openapi(title string, description string, term string, openapiVersion string, document spec.Document) (api API) {
 	if openapiVersion == "" {
 		openapiVersion = "3.1.0"
 	}

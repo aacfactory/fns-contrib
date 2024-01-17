@@ -82,7 +82,7 @@ type CacheParam struct {
 	Account authorizations.Id
 }
 
-func (param CacheParam) CacheKey(ctx context.Context) (key []byte, err error) {
+func (param CacheParam) CacheKey(_ context.Context) (key []byte, err error) {
 	key = append(bytex.FromString(cachePrefix), param.Account...)
 	return
 }
