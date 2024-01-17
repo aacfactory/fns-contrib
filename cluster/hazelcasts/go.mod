@@ -2,10 +2,12 @@ module github.com/aacfactory/fns-contrib/cluster/hazelcasts
 
 go 1.21.0
 
+replace github.com/aacfactory/fns v1.2.50 => ../../../fns
+
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/avro v1.2.12
-	github.com/aacfactory/configures v1.12.1
+	github.com/aacfactory/configures v1.13.0
 	github.com/aacfactory/errors v1.13.12
 	github.com/aacfactory/fns v1.2.50
 	github.com/aacfactory/json v1.16.9
@@ -16,6 +18,7 @@ require (
 )
 
 require (
+	github.com/aacfactory/copier v1.4.0 // indirect
 	github.com/aacfactory/workers v1.8.4 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
@@ -33,6 +36,7 @@ require (
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.12 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/tidwall/btree v1.7.0 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

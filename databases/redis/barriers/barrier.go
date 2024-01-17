@@ -173,8 +173,7 @@ type Barrier struct {
 }
 
 func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err error)) (result barriers.Result, err error) {
-	key = append(b.prefix, key...)
-	sk := bytex.ToString(key)
+	sk := bytex.ToString(append(b.prefix, key...))
 	v, doErr, _ := b.group.Do(sk, func() (v interface{}, err error) {
 		val, getErr := b.client.Get(ctx, b.ttl, sk, func(ctx cctx.Context, key string) (val string, err error) {
 			fv, fErr := fn()
@@ -209,9 +208,5 @@ func (b *Barrier) Do(ctx context.Context, key []byte, fn func() (result any, err
 		return
 	}
 	result = avros.RawMessage(v.([]byte))
-	return
-}
-
-func (b *Barrier) Forget(_ context.Context, _ []byte) {
 	return
 }

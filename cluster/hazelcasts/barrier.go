@@ -158,10 +158,6 @@ func (barrier *Barrier) doRemote(ctx context.Context, key []byte, fn func() (res
 	return
 }
 
-func (barrier *Barrier) Forget(_ context.Context, _ []byte) {
-	return
-}
-
 func NewBarrierValue() BarrierValue {
 	return []byte{'X'}
 }

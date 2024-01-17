@@ -101,5 +101,14 @@ func (store *Store) Remove(ctx context.Context, key []byte) (err error) {
 	return
 }
 
+func (store *Store) Expire(ctx context.Context, key []byte, ttl time.Duration) (err error) {
+	err = store.value.SetTTL(ctx, key, ttl)
+	if err != nil {
+		err = errors.Warning("hazelcast: shared store expire failed").WithCause(err)
+		return
+	}
+	return
+}
+
 func (store *Store) Close() {
 }

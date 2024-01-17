@@ -43,7 +43,8 @@ func TestClient(t *testing.T) {
 		return
 	}
 	t.Log(reflect.ValueOf(v).Type(), string(v.([]byte)))
-
+	t.Log(mm.SetTTL(context.TODO(), "not", 1*time.Second))
+	t.Log(mm.Get(context.TODO(), "not"))
 }
 
 func instance(id string, ver versions.Version, addr string) (cluster *hazelcasts.Cluster, err error) {

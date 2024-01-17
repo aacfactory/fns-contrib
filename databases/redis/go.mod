@@ -2,6 +2,10 @@ module github.com/aacfactory/fns-contrib/databases/redis
 
 go 1.21.0
 
+replace (
+	github.com/aacfactory/fns v1.2.50 => ../../../fns
+)
+
 require (
 	github.com/aacfactory/afssl v1.12.0
 	github.com/aacfactory/avro v1.2.12

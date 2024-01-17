@@ -90,7 +90,7 @@ func (store *Store) Get(ctx context.Context, key []byte) (value []byte, has bool
 			err = nil
 			return
 		}
-		err = errors.Warning("shared: get failed").WithMeta("store", "redis").WithCause(err)
+		err = errors.Warning("redis: get failed").WithMeta("store", "redis").WithCause(err)
 		return
 	}
 	has = true
@@ -104,7 +104,7 @@ func (store *Store) Set(ctx context.Context, key []byte, value []byte) (err erro
 	key = append(store.prefix, key...)
 	err = store.client.Do(ctx, store.client.B().Set().Key(bytex.ToString(key)).Value(bytex.ToString(value)).Build()).Error()
 	if err != nil {
-		err = errors.Warning("shared: set failed").WithMeta("store", "redis").WithCause(err)
+		err = errors.Warning("redis: set failed").WithMeta("store", "redis").WithCause(err)
 		return
 	}
 	return
@@ -117,7 +117,7 @@ func (store *Store) SetWithTTL(ctx context.Context, key []byte, value []byte, tt
 	key = append(store.prefix, key...)
 	err = store.client.Do(ctx, store.client.B().Set().Key(bytex.ToString(key)).Value(bytex.ToString(value)).Px(ttl).Build()).Error()
 	if err != nil {
-		err = errors.Warning("shared: set failed").WithMeta("store", "redis").WithCause(err)
+		err = errors.Warning("redis: set failed").WithMeta("store", "redis").WithCause(err)
 		return
 	}
 	return
@@ -134,7 +134,7 @@ func (store *Store) Incr(ctx context.Context, key []byte, delta int64) (v int64,
 		v, err = store.client.Do(ctx, store.client.B().Decrby().Key(bytex.ToString(key)).Decrement(delta*-1).Build()).AsInt64()
 	}
 	if err != nil {
-		err = errors.Warning("shared: incr failed").WithMeta("store", "redis").WithCause(err)
+		err = errors.Warning("redis: incr failed").WithMeta("store", "redis").WithCause(err)
 		return
 	}
 	return
@@ -147,7 +147,16 @@ func (store *Store) Remove(ctx context.Context, key []byte) (err error) {
 	key = append(store.prefix, key...)
 	err = store.client.Do(ctx, store.client.B().Del().Key(bytex.ToString(key)).Build()).Error()
 	if err != nil {
-		err = errors.Warning("shared: remove failed").WithMeta("store", "redis").WithCause(err)
+		err = errors.Warning("redis: remove failed").WithMeta("store", "redis").WithCause(err)
+		return
+	}
+	return
+}
+
+func (store *Store) Expire(ctx context.Context, key []byte, ttl time.Duration) (err error) {
+	err = store.client.Do(ctx, store.client.B().Expire().Key(bytex.ToString(key)).Seconds(int64(ttl.Seconds())).Build()).Error()
+	if err != nil {
+		err = errors.Warning("redis: shared store expire failed").WithCause(err)
 		return
 	}
 	return

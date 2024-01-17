@@ -51,7 +51,6 @@ func TestBarrier_Do(t *testing.T) {
 		}
 		t.Log(now)
 	}
-	barrier.Forget(context.TODO(), key)
 }
 
 func TestBarrier_DoNilResult(t *testing.T) {
@@ -82,7 +81,6 @@ func TestBarrier_DoNilResult(t *testing.T) {
 	}
 	t.Log("type r:", reflect.TypeOf(r), len(r.(avros.RawMessage)))
 	t.Log(avro.MustMarshal(r))
-	barrier.Forget(context.TODO(), key)
 }
 
 func TestBarrier_DoFailed(t *testing.T) {
@@ -162,7 +160,6 @@ func TestBarrier_Do2(t *testing.T) {
 				result = time.Now()
 				return
 			})
-			barrier.Forget(context.TODO(), key)
 			wg.Done()
 			if doErr != nil {
 				t.Errorf("%+v", doErr)
@@ -178,7 +175,6 @@ func TestBarrier_Do2(t *testing.T) {
 				result = time.Now()
 				return
 			})
-			barrier.Forget(context.TODO(), key)
 			wg.Done()
 			if doErr != nil {
 				t.Errorf("%+v", doErr)
