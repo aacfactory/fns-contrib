@@ -37,10 +37,22 @@ func (doc Documents) Add(endpoint documents.Endpoint) Documents {
 	})
 }
 
-func (doc Documents) MatchMajorAndMiner(ver versions.Version) (v Document) {
+func (doc Documents) Match(ver versions.Version) (v Document) {
 	matched := make(Endpoints, 0)
 	for _, document := range doc {
-		if document.Version.Major == ver.Major && document.Version.Minor == ver.Minor {
+		ok := false
+		if document.Version.Major == ver.Major {
+			if ver.Minor == -1 {
+				ok = true
+			} else if document.Version.Minor == ver.Minor {
+				if ver.Patch == -1 {
+					ok = true
+				} else if document.Version.Patch == ver.Patch {
+					ok = true
+				}
+			}
+		}
+		if ok {
 			for _, endpoint := range document.Endpoints {
 				exist := false
 				for i, m := range matched {

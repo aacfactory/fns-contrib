@@ -170,7 +170,7 @@ func (handler *Handler) Handle(w transports.ResponseWriter, r transports.Request
 		} else {
 			version, versionErr := versions.Parse(openapiParam)
 			if versionErr == nil {
-				target = data.MatchMajorAndMiner(version)
+				target = data.Match(version)
 			} else {
 				target = spec.Document{
 					Version:   versions.Version{},
