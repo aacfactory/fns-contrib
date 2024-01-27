@@ -9,10 +9,11 @@ import (
 	"unsafe"
 )
 
-func NewTransaction(id []byte, tx databases.Transaction, deadline time.Time) *Transaction {
+func NewTransaction(id []byte, processId []byte, tx databases.Transaction, deadline time.Time) *Transaction {
 	return &Transaction{
 		Transaction: tx,
 		Id:          unsafe.String(unsafe.SliceData(id), len(id)),
+		processId:   processId,
 		Acquires:    1,
 		Deadline:    deadline,
 		closed:      false,
@@ -22,11 +23,17 @@ func NewTransaction(id []byte, tx databases.Transaction, deadline time.Time) *Tr
 
 type Transaction struct {
 	databases.Transaction
-	Id       string
-	Acquires int64
-	Deadline time.Time
-	closed   bool
-	locker   sync.Locker
+	Id        string
+	processId []byte
+	Acquires  int64
+	Deadline  time.Time
+	closed    bool
+	locker    sync.Locker
+}
+
+func (tx *Transaction) ProcessId() (id []byte) {
+	id = tx.processId
+	return
 }
 
 func (tx *Transaction) Acquire() (err error) {

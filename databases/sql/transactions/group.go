@@ -47,12 +47,12 @@ func (group *Group) Get(id []byte) (tx *Transaction, has bool) {
 	return
 }
 
-func (group *Group) Set(id []byte, tx databases.Transaction) (v *Transaction, ok bool) {
+func (group *Group) Set(id []byte, processId []byte, tx databases.Transaction) (v *Transaction, ok bool) {
 	_, exist := group.values.Load(unsafe.String(unsafe.SliceData(id), len(id)))
 	if exist {
 		return
 	}
-	v = NewTransaction(id, tx, time.Now().Add(group.maxAge))
+	v = NewTransaction(id, processId, tx, time.Now().Add(group.maxAge))
 	group.values.Store(unsafe.String(unsafe.SliceData(id), len(id)), v)
 	ok = true
 	return

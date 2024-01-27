@@ -7,6 +7,7 @@ import (
 )
 
 type TransactionOptions struct {
+	Id        []byte
 	Isolation Isolation
 	Readonly  bool
 }

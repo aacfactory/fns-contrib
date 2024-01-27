@@ -1,12 +1,12 @@
 package sql
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/aacfactory/errors"
 	"github.com/aacfactory/fns-contrib/databases/sql/databases"
 	"github.com/aacfactory/fns-contrib/databases/sql/transactions"
 	"github.com/aacfactory/fns/commons/bytex"
-	"github.com/aacfactory/fns/commons/uid"
 	"github.com/aacfactory/fns/context"
 	"github.com/aacfactory/fns/logs"
 	"github.com/aacfactory/fns/runtime"
@@ -27,6 +27,13 @@ func loadTransaction(ctx context.Context) (tx *transactions.Transaction, has boo
 	return
 }
 
+func removeTransaction(ctx context.Context) {
+	if _, has := loadTransaction(ctx); has {
+		ctx.RemoveLocalValue(transactionContextKey)
+	}
+	return
+}
+
 // +-------------------------------------------------------------------------------------------------------------------+
 
 var (
@@ -34,9 +41,8 @@ var (
 )
 
 type transactionInfo struct {
-	Id         string `json:"id"`
-	EndpointId string `json:"endpointId"`
-	Origin     string `json:"origin"`
+	Id         string `json:"id" avro:"id"`
+	EndpointId string `json:"endpointId" avro:"endpointId"`
 }
 
 func withTransactionInfo(ctx context.Context, info transactionInfo) {
@@ -52,11 +58,23 @@ func loadTransactionInfo(ctx context.Context) (info transactionInfo, has bool, e
 	return
 }
 
+func removeTransactionInfo(ctx context.Context) {
+	if ctx.UserValue(transactionInfoContextKey) != nil {
+		ctx.RemoveUserValue(transactionInfoContextKey)
+	}
+}
+
 // +-------------------------------------------------------------------------------------------------------------------+
 
 func WithIsolation(isolation databases.Isolation) databases.TransactionOption {
 	return func(options *databases.TransactionOptions) {
 		options.Isolation = isolation
+	}
+}
+
+func WithTransactionId(id string) databases.TransactionOption {
+	return func(options *databases.TransactionOptions) {
+		options.Id = bytex.FromString(id)
 	}
 }
 
@@ -67,26 +85,24 @@ func Readonly() databases.TransactionOption {
 }
 
 func Begin(ctx context.Context, options ...databases.TransactionOption) (err error) {
-	_, has, loadErr := loadTransactionInfo(ctx)
-	if loadErr != nil {
-		err = errors.Warning("sql: begin transaction failed").WithCause(loadErr)
-		return
-	}
-	if has {
-		return
-	}
-	r, ok := services.TryLoadRequest(ctx)
-	if !ok {
-		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("context is not endpoint request"))
+	r, hasRequest := services.TryLoadRequest(ctx)
+	if !hasRequest {
+		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("there is no request in context"))
 		return
 	}
 	opt := databases.TransactionOptions{}
 	for _, option := range options {
 		option(&opt)
 	}
+	id := opt.Id
+	if len(id) == 0 {
+		id = r.Header().RequestId()
+	}
 	param := transactionBeginParam{
 		Readonly:  opt.Readonly,
 		Isolation: opt.Isolation,
+		Id:        id,
+		ProcessId: r.Header().ProcessId(),
 	}
 	eps := runtime.Endpoints(ctx)
 	ep := endpointName
@@ -103,27 +119,30 @@ func Begin(ctx context.Context, options ...databases.TransactionOption) (err err
 		err = errors.Warning("sql: begin transaction failed").WithCause(responseErr)
 		return
 	}
-	// with info
-	pid := r.Header().ProcessId()
-	withTransactionInfo(ctx, transactionInfo{
-		Id:         address.Id,
-		EndpointId: address.EndpointId,
-		Origin:     unsafe.String(unsafe.SliceData(pid), len(pid)),
-	})
-	if address.tx != nil {
-		withTransaction(ctx, address.tx)
+	if _, hasInfo, _ := loadTransactionInfo(ctx); !hasInfo {
+		// with info
+		withTransactionInfo(ctx, transactionInfo{
+			Id:         address.Id,
+			EndpointId: address.EndpointId,
+		})
 	}
-	if address.debug {
-		useDebugLog(ctx)
+	if address.tx != nil {
+		// with tx
+		withTransaction(ctx, address.tx)
+		// with debug
+		if address.Debug {
+			useDebugLog(ctx)
+		}
 	}
 	return
 }
 
 type transactionAddress struct {
-	Id         string `json:"id"`
-	EndpointId string `json:"endpointId"`
-	tx         *transactions.Transaction
-	debug      bool
+	Id         string                    `json:"id" avro:"id"`
+	EndpointId string                    `json:"endpointId" avro:"endpointId"`
+	Debug      bool                      `json:"debug" avro:"debug"`
+	Reused     bool                      `json:"reused" avro:"reused"`
+	tx         *transactions.Transaction `avro:"-"`
 }
 
 var (
@@ -131,8 +150,10 @@ var (
 )
 
 type transactionBeginParam struct {
-	Readonly  bool                `json:"readonly"`
-	Isolation databases.Isolation `json:"isolation"`
+	Readonly  bool                `json:"readonly" avro:"readonly"`
+	Isolation databases.Isolation `json:"isolation" avro:"isolation"`
+	Id        []byte              `json:"id" avro:"id"`
+	ProcessId []byte              `json:"processId" avro:"processId"`
 }
 
 type transactionBeginFn struct {
@@ -156,11 +177,20 @@ func (fn *transactionBeginFn) Readonly() bool {
 }
 
 func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err error) {
-	tid := r.Header().RequestId()
-	if len(tid) == 0 {
-		tid = uid.Bytes()
+	param, paramErr := services.ValueOfParam[transactionBeginParam](r.Param())
+	if paramErr != nil {
+		err = errors.Warning("sql: begin transaction failed").WithCause(paramErr)
+		return
 	}
-	tx, has := fn.group.Get(tid)
+	if len(param.Id) == 0 {
+		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("request id is required"))
+		return
+	}
+	if len(param.ProcessId) == 0 {
+		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("process id is required"))
+		return
+	}
+	tx, has := fn.group.Get(param.Id)
 	if has {
 		acquireErr := tx.Acquire()
 		if acquireErr != nil {
@@ -168,18 +198,15 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 			return
 		}
 		v = transactionAddress{
-			Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
+			Id:         unsafe.String(unsafe.SliceData(param.Id), len(param.Id)),
 			EndpointId: fn.endpointId,
+			Debug:      fn.debug,
+			Reused:     true,
 			tx:         tx,
-			debug:      fn.debug,
 		}
 		return
 	}
-	param, paramErr := services.ValueOfParam[transactionBeginParam](r.Param())
-	if paramErr != nil {
-		err = errors.Warning("sql: begin transaction failed").WithCause(paramErr)
-		return
-	}
+
 	if param.Isolation == 0 {
 		param.Isolation = fn.isolation
 	}
@@ -191,16 +218,17 @@ func (fn *transactionBeginFn) Handle(r services.Request) (v interface{}, err err
 		err = errors.Warning("sql: begin transaction failed").WithCause(beginErr)
 		return
 	}
-	tx, has = fn.group.Set(tid, value)
+	tx, has = fn.group.Set(param.Id, param.ProcessId, value)
 	if !has {
 		err = errors.Warning("sql: begin transaction failed").WithCause(fmt.Errorf("maybe duplicate begon"))
 		return
 	}
 	v = transactionAddress{
-		Id:         unsafe.String(unsafe.SliceData(tid), len(tid)),
+		Id:         unsafe.String(unsafe.SliceData(param.Id), len(param.Id)),
 		EndpointId: fn.endpointId,
+		Debug:      fn.debug,
+		Reused:     false,
 		tx:         tx,
-		debug:      fn.debug,
 	}
 	return
 }
@@ -212,21 +240,13 @@ var (
 )
 
 func Commit(ctx context.Context) (err error) {
-	info, has, loadErr := loadTransactionInfo(ctx)
-	if loadErr != nil {
-		err = errors.Warning("sql: commit transaction failed").WithCause(loadErr)
+	info, hasInfo, loadInfoErr := loadTransactionInfo(ctx)
+	if loadInfoErr != nil {
+		err = errors.Warning("sql: commit transaction failed").WithCause(loadInfoErr)
 		return
 	}
-	if !has {
+	if !hasInfo {
 		err = errors.Warning("sql: commit transaction failed").WithCause(fmt.Errorf("transaction maybe not begin"))
-		return
-	}
-	r, ok := services.TryLoadRequest(ctx)
-	if !ok {
-		err = errors.Warning("sql: commit transaction failed").WithCause(fmt.Errorf("context is not endpoint request"))
-		return
-	}
-	if info.Origin != bytex.ToString(r.Header().ProcessId()) {
 		return
 	}
 	eps := runtime.Endpoints(ctx)
@@ -234,25 +254,51 @@ func Commit(ctx context.Context) (err error) {
 	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
-	response, handleErr := eps.Request(ctx, ep, transactionCommitFnName, nil)
+	response, handleErr := eps.Request(ctx, ep, transactionCommitFnName, transactionCommitParam{
+		Id: info.Id,
+	})
 	if handleErr != nil {
 		err = handleErr
 		return
 	}
-	committed, responseErr := services.ValueOfResponse[bool](response)
+
+	committed, responseErr := services.ValueOfResponse[int](response)
 	if responseErr != nil {
 		err = errors.Warning("sql: commit transaction failed").WithCause(responseErr)
 		return
 	}
+
 	log := logs.Load(ctx)
-	if log != nil && log.DebugEnabled() {
-		if committed {
-			log.Debug().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: transaction committed"))
-		} else {
-			log.Debug().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: transaction holdon"))
+	switch committed {
+	case 1:
+		// remove transaction when pid is same
+		if r, hasRequest := services.TryLoadRequest(ctx); hasRequest {
+			if tx, hasTx := loadTransaction(ctx); hasTx && bytes.Equal(tx.ProcessId(), r.Header().ProcessId()) {
+				removeTransaction(ctx)
+			}
 		}
+		if log != nil && log.DebugEnabled() {
+			log.Debug().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: unknown transaction commit status"))
+		}
+		break
+	case 2:
+		removeTransactionInfo(ctx)
+		removeTransaction(ctx)
+		if log != nil && log.DebugEnabled() {
+			log.Debug().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: transaction committed"))
+		}
+		break
+	default:
+		if log != nil && log.WarnEnabled() {
+			log.Warn().With("transaction", "commit").Caller().Message(fmt.Sprintf("sql: transaction holdon"))
+		}
+		break
 	}
 	return
+}
+
+type transactionCommitParam struct {
+	Id string `json:"id" avro:"id"`
 }
 
 type transactionCommitFn struct {
@@ -274,24 +320,12 @@ func (fn *transactionCommitFn) Readonly() bool {
 }
 
 func (fn *transactionCommitFn) Handle(r services.Request) (v interface{}, err error) {
-	info, has, loadErr := loadTransactionInfo(r)
-	if loadErr != nil {
-		err = errors.Warning("sql: commit transaction failed").WithCause(loadErr)
+	param, paramErr := services.ValueOfParam[transactionCommitParam](r.Param())
+	if paramErr != nil {
+		err = errors.Warning("sql: commit transaction failed").WithCause(paramErr)
 		return
 	}
-	if !has {
-		err = errors.Warning("sql: commit transaction failed").WithCause(fmt.Errorf("transaction maybe not begin"))
-		return
-	}
-	if info.EndpointId != fn.endpointId {
-		v = false
-		return
-	}
-	if info.Origin != bytex.ToString(r.Header().ProcessId()) {
-		v = false
-		return
-	}
-	tid := bytex.FromString(info.Id)
+	tid := bytex.FromString(param.Id)
 	tx, hasTx := fn.group.Get(tid)
 	if !hasTx {
 		err = errors.Warning("sql: commit transaction failed").WithCause(fmt.Errorf("transaction was timeout"))
@@ -302,9 +336,9 @@ func (fn *transactionCommitFn) Handle(r services.Request) (v interface{}, err er
 		err = errors.Warning("sql: commit transaction failed").WithCause(cmtErr)
 		return
 	}
-	v = false
+	v = 1
 	if tx.Closed() {
-		v = true
+		v = 2
 		fn.group.Remove(tid)
 	}
 	return
@@ -318,27 +352,15 @@ var (
 
 func Rollback(ctx context.Context) {
 	log := logs.Load(ctx)
-	// try load local
-	tx, hasTx := loadTransaction(ctx)
-	if hasTx {
-		if tx.Closed() {
-			// has rollback or committed
-			return
-		}
-		return
-	}
 	// load info
-	info, has, loadErr := loadTransactionInfo(ctx)
-	if loadErr != nil {
+	info, hasInfo, loadInfoErr := loadTransactionInfo(ctx)
+	if loadInfoErr != nil {
 		if log != nil && log.DebugEnabled() {
-			log.Debug().With("transaction", "rollback").Cause(loadErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
+			log.Debug().With("transaction", "rollback").Cause(loadInfoErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
 		}
 		return
 	}
-	if !has {
-		if log != nil && log.DebugEnabled() {
-			log.Debug().With("transaction", "rollback").Cause(errors.Warning("sql: no transaction")).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
-		}
+	if !hasInfo {
 		return
 	}
 	eps := runtime.Endpoints(ctx)
@@ -346,13 +368,24 @@ func Rollback(ctx context.Context) {
 	if epn := used(ctx); len(epn) > 0 {
 		ep = epn
 	}
-	_, handleErr := eps.Request(ctx, ep, transactionRollbackFnName, nil, services.WithEndpointId(bytex.FromString(info.EndpointId)))
+	param := transactionRollbackParam{
+		Id: info.Id,
+	}
+	_, handleErr := eps.Request(ctx, ep, transactionRollbackFnName, param, services.WithEndpointId(bytex.FromString(info.EndpointId)))
 	if handleErr != nil {
 		if log != nil && log.DebugEnabled() {
 			log.Debug().With("transaction", "rollback").Cause(handleErr).Caller().Message(fmt.Sprintf("sql: transaction rollback failed"))
 		}
 		return
 	}
+	// remove info
+	removeTransactionInfo(ctx)
+	// remove tx
+	removeTransaction(ctx)
+}
+
+type transactionRollbackParam struct {
+	Id string `json:"id" avro:"id"`
 }
 
 type transactionRollbackFn struct {
@@ -374,20 +407,12 @@ func (fn *transactionRollbackFn) Readonly() bool {
 }
 
 func (fn *transactionRollbackFn) Handle(r services.Request) (v interface{}, err error) {
-	info, has, loadErr := loadTransactionInfo(r)
-	if loadErr != nil {
-		err = errors.Warning("sql: rollback transaction failed").WithCause(loadErr)
+	param, paramErr := services.ValueOfParam[transactionRollbackParam](r.Param())
+	if paramErr != nil {
+		err = errors.Warning("sql: rollback transaction failed").WithCause(paramErr)
 		return
 	}
-	if !has {
-		err = errors.Warning("sql: rollback transaction failed").WithCause(fmt.Errorf("transaction maybe not begin"))
-		return
-	}
-	if info.EndpointId != fn.endpointId {
-		err = errors.Warning("sql: rollback transaction failed").WithCause(fmt.Errorf("transaction was not holdon in this endpoint"))
-		return
-	}
-	tid := bytex.FromString(info.Id)
+	tid := bytex.FromString(param.Id)
 	tx, hasTx := fn.group.GetAndRemove(tid)
 	if !hasTx {
 		err = errors.Warning("sql: rollback transaction failed").WithCause(fmt.Errorf("transaction was timeout"))
