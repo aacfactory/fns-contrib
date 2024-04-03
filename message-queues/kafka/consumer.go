@@ -63,7 +63,7 @@ type TopicPartitionKey struct {
 	Partition int32
 }
 
-func NewGroupConsumer(log logs.Logger, maxPollRecords int, partitionBuffer int, opts []kgo.Opt, handler ConsumeHandler, errorHandler ConsumeErrorHandler) (v Consumer, err error) {
+func NewGroupConsumer(name string, log logs.Logger, maxPollRecords int, partitionBuffer int, opts []kgo.Opt, handler ConsumeHandler, errorHandler ConsumeErrorHandler) (v Consumer, err error) {
 	if maxPollRecords < 1 {
 		maxPollRecords = 1024
 	}
@@ -72,7 +72,7 @@ func NewGroupConsumer(log logs.Logger, maxPollRecords int, partitionBuffer int, 
 	}
 
 	consumer := &GroupConsumer{
-		name:            "",
+		name:            name,
 		log:             log,
 		opts:            nil,
 		client:          nil,

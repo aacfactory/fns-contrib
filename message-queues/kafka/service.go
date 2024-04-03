@@ -100,7 +100,7 @@ func (svc *service) Construct(options services.Options) (err error) {
 			}
 			consumerOpts = append(opts, consumerOpts...)
 			consumerLog := svc.Log().With("component", "consumer").With("consumer", name)
-			consumer, consumerErr := NewGroupConsumer(consumerLog, consumerConfig.MaxPollRecords, consumerConfig.PartitionBuffer, consumerOpts, handler, svc.consumeErrHandler)
+			consumer, consumerErr := NewGroupConsumer(name, consumerLog, consumerConfig.MaxPollRecords, consumerConfig.PartitionBuffer, consumerOpts, handler, svc.consumeErrHandler)
 			if consumerErr != nil {
 				err = errors.Warning("kafka: construct failed").WithCause(consumerErr).WithMeta("consumer", name)
 				return

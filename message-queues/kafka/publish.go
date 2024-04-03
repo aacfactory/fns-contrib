@@ -63,7 +63,7 @@ func Publish(ctx context.Context, message ...ProducerMessage) (err error) {
 
 func PublishAsync(ctx context.Context, message ...ProducerMessage) (err error) {
 	if len(message) == 0 {
-		err = errors.Warning("kafka: publish failed").WithCause(fmt.Errorf("message is required"))
+		err = errors.Warning("kafka: publish async failed").WithCause(fmt.Errorf("message is required"))
 		return
 	}
 	for _, msg := range message {
