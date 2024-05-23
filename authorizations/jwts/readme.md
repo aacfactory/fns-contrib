@@ -7,16 +7,21 @@ go get github.com/aacfactory/fns-contrib/authorizations/jwts
 ```
 Use jwt
 ```go
-app.Deploy(authorizations.New(authorizations.WithTokenEncoder(jwts.New())))
+func dependencies() (v []services.Service) {
+    v = []services.Service{
+        // add dependencies here
+        authorizations.New(authorizations.WithTokenEncoder(jwts.New())),
+    }
+    return
+}
 ```
 Setup config
 ```yaml
 authorizations:
-  jwt:
+  encoder:
     method: "HS256"
     sk: "key"
     issuer: "foo.com"
-    expirations: "312h0m0s"
 ```
 Supported methods:
 * HS256, HS384, HS512
@@ -28,10 +33,9 @@ Supported methods:
 Use Keypair.
 ```yaml
 authorizations:
-  jwt:
+  encoder:
     method: "RS512"
     publicKey: "path of key"
     privateKey: "path of key"
     issuer: "foo.com"
-    expirations: "312h0m0s"
 ```

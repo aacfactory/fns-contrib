@@ -2,6 +2,10 @@ package rockets
 
 import "github.com/aacfactory/fns/services"
 
+var (
+	endpointName = []byte("rocketmq")
+)
+
 type service struct {
 	services.Abstract
 }

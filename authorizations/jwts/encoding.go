@@ -18,7 +18,7 @@ type TokenEncoder struct {
 }
 
 func (encoder *TokenEncoder) Name() (name string) {
-	return "jwt"
+	return "encoder"
 }
 
 func (encoder *TokenEncoder) Construct(options services.Options) (err error) {
@@ -36,12 +36,12 @@ func (encoder *TokenEncoder) Construct(options services.Options) (err error) {
 	return
 }
 
-func (encoder *TokenEncoder) Shutdown(ctx context.Context) {
+func (encoder *TokenEncoder) Shutdown(_ context.Context) {
 
 	return
 }
 
-func (encoder *TokenEncoder) Encode(ctx context.Context, param authorizations.Authorization) (token authorizations.Token, err error) {
+func (encoder *TokenEncoder) Encode(_ context.Context, param authorizations.Authorization) (token authorizations.Token, err error) {
 	signed, signErr := encoder.raw.Sign(param.Id.String(), param.Account.String(), param.Attributes, param.ExpireAT)
 	if signErr != nil {
 		err = errors.Warning("jwt: encode failed").WithCause(signErr)
@@ -51,7 +51,7 @@ func (encoder *TokenEncoder) Encode(ctx context.Context, param authorizations.Au
 	return
 }
 
-func (encoder *TokenEncoder) Decode(ctx context.Context, token authorizations.Token) (result authorizations.Authorization, err error) {
+func (encoder *TokenEncoder) Decode(_ context.Context, token authorizations.Token) (result authorizations.Authorization, err error) {
 	id, account, attr, valid, claims, parseErr := encoder.raw.Parse(bytex.ToString(token))
 	if parseErr != nil {
 		err = errors.Warning("jwt: decode failed").WithCause(parseErr)
