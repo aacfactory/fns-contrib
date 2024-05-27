@@ -9,7 +9,13 @@ go get github.com/aacfactory/fns-contrib/permissions/rbac/sql
 
 ## Usage
 ```go
-app.Deploy(rbac.New(sql.Store()))
+func dependencies() (v []services.Service) {
+    v = []services.Service{
+        // add dependencies here
+        rbac.New(sql.Store()),
+    }
+    return
+}
 ```
 
 ## Config 

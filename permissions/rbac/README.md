@@ -10,8 +10,14 @@ go get github.com/aacfactory/fns-contrib/permissions/rbac
 ## Usage
 Deploy service
 ```go
-app.Deploy(rbac.New(store))
-app.Deploy(permissions.New(rbac.Enforcer()))
+func dependencies() (v []services.Service) {
+    v = []services.Service{
+        // add dependencies here
+		rbac.New(store),
+		permissions.New(rbac.Enforcer())
+    }
+    return
+}
 ```
 Enable cache.  
 Note: when enabled, then modify role will not update cache.

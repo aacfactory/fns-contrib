@@ -7,7 +7,13 @@ go get github.com/aacfactory/fns-contrib/databases/mysql
 ## Usage
 ### Deploy
 ```go
-app.Deply(mysql.New())
+func dependencies() (v []services.Service) {
+  v = []services.Service{
+    // add dependencies here
+    mysql.New(),
+  }
+  return
+}
 ```
 ### Config
 See [SQL](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql).

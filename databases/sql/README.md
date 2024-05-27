@@ -90,7 +90,13 @@ import _ "github.com/go-sql-driver/mysql"
 
 ### Deploy
 ```go
-app.Deply(sql.New())
+func dependencies() (v []services.Service) {
+  v = []services.Service{
+    // add dependencies here
+    sql.New(),
+  }
+  return
+}
 ```
 
 ### Proxy usage

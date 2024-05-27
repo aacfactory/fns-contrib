@@ -7,7 +7,13 @@ go get github.com/aacfactory/fns-contrib/databases/postgres
 ## Usage
 ### Deploy
 ```go
-app.Deply(postgres.New())
+func dependencies() (v []services.Service) {
+  v = []services.Service{
+    // add dependencies here
+    postgres.New(),
+  }
+  return
+}
 ```
 ### Config
 See [SQL](https://github.com/aacfactory/fns-contrib/tree/main/databases/sql).

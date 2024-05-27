@@ -5,7 +5,13 @@ go get github.com/aacfactory/fns-contrib/message-queues/kafka
 ```
 ## Usage
 ```go
-app.Deploy(kafka.New(kafka.WithConsumeHandler(name, handleFn)))
+func dependencies() (v []services.Service) {
+    v = []services.Service{
+        // add dependencies here
+		kafka.New(kafka.WithConsumeHandler(name, handleFn)),
+    }
+    return
+}
 ```
 ## Config
 ```yaml

@@ -27,7 +27,13 @@ Note: see [rueidis](https://github.com/redis/rueidis) for more details
 ### Deploy
 
 ```go
-app.Deply(redis.New())
+func dependencies() (v []services.Service) {
+    v = []services.Service{
+        // add dependencies here
+        redis.New(),
+    }
+    return
+}
 ```
 
 ### Use service client
