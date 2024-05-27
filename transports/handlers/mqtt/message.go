@@ -46,7 +46,7 @@ func Succeed(payload interface{}) (resp *Response) {
 func Failed(err error) (resp *Response) {
 	resp = &Response{
 		Succeed: false,
-		Payload: errors.Map(err),
+		Payload: errors.Wrap(err),
 	}
 	return
 }

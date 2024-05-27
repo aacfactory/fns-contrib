@@ -1,10 +1,10 @@
 module github.com/aacfactory/fns-contrib/transports/handlers/mqtt
 
-go 1.20
+go 1.22.1
 
 require (
 	github.com/aacfactory/errors v1.13.4
-	github.com/aacfactory/fns v1.0.14
+	github.com/aacfactory/fns v1.3.0
 	github.com/aacfactory/fns-contrib/transports/handlers/websockets v1.0.0
 	github.com/aacfactory/json v1.13.1
 	github.com/aacfactory/logs v1.13.0

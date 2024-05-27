@@ -46,7 +46,7 @@ func newServer(port int, srvTLS *tls.Config, config Config, quicConfig *quic.Con
 		Addr:               fmt.Sprintf(":%d", port),
 		Port:               port,
 		TLSConfig:          srvTLS,
-		QuicConfig:         quicConfig,
+		QUICConfig:         quicConfig,
 		Handler:            standard.HttpTransportHandlerAdaptor(handler, int(maxRequestBodySize), 30*time.Second),
 		EnableDatagrams:    config.EnableDatagrams,
 		MaxHeaderBytes:     int(maxRequestHeaderSize),

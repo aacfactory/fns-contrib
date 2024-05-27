@@ -83,11 +83,9 @@ func (dialer *Dialer) createClient(address string) (client *Client) {
 	roundTripper := &http3.RoundTripper{
 		DisableCompression:     false,
 		TLSClientConfig:        dialer.config,
-		QuicConfig:             dialer.quicConfig,
+		QUICConfig:             dialer.quicConfig,
 		EnableDatagrams:        dialer.enableDatagrams,
 		AdditionalSettings:     dialer.additionalSettings,
-		StreamHijacker:         nil,
-		UniStreamHijacker:      nil,
 		Dial:                   nil,
 		MaxResponseHeaderBytes: dialer.maxResponseHeaderBytes,
 	}

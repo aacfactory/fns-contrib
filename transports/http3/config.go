@@ -182,7 +182,6 @@ func (config *QuicConfig) Convert(enableDatagrams bool) (quicConfig *quic.Config
 		Versions:                       versions,
 		HandshakeIdleTimeout:           handshakeIdleTimeout,
 		MaxIdleTimeout:                 maxIdleTimeout,
-		RequireAddressValidation:       nil,
 		TokenStore:                     nil,
 		InitialStreamReceiveWindow:     initialStreamReceiveWindow,
 		MaxStreamReceiveWindow:         maxStreamReceiveWindow,
